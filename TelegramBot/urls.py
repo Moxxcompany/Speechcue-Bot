@@ -20,7 +20,7 @@ from bot import views as bot_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('create_pathway/', bot_views.create_pathway, name='create_pathway'),
-    path('get_all_pathways/', bot_views.get_all_pathways, name='get_all_pathways'),
+    path('create_flow/', bot_views.create_flow, name='create_flow'),
+    path('view_flows/', bot_views.view_flows, name='view_flows'),
 
 ]
