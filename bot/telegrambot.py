@@ -4,7 +4,7 @@ import telebot
 from django.core.wsgi import get_wsgi_application
 
 from bot.models import Pathways
-from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node
+from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message
 from user.models import TelegramUser
 
 API_TOKEN = os.getenv('API_TOKEN')
@@ -16,7 +16,8 @@ available_commands = {
     '/name': 'Get a username!',
     '/help': 'Display all available commands!',
     '/create_flow': 'Create a new pathway',
-    '/view_flows': 'Get all pathways'
+    '/view_flows': 'Get all pathways',
+    '/add_node': 'Add a node to the pathway'
 }
 
 user_data = {}
@@ -100,8 +101,8 @@ def add_node(message):
     """
     view_flows(message)
     user_id = message.chat.id
-    user_data[user_id] = {'step': 'add_node'}
-    bot.send_message(user_id, "Please enter the name of the node:")
+    user_data[user_id] = {'step': 'select_pathway'}
+    bot.send_message(user_id, "Please enter the name of flow to add node:")
 
 
 @bot.message_handler(commands=['view_flows'])
@@ -143,7 +144,6 @@ def echo_all(message):
      """
     user_id = message.chat.id
     text = message.text
-
     if user_id in user_data:
         step = user_data[user_id]['step']
 
@@ -151,6 +151,7 @@ def echo_all(message):
             user_data[user_id]['pathway_name'] = text
             user_data[user_id]['step'] = 'ask_description'
             bot.send_message(user_id, "Please enter the description of the pathway:")
+
         elif step == 'ask_description':
             user_data[user_id]['pathway_description'] = text
             pathway_name = user_data[user_id]['pathway_name']
@@ -163,8 +164,8 @@ def echo_all(message):
                                  f"successfully.")
             else:
                 bot.send_message(user_id, f"Failed to create pathway. Error: {response}!")
-
             del user_data[user_id]
+
         elif step == 'get_pathway':
             user_data[user_id]['get_pathway'] = text
             pathway = user_data[user_id]['get_pathway']
@@ -177,15 +178,9 @@ def echo_all(message):
 
             if status_code == 200:
                 bot.send_message(user_id, "Successfully deleted pathway.")
-                return
-            bot.send_message(user_id, f"Error deleting pathway. Error: {response}!")
+            else:
+                bot.send_message(user_id, f"Error deleting pathway. Error: {response}!")
             del user_data[user_id]
-
-        elif step == 'add_node':
-            user_data[user_id]['add_node'] = text
-            view_flows(message)
-            bot.send_message(user_id, "Please enter the flow for the corresponding node:")
-            user_data[user_id]['step'] = 'select_pathway'
 
         elif step == 'select_pathway':
             user_data[user_id]['select_pathway'] = text
@@ -196,49 +191,49 @@ def echo_all(message):
                 return
             pathway_id = current_users_pathways.first().pathway_id
             user_data[user_id]['select_pathway'] = pathway_id
-            node_name = user_data[user_id]['add_node']
+            user_data[user_id]['step'] = 'add_node'
+            bot.send_message(user_id, 'Please Enter name of your custom node')
 
-            user_data[user_id]['step'] = 'get_node_type'
-            bot.send_message(user_id, "Select the type of node you want to add:\n- a- Play Message \n- b- Get DTMF "
-                                      "Input\n- c- Speech-to-Text \n- d- End Call \n- e- Call Transfer")
+        elif step == 'add_node':
+            user_data[user_id]['add_node'] = text
+            user_data[user_id]['step'] = 'add_node_id'
+            bot.send_message(user_id, 'Please assign a number (0-9) for this node.')
+
+        elif step == 'add_node_id':
+            if text.isdigit() and 0 <= int(text) <= 9:
+                user_data[user_id]['add_node_id'] = int(text)
+                user_data[user_id]['step'] = 'get_node_type'
+                bot.send_message(user_id, "Would you like to use \n:: a - Text-to-Speech\n:: b - Upload an audio file")
+            else:
+                bot.send_message(user_id, "Invalid input. Please enter a valid number between 0 and 9.")
 
         elif step == 'get_node_type':
             user_data[user_id]['get_node_type'] = text
             node_type = user_data[user_id]['get_node_type']
-            if node_type == 'a':
-                node_type = 'Default'
-            elif node_type == 'b':
-                node_type = 'Default'
-            elif node_type == 'c':
-                node_type = 'Webhook'
-            elif node_type == 'd':
-                node_type = 'End Call'
-            elif node_type == 'e':
-                node_type = 'Transfer Call'
-            user_data[user_id]['step'] = 'pathway_name'
-            bot.send_message(user_id, "Please enter pathway name for the new node: ")
-
-        elif step == 'pathway_name':
-            user_data[user_id]['pathway_name'] = text
-            user_data[user_id]['step'] = 'pathway_description'
-            bot.send_message(user_id, "Please enter the description of the pathway:")
-            user_data[user_id]['step'] = 'pathway_description'
-        elif step == 'pathway_description':
-            user_data[user_id]['pathway_description'] = text
-            pathway_description = user_data[user_id]['pathway_description']
-
-            pathway = user_data[user_id]['select_pathway']
+            pathway_id = user_data[user_id]['select_pathway']
             node_name = user_data[user_id]['add_node']
-            node_type = user_data[user_id]['get_node_type']
-            pathway_name = user_data[user_id]['pathway_name']
+            node_text = "Hello World"
+            node_id = user_data[user_id]['add_node_id']
 
-            handle_add_node(pathway, node_name, pathway_name, pathway_description, node_type)
-            bot.send_message(user_id, "done")
+            if node_type == 'a':
+                response = play_message(pathway_id, node_name, node_text, node_id, "american", "male", "english")
+                if response.status_code == 200:
+                    bot.send_message(user_id, "Successfully Created!")
+                else:
+                    bot.send_message(user_id, f"Error! {response.text}")
+                del user_data[user_id]
 
-            # if response.status_code == 200:
-            #     bot.send_message(user_id, "Successfully Created!")
-            #     return
-            # bot.send_message(user_id, f"Error! {response}")
+            elif node_type == 'b':
+                # Handle the logic for uploading an audio file
+                bot.send_message(user_id, "Please upload your audio file.")
+                user_data[user_id]['step'] = 'upload_audio'
+
+            else:
+                bot.send_message(user_id, "Invalid input. Please choose 'a' or 'b'.")
+
+        elif step == 'upload_audio':
+            # Handle the audio file upload logic here
+            bot.send_message(user_id, "Audio file received.")
             del user_data[user_id]
 
         return

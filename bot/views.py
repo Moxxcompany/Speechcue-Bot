@@ -6,6 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from TelegramBot.constants import base_url, invalid_data, error
 from bot.models import Pathways
+from bot.utils import add_node, get_pathway_data
 
 
 def handle_delete_flow(pathway_id: int) -> tuple[dict, int]:
@@ -72,7 +73,8 @@ def handle_create_flow(pathway_name: str, pathway_description: str, pathway_user
         pathway_entry = Pathways.objects.create(
             pathway_id=pathway_id,
             pathway_name=pathway_name,
-            pathway_user_id=pathway_user_id
+            pathway_user_id=pathway_user_id,
+            pathway_description=pathway_description
         )
 
         return {'message': 'Pathway created successfully'}, 200
@@ -101,16 +103,67 @@ def create_flow(request) -> JsonResponse:
     return JsonResponse({{error}: 'Invalid method'}, status=405)
 
 
-def handle_add_node(pathway_id: int, node_name: str, pathway_name:str, pathway_description:str, pathway_type):
+def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, voice_type: str, voice_gender: str,
+                 language: str) -> JsonResponse:
+    """
+    Handles the addition of 'playing message' node via Bland.ai API.
+    Args:
+        pathway_id: ID of the pathway to be updated with the node
+        node_name: Name of the node to be added to the pathway
+        node_text: Text of the node to be added to the pathway
+        node_id: ID of the node to be added to the pathway
+        voice_type: Type of the voice to be added to the pathway
+        voice_gender: Gender of the voice to be added to the pathway
+        language: Language of the voice to be added to the pathway
+
+    Returns:
+        response: A JSON response containing success or error message with corresponding HTTP status.
+    """
+    pathway = Pathways.objects.get(pathway_id=pathway_id)
+
+    nodes = {
+        "id": node_id,
+        "type": "Default",
+        "data": {
+            "name": node_name,
+            "text": node_text,
+            "voice_type": voice_type,
+            "voice_gender": voice_gender,
+            "language": language
+        }
+    }
+    if pathway.pathway_payload:
+        nodes = add_node(pathway.pathway_payload, new_node=nodes)
+    else:
+        nodes["data"]["isStart"] = True
+        nodes = [nodes]
+
+    pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
+
+    data = {
+        "name": pathway_name,
+        "description": pathway_description,
+        "nodes": nodes,
+        "edges": []
+    }
+    response = handle_add_node(pathway_id, data)
+    if response.status_code == 200:
+        pathway_name, pathway_description = get_pathway_data(response.text)
+        pathway = Pathways.objects.get(pathway_id=pathway_id)
+        pathway.pathway_name = pathway_name
+        pathway.pathway_description = pathway_description
+        pathway.pathway_payload = response.text
+        pathway.save()
+    return response
+
+
+def handle_add_node(pathway_id: int, data) -> JsonResponse:
     """
        Handles the addition of a node to a pathway via Bland.ai API.
 
        Args:
-           pathway_id (int): The ID of the pathway.
-           node_name (str): The name of the node.
-           pathway_name (str): The name of the pathway.
-           pathway_description (str): The description of the pathway.
-           pathway_type (str): The type of the pathway.
+          pathway_id: The ID of the pathway to update.
+          data: The data to be passed as payload.
 
        Returns:
            JsonResponse: A JSON response containing success or error message with corresponding HTTP status.
@@ -123,41 +176,8 @@ def handle_add_node(pathway_id: int, node_name: str, pathway_name:str, pathway_d
         'Content-Type': 'application/json'
     }
 
-    # data = {
-    #     "name": f"{pathway_name}",
-    #     "description": f"{pathway_description}",
-    #     "nodes": [
-    #         {
-    #             "id": "1",
-    #             "data": {
-    #                 "name": "Start",
-    #                 "text": "Hey there, how are you doing today?",
-    #                 "isStart": True,
-    #                 "globalPrompt": ""
-    #             },
-    #             "type": "Default"
-    #         },
-    #         {
-    #             "id": "1b5a5e78-ed3f-4826-ba62-3967009ce2df",
-    #             "data": {
-    #                 "name": "New Node 1",
-    #                 "text": "Placeholder instructions for agent to say",
-    #                 "globalPrompt": ""
-    #             },
-    #             "type": "Default"
-    #         }
-    #     ],
-    #     "edges": []
-    # }
-    # response = requests.post(endpoint, json=data, headers=headers)
-
-    #
-    # if response.status_code == 200:
-    #     return JsonResponse({'message': 'Node added successfully'}, status=201)
-    # else:
-    #
-    #     return JsonResponse({'error': f'Failed to add node. Status code: {response.status_code}'},
-    #                         status=response.status_code)
+    response = requests.post(endpoint, json=data, headers=headers)
+    return JsonResponse(response.json(), status=200)
 
 
 def handle_view_flows() -> tuple:
