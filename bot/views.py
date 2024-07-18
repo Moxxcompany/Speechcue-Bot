@@ -103,8 +103,38 @@ def create_flow(request) -> JsonResponse:
     return JsonResponse({{error}: 'Invalid method'}, status=405)
 
 
+def handle_end_call(pathway_id: int, node_id: int, prompt, node_name) -> requests.Response:
+    pathway = Pathways.objects.get(pathway_id=pathway_id)
+    node = {
+        "id": node_id,
+        "type": "End Call",
+        "data": {
+            "name": node_name,
+            "prompt": prompt,
+        }
+    }
+    pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
+    nodes = add_node(pathway.pathway_payload, new_node=node)
+    data ={
+        "name": pathway_name,
+        "description": pathway_description,
+        "nodes": nodes,
+        "edges": []
+    }
+    response = handle_add_node(pathway_id, data)
+
+    if response.status_code == 200:
+        pathway_name, pathway_description = get_pathway_data(response.text)
+        pathway = Pathways.objects.get(pathway_id=pathway_id)
+        pathway.pathway_name = pathway_name
+        pathway.pathway_description = pathway_description
+        pathway.pathway_payload = response.text
+        pathway.save()
+    return response
+
+
 def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, voice_type: str, voice_gender: str,
-                 language: str) -> JsonResponse:
+                 language: str) -> requests.Response:
     """
     Handles the addition of 'playing message' node via Bland.ai API.
     Args:
@@ -132,13 +162,15 @@ def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, 
             "language": language
         }
     }
+    pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
     if pathway.pathway_payload:
         nodes = add_node(pathway.pathway_payload, new_node=nodes)
+
     else:
         nodes["data"]["isStart"] = True
         nodes = [nodes]
-
-    pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
+        pathway_name = pathway.pathway_name
+        pathway_description = pathway.pathway_description
 
     data = {
         "name": pathway_name,
@@ -147,6 +179,7 @@ def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, 
         "edges": []
     }
     response = handle_add_node(pathway_id, data)
+
     if response.status_code == 200:
         pathway_name, pathway_description = get_pathway_data(response.text)
         pathway = Pathways.objects.get(pathway_id=pathway_id)
@@ -157,7 +190,11 @@ def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, 
     return response
 
 
-def handle_add_node(pathway_id: int, data) -> JsonResponse:
+# def handle_add_transfer_call_node(pathway_id:int ,transfer_number:str):
+#     pathway = Pathways.objects.get(pathway_id=pathway_id)
+#
+
+def handle_add_node(pathway_id: int, data) -> requests.Response:
     """
        Handles the addition of a node to a pathway via Bland.ai API.
 
@@ -177,7 +214,7 @@ def handle_add_node(pathway_id: int, data) -> JsonResponse:
     }
 
     response = requests.post(endpoint, json=data, headers=headers)
-    return JsonResponse(response.json(), status=200)
+    return response
 
 
 def handle_view_flows() -> tuple:
@@ -219,3 +256,26 @@ def view_flows(request) -> JsonResponse:
         return JsonResponse(response_data, status=status)
 
     return JsonResponse({{error}: 'Invalid method'}, status=405)
+
+
+
+def handle_view_single_flow(pathway_id):
+    """
+       Handles the retrieval of a single flow via Bland.ai API.
+
+       Returns:
+           tuple: A tuple containing either a list of pathways (as JSON data) and HTTP status code 200,
+                  or an error message dictionary and HTTP status code 400.
+       """
+    endpoint = f"{base_url}/v1/convo_pathway/{pathway_id}"
+    headers = {
+        'Authorization': f'{settings.BLAND_API_KEY}',
+        'Content-Type': 'application/json'
+    }
+
+    response = requests.get(endpoint, headers=headers)
+    if response.status_code == 200:
+        pathway = response.json()
+        return pathway, 200
+    else:
+        return {{error}: 'Failed to retrieve pathways'}, 400
