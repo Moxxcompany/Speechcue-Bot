@@ -12,16 +12,6 @@ class Pathways(models.Model):
     pathway_payload = models.TextField(null=True)
 
 
-class AudioFile(models.Model):
-    user_id = models.BigIntegerField()
-    pathway_id = models.TextField()
-    node_name = models.CharField(max_length=255)
-    node_id = models.IntegerField()
-    audio_file = models.FileField(upload_to='audio_files/')
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-
-
-
 class TransferCallNumbers(models.Model):
     user_id = models.BigIntegerField()
     phone_number = models.TextField()
@@ -29,4 +19,3 @@ class TransferCallNumbers(models.Model):
 
     def __str__(self):
         return self.phone_number
-

@@ -115,7 +115,37 @@ def handle_end_call(pathway_id: int, node_id: int, prompt, node_name) -> request
     }
     pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
     nodes = add_node(pathway.pathway_payload, new_node=node)
-    data ={
+    data = {
+        "name": pathway_name,
+        "description": pathway_description,
+        "nodes": nodes,
+        "edges": []
+    }
+    response = handle_add_node(pathway_id, data)
+
+    if response.status_code == 200:
+        pathway_name, pathway_description = get_pathway_data(response.text)
+        pathway = Pathways.objects.get(pathway_id=pathway_id)
+        pathway.pathway_name = pathway_name
+        pathway.pathway_description = pathway_description
+        pathway.pathway_payload = response.text
+        pathway.save()
+    return response
+
+
+def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name) -> requests.Response:
+    pathway = Pathways.objects.get(pathway_id=pathway_id)
+    node = {
+        "id": node_id,
+        "type": "Default",
+        "data": {
+            "name": node_name,
+            "prompt": prompt,
+        }
+    }
+    pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
+    nodes = add_node(pathway.pathway_payload, new_node=node)
+    data = {
         "name": pathway_name,
         "description": pathway_description,
         "nodes": nodes,
@@ -256,7 +286,6 @@ def view_flows(request) -> JsonResponse:
         return JsonResponse(response_data, status=status)
 
     return JsonResponse({{error}: 'Invalid method'}, status=405)
-
 
 
 def handle_view_single_flow(pathway_id):
