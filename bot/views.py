@@ -132,8 +132,7 @@ def handle_end_call(pathway_id: int, node_id: int, prompt, node_name) -> request
         pathway.save()
     return response
 
-
-def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name) -> requests.Response:
+def handle_menu_node(pathway_id: int, node_id: int, prompt, node_name, menu) -> requests.Response:
     pathway = Pathways.objects.get(pathway_id=pathway_id)
     node = {
         "id": node_id,
@@ -141,10 +140,62 @@ def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name) -> 
         "data": {
             "name": node_name,
             "prompt": prompt,
+            "text": menu
         }
     }
     pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
-    nodes = add_node(pathway.pathway_payload, new_node=node)
+    if pathway.pathway_payload:
+        nodes = add_node(pathway.pathway_payload, new_node=node)
+
+    else:
+        node["data"]["isStart"] = True
+        nodes = [node]
+        pathway_name = pathway.pathway_name
+        pathway_description = pathway.pathway_description
+    data = {
+        "name": pathway_name,
+        "description": pathway_description,
+        "nodes": nodes,
+        "edges": []
+    }
+    response = handle_add_node(pathway_id, data)
+
+    if response.status_code == 200:
+        pathway_name, pathway_description = get_pathway_data(response.text)
+        pathway = Pathways.objects.get(pathway_id=pathway_id)
+        pathway.pathway_name = pathway_name
+        pathway.pathway_description = pathway_description
+        pathway.pathway_payload = response.text
+        pathway.save()
+    return response
+
+
+def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name, message_type:str) -> requests.Response:
+    pathway = Pathways.objects.get(pathway_id=pathway_id)
+    if message_type == "DTMF Input":
+        node_type = 'Default'
+        text = prompt
+
+    else:
+        node_type = 'Transfer Call'
+        text = "transferNumber"
+    node = {
+        "id": node_id,
+        "type": "Default",
+        "data": {
+            "name": node_name,
+            f"{text}": prompt,
+        }
+    }
+    pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
+    if pathway.pathway_payload:
+        nodes = add_node(pathway.pathway_payload, new_node=node)
+
+    else:
+        node["data"]["isStart"] = True
+        nodes = [node]
+        pathway_name = pathway.pathway_name
+        pathway_description = pathway.pathway_description
     data = {
         "name": pathway_name,
         "description": pathway_description,
@@ -164,10 +215,12 @@ def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name) -> 
 
 
 def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, voice_type: str, voice_gender: str,
-                 language: str) -> requests.Response:
+                 language: str, message_type:str) -> requests.Response:
     """
     Handles the addition of 'playing message' node via Bland.ai API.
     Args:
+        message_type: Type of node to be added
+
         pathway_id: ID of the pathway to be updated with the node
         node_name: Name of the node to be added to the pathway
         node_text: Text of the node to be added to the pathway
@@ -180,10 +233,14 @@ def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, 
         response: A JSON response containing success or error message with corresponding HTTP status.
     """
     pathway = Pathways.objects.get(pathway_id=pathway_id)
+    if message_type == 'End Call':
+        node_type = 'End Call'
+    else:
+        node_type = 'Default'
 
     nodes = {
         "id": node_id,
-        "type": "Default",
+        "type": f"{node_type}",
         "data": {
             "name": node_name,
             "text": node_text,
