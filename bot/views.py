@@ -106,7 +106,7 @@ def create_flow(request) -> JsonResponse:
 def handle_end_call(pathway_id: int, node_id: int, prompt, node_name) -> requests.Response:
     pathway = Pathways.objects.get(pathway_id=pathway_id)
     node = {
-        "id": node_id,
+        "id": f"{node_id}",
         "type": "End Call",
         "data": {
             "name": node_name,
@@ -132,10 +132,11 @@ def handle_end_call(pathway_id: int, node_id: int, prompt, node_name) -> request
         pathway.save()
     return response
 
+
 def handle_menu_node(pathway_id: int, node_id: int, prompt, node_name, menu) -> requests.Response:
     pathway = Pathways.objects.get(pathway_id=pathway_id)
     node = {
-        "id": node_id,
+        "id": f"{node_id}",
         "type": "Default",
         "data": {
             "name": node_name,
@@ -170,7 +171,7 @@ def handle_menu_node(pathway_id: int, node_id: int, prompt, node_name, menu) -> 
     return response
 
 
-def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name, message_type:str) -> requests.Response:
+def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name, message_type: str) -> requests.Response:
     pathway = Pathways.objects.get(pathway_id=pathway_id)
     if message_type == "DTMF Input":
         node_type = 'Default'
@@ -180,7 +181,7 @@ def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name, mes
         node_type = 'Transfer Call'
         text = "transferNumber"
     node = {
-        "id": node_id,
+        "id": f"{node_id}",
         "type": "Default",
         "data": {
             "name": node_name,
@@ -214,8 +215,8 @@ def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name, mes
     return response
 
 
-def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, voice_type: str, voice_gender: str,
-                 language: str, message_type:str) -> requests.Response:
+def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, voice: str, voice_gender: str,
+                 language: str, message_type: str) -> requests.Response:
     """
     Handles the addition of 'playing message' node via Bland.ai API.
     Args:
@@ -225,7 +226,7 @@ def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, 
         node_name: Name of the node to be added to the pathway
         node_text: Text of the node to be added to the pathway
         node_id: ID of the node to be added to the pathway
-        voice_type: Type of the voice to be added to the pathway
+        voice: Type of the voice to be added to the pathway
         voice_gender: Gender of the voice to be added to the pathway
         language: Language of the voice to be added to the pathway
 
@@ -239,12 +240,12 @@ def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, 
         node_type = 'Default'
 
     nodes = {
-        "id": node_id,
+        "id": f"{node_id}",
         "type": f"{node_type}",
         "data": {
             "name": node_name,
             "text": node_text,
-            "voice_type": voice_type,
+            "voice": voice,
             "voice_gender": voice_gender,
             "language": language
         }
@@ -365,3 +366,23 @@ def handle_view_single_flow(pathway_id):
         return pathway, 200
     else:
         return {{error}: 'Failed to retrieve pathways'}, 400
+
+
+def send_call_through_pathway(pathway_id, phone_number):
+    endpoint = "https://api.bland.ai/v1/calls"
+
+    payload = {
+        "phone_number": f"{phone_number}",
+        "pathway_id": f"{pathway_id}",
+    }
+    headers = {
+        "authorization": "sk-wvo26msfcc3qt0i7046jccgyo54tk7ow96fai01yrw0bmcjn8rbk8ld47bug8rww69",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.request("POST", endpoint, json=payload, headers=headers)
+    if response.status_code == 200:
+        pathway = response.json()
+        return pathway, 200
+    else:
+        return {{error}: 'Failed to retrieve pathways'}, response.status_code

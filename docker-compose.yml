@@ -1,0 +1,28 @@
+version: '3'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: bash -c "docker-compose exec db psql -U postgres -c 'CREATE DATABASE tele_bot;' & python manage.py migrate && python manage.py startbot"
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    env_file:
+      - docker.env
+
+  db:
+    image: postgres:13
+    env_file:
+      - docker.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
