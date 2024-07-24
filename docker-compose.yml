@@ -11,18 +11,19 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - db
+      - pg_db
     env_file:
       - docker.env
 
-  db:
-    image: postgres:13
-    env_file:
-      - docker.env
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/
+
+  # PostgreSQL database service
+  pg_db:
+    container_name: pg_db
+    hostname: db
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: tele_bot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
-
-volumes:
-  postgres_data:
