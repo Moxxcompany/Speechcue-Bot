@@ -9,6 +9,17 @@ from bot.models import Pathways
 from bot.utils import add_node, get_pathway_data
 
 
+def empty_nodes(pathway_name, pathway_description, pathway_id):
+    data = {
+        "name": f"{pathway_name}",
+        "description": f"{pathway_description}",
+        "nodes": [],
+        "edges": []
+    }
+    response = handle_add_node(pathway_id, data)
+    return response
+
+
 def handle_delete_flow(pathway_id: int) -> tuple[dict, int]:
     """
         Handles the deletion of a pathway via Bland.ai API.
@@ -77,7 +88,7 @@ def handle_create_flow(pathway_name: str, pathway_description: str, pathway_user
             pathway_description=pathway_description
         )
 
-        return {'message': 'Pathway created successfully'}, 200
+        return {'message': 'Pathway created successfully'}, 200, pathway_id
     else:
         return {{error}: response.json()}, 400
 
@@ -215,7 +226,7 @@ def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name, mes
     return response
 
 
-def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, voice: str, voice_gender: str,
+def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, voice: str,
                  language: str, message_type: str) -> requests.Response:
     """
     Handles the addition of 'playing message' node via Bland.ai API.
@@ -227,7 +238,6 @@ def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, 
         node_text: Text of the node to be added to the pathway
         node_id: ID of the node to be added to the pathway
         voice: Type of the voice to be added to the pathway
-        voice_gender: Gender of the voice to be added to the pathway
         language: Language of the voice to be added to the pathway
 
     Returns:
@@ -246,7 +256,6 @@ def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, 
             "name": node_name,
             "text": node_text,
             "voice": voice,
-            "voice_gender": voice_gender,
             "language": language
         }
     }
@@ -386,3 +395,15 @@ def send_call_through_pathway(pathway_id, phone_number):
         return pathway, 200
     else:
         return {{error}: 'Failed to retrieve pathways'}, response.status_code
+
+
+def get_voices():
+    url = "https://api.bland.ai/v1/voices"
+
+    headers = {'Authorization': f'{settings.BLAND_API_KEY}'}
+    response = requests.request("GET", url, headers=headers)
+    return response.json()
+
+
+def send_batch_calls():
+    pass

@@ -1,16 +1,15 @@
-import json
 import os
 from uuid import UUID
 
 import telebot
-from django.core.files.base import ContentFile
 from django.core.wsgi import get_wsgi_application
 from telebot import types
 
 from bot.models import Pathways, TransferCallNumbers
 from bot.utils import generate_random_id
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
-    handle_view_single_flow, handle_end_call, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway
+    handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
+    get_voices, empty_nodes
 from user.models import TelegramUser
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ForceReply
 
@@ -28,6 +27,7 @@ available_commands = {
 }
 
 user_data = {}
+voice_data = get_voices()
 
 
 # :: MENUS ------------------------------------#
@@ -60,8 +60,7 @@ def get_force_reply():
 
 
 def get_main_menu():
-    options = ["Create IVR Flow ➕", "View Flows 📂", "Delete Flow ❌", "Help ℹ️", "Add edges to nodes", 'Single IVR '
-                                                                                                      'Call ☎️']
+    options = ["Create IVR Flow ➕", "View Flows 📂", "Delete Flow ❌", "Help ℹ️", 'Single IVR Call ☎️']
     return get_reply_keyboard(options)
 
 
@@ -76,7 +75,7 @@ def get_language_menu():
 
 
 def get_voice_type_menu():
-    options = ["Default John"]
+    options = [voice['name'] for voice in voice_data['voices']]
     return get_reply_keyboard(options)
 
 
@@ -89,7 +88,6 @@ def get_node_menu():
     options = [
         "Play Message ▶️",
         "Get DTMF Input 📞",
-        "Speech-to-Text 🎙️",
         "End Call 🛑",
         "Call Transfer 🔄",
         "Menu 📋",
@@ -118,13 +116,18 @@ def get_call_failed_menu():
     return get_reply_keyboard(options)
 
 
+def edges_complete_menu():
+    options = [
+        "Continue Adding Edges ▶️",
+        "Done Adding Edges"
+    ]
+    return get_reply_keyboard(options)
+
+
 def get_node_complete_menu():
-    print('#########')
     options = [
         "Continue to Next Node ▶️",
-        'Add edges to nodes',
-        "End Call🛑",
-        "Repeat Message 🔁"
+        "Done Adding Nodes",
     ]
     return get_reply_keyboard(options)
 
@@ -134,38 +137,79 @@ def get_node_complete_menu():
 
 @bot.message_handler(func=lambda message: message.text == 'Single IVR Call ☎️')
 def trigger_single_ivr_call(message):
+    """
+   Handles the 'Single IVR Call ☎️' menu option to initiate an IVR call.
+
+   Args:
+       message: The message object from the user.
+    """
     user_id = message.from_user.id
     user_data[user_id] = {'step': 'phone_number_input'}
     view_flows(message)
 
 
-@bot.message_handler(func=lambda message: message.text == 'Add edges to nodes')
+@bot.message_handler(func=lambda message: message.text == 'Back')
+def trigger_back_flow(message):
+    """
+    Handles the 'Back' menu option to display previous flows.
+
+    Args:
+        message: The message object from the user.
+    """
+    display_flows(message)
+
+
+@bot.message_handler(func=lambda message: message.text == 'Done Adding Nodes')
 def trigger_add_edges(message):
+    """
+    Handles the 'Done Adding Nodes' menu option to initiate edge addition.
+
+    Args:
+        message: The message object from the user.
+    """
     handle_add_edges(message)
 
 
 @bot.message_handler(func=lambda message: message.text == 'Confirm Delete')
 def trigger_confirmation(message):
+    """
+    Handles the 'Confirm Delete' menu option to confirm deletion of a pathway.
+    Args:
+        message: The message object from the user.
+    """
     handle_get_pathway(message)
 
 
 @bot.message_handler(func=lambda message: message.text == 'Delete Node')
 def trigger_delete_node(message):
+    """
+   Handles the 'Delete Node' menu option. Placeholder for future functionality.
+
+   Args:
+       message: The message object from the user.
+   """
     pass
-
-
-@bot.message_handler(func=lambda message: message.text == 'Menu 📋')
-def trigger_menu(message):
-    add_node(message)
 
 
 @bot.message_handler(func=lambda message: message.text == 'Retry Node 🔄')
 def trigger_retry_node(message):
+    """
+    Handles the 'Retry Node 🔄' menu option to retry a node.
+
+    Args:
+        message: The message object from the user.
+    """
     bot.send_message(message.chat.id, "Retry node")
 
 
 @bot.message_handler(func=lambda message: message.text == 'Skip Node ⏭️')
 def trigger_skip_node(message):
+    """
+    Handles the 'Skip Node ⏭️' menu option to skip a node.
+
+    Args:
+       message: The message object from the user.
+    """
     bot.send_message(message.chat.id, "Skip node")
 
 
@@ -174,7 +218,7 @@ def trigger_transfer_to_live_agent_node(message):
     transfer_to_agent(message)
 
 
-@bot.message_handler(func=lambda message: message.text == 'End Call🛑')
+@bot.message_handler(func=lambda message: message.text == 'Done Adding Edges')
 def trigger_end_call_option(message):
     handle_call_failure(message)
 
@@ -189,43 +233,18 @@ def trigger_repeat_message(message):
     pass
 
 
-@bot.message_handler(func=lambda message: message.text == 'Back to Main Menu ↩️')
+@bot.message_handler(func=lambda message: message.text == 'Back to Main Menu ↩️' or message.text == 'Back ↩️')
 def trigger_back(message):
     send_welcome(message)
 
 
-@bot.message_handler(func=lambda message: message.text == "Play Message ▶️")
-def trigger_play_message(message):
-    """
-    Handle '"Play Message ▶️' menu option
-    """
+@bot.message_handler(func=lambda message: message.text == "End Call 🛑" or
+                                          message.text == "Call Transfer 🔄" or
+                                          message.text == "Get DTMF Input 📞" or
+                                          message.text == "Play Message ▶️" or
+                                          message.text == "Menu 📋")
+def trigger_main_add_node(message):
     add_node(message)
-
-
-@bot.message_handler(func=lambda message: message.text == "Get DTMF Input 📞")
-def trigger_dtmf_input(message):
-    add_node(message)
-    add_node(message)
-
-
-@bot.message_handler(func=lambda message: message.text == "Call Transfer 🔄")
-def trigger_calltransfer(message):
-    add_node(message)
-
-
-@bot.message_handler(func=lambda message: message.text == "End Call 🛑")
-def trigger_end_call(message):
-    """
-    Handle '"End Call 🛑' menu option
-    """
-    add_node(message)
-
-
-# @bot.message_handler(func=lambda message: message.text == "End Call 🛑" or
-#                                           message.text == "Call Transfer 🔄" or
-#                                           message.text == "Get DTMF Input 📞" or
-#                                           message.text == "Play Message ▶️" or
-#                                           message.text == "Menu 📋")
 
 
 @bot.message_handler(func=lambda message: message.text == "Create IVR Flow ➕")
@@ -251,11 +270,6 @@ def trigger_delete_flow(message):
     """
     delete_flow(message)
 
-
-# @bot.message_handler(func=lambda message: message.text == "Add Node")
-# def trigger_add_node_flow(message):
-#     pass
-#
 
 @bot.message_handler(func=lambda message: message.text == "Add Node")
 def view_main_menu(message):
@@ -328,11 +342,9 @@ def add_node(message):
     pathway_name = user_data[user_id].get('pathway_name')
 
     pathway = Pathways.objects.get(pathway_name=pathway_name)
-    print(pathway.pathway_id)
     user_data[user_id]['step'] = 'add_node'
     user_data[user_id]['node'] = message.text
     user_data[user_id]['select_pathway'] = pathway.pathway_id
-    print(user_data[user_id]['step'])
     bot.send_message(user_id, "Please enter the name of your custom node:", reply_markup=get_force_reply())
 
 
@@ -352,7 +364,6 @@ def display_flows(message):
     filtered_pathways = [pathway for pathway in pathways if pathway.get('id') in user_pathway_ids]
 
     markup = InlineKeyboardMarkup()
-    print("Filtered Pathways: ", filtered_pathways)
     if filtered_pathways:
         pathway_buttons = [
             InlineKeyboardButton(pathway.get('name'), callback_data=f"view_pathway_{pathway.get('id')}")
@@ -360,7 +371,6 @@ def display_flows(message):
         ]
         markup.add(*pathway_buttons)
 
-    # Add the Back button at the end
     markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
 
     bot.send_message(message.chat.id, "Here are your IVR flows:", reply_markup=markup)
@@ -422,7 +432,6 @@ def view_flows(message):
         ]
         markup.add(*pathway_buttons)
 
-    # Add the Back button at the end
     markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
 
     bot.send_message(message.chat.id, "list:", reply_markup=markup)
@@ -448,9 +457,10 @@ def handle_ask_description(message):
     user_data[user_id]['pathway_description'] = text
     pathway_name = user_data[user_id]['pathway_name']
     pathway_description = user_data[user_id]['pathway_description']
-    response, status_code = handle_create_flow(pathway_name, pathway_description, user_id)
+    response, status_code, pathway_id = handle_create_flow(pathway_name, pathway_description, user_id)
 
     if status_code == 200:
+        res = empty_nodes(pathway_name, pathway_description, pathway_id)
         bot.send_message(user_id,
                          f"IVR Flow '{pathway_name}' created! ✅ Now, please select the type of node you want to add:"
                          , reply_markup=get_node_menu())
@@ -481,7 +491,6 @@ def handle_pathway_selection(call):
     user_data[user_id]['select_pathway'] = pathway_id
     if 'step' in user_data.get(user_id, {}):
         step = user_data[user_id]['step']
-        print("step :", step)
     else:
         step = None
     if step is None:
@@ -502,7 +511,6 @@ def handle_add_edges(message):
     pathway = Pathways.objects.get(pathway_name=user_data[chat_id]['pathway_name'])
     pathway_id = pathway.pathway_id
     response, status = handle_view_single_flow(pathway_id)
-    print(response)
     if status != 200:
         bot.send_message(chat_id, f"Error: {response}", reply_markup=get_main_menu())
         return
@@ -592,7 +600,7 @@ def add_label(message):
     response = handle_add_node(pathway_id, updated_data)
     if response.status_code == 200:
         bot.send_message(chat_id, f"Edge added from {source_node_id} node to {target_node_id} node!",
-                         reply_markup=get_node_complete_menu())
+                         reply_markup=edges_complete_menu())
         pathway = Pathways.objects.get(pathway_id=pathway_id)
         pathway.pathway_name = data.get("name")
         pathway.pathway_description = data.get("description")
@@ -616,32 +624,29 @@ def handle_add_node_id(message):
     user_id = message.chat.id
     text = message.text
     if text.isdigit() and 0 <= int(text) <= 9:
-        # Check if the node ID is already assigned in the pathway
         pathway_id = user_data[user_id]['select_pathway']
         existing_nodes = handle_view_single_flow(pathway_id)[0]['nodes']
         node_ids = [node['id'] for node in existing_nodes]
-        print(node_ids)
         if len(node_ids) == 10:
             bot.send_message(user_id, "All node ids between 0-9 are taken.")
             return
-        if int(text) in node_ids:
+        if text in node_ids:
             bot.send_message(user_id, "This node ID is already assigned in the pathway. Please choose a different ID.")
             return
 
         user_data[user_id]['add_node_id'] = int(text)
 
         node = user_data[user_id]['node']
-        print("in handle node id: ", node)
         if node == "Play Message ▶️":
             user_data[user_id]['step'] = 'get_node_type'
             user_data[user_id]['message_type'] = 'Play Message'
             bot.send_message(user_id, "Would you like to use Text-to-Speech for the Greeting Message?",
                              reply_markup=get_play_message_input_type())
         elif node == "End Call 🛑":
-            # call for end call
-            user_data[user_id]['step'] = 'text-to-speech'
+            user_data[user_id]['step'] = 'get_node_type'
             user_data[user_id]['message_type'] = 'End Call'
-            bot.send_message(user_id, "Please enter goodbye prompt for user:", reply_markup=get_force_reply())
+            bot.send_message(user_id, "Would you like to use Text-to-Speech for the Greeting Message?",
+                             reply_markup=get_play_message_input_type())
         elif node == "Get DTMF Input 📞":
             user_data[user_id]['step'] = 'get_dtmf_input'
             user_data[user_id]['message_type'] = 'DTMF Input'
@@ -743,17 +748,6 @@ def handle_select_language(message):
     user_id = message.chat.id
     text = message.text
     user_data[user_id]['select_language'] = text
-    user_data[user_id]['step'] = 'select_gender'
-    bot.send_message(user_id, "Please select a gender:", reply_markup=get_gender_menu())
-
-
-@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'select_gender')
-def handle_select_gender(message):
-    user_id = message.chat.id
-    text = message.text
-
-    user_data[user_id]['select_gender'] = text
-
     user_data[user_id]['step'] = 'select_voice_type'
     bot.send_message(user_id,
                      "Please select the type of voice.", reply_markup=get_voice_type_menu())
@@ -770,11 +764,12 @@ def handle_select_voice_type(message):
     node_id = user_data[user_id]['add_node_id']
     if text == 'Default John':
         text = 'f93094fc-72ac-4fcf-9cf0-83a7fff43e88'
-    voice_type = text
-    voice_gender = user_data[user_id]['select_gender']
+    voice_type = next((voice for voice in voice_data['voices'] if voice['name'] == text), None)
+
     language = user_data[user_id]['select_language']
     message_type = user_data[user_id]['message_type']
-    response = play_message(pathway_id, node_name, node_text, node_id, voice_type, voice_gender, language, message_type)
+
+    response = play_message(pathway_id, node_name, node_text, node_id, voice_type, language, message_type)
     if response.status_code == 200:
         bot.send_message(user_id, f"Node '{node_name}' with '{message_type}' added successfully! ✅",
                          reply_markup=get_node_complete_menu())
@@ -836,7 +831,6 @@ def handle_select_phone_number(call):
 def handle_enter_new_number(message):
     user_id = message.chat.id
     phone_number = message.text
-    # Save the new phone number for transfer and also save it to the TransferCallNumbers model
     TransferCallNumbers.objects.create(user_id=user_id, phone_number=phone_number)
     user_data[user_id]['selected_phone_number'] = phone_number
     bot.send_message(user_id, "Settings saved.")
