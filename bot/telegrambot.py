@@ -159,7 +159,7 @@ def trigger_back_flow(message):
     display_flows(message)
 
 
-@bot.message_handler(func=lambda message: message.text == 'Done Adding Nodes')
+@bot.message_handler(func=lambda message: message.text == 'Done Adding Nodes' or message.text == 'Continue Adding Edges ▶️')
 def trigger_add_edges(message):
     """
     Handles the 'Done Adding Nodes' menu option to initiate edge addition.
