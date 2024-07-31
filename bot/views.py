@@ -186,7 +186,7 @@ def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name, mes
     pathway = Pathways.objects.get(pathway_id=pathway_id)
     if message_type == "DTMF Input":
         node_type = 'Default'
-        text = prompt
+        text = 'text'
 
     else:
         node_type = 'Transfer Call'

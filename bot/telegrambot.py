@@ -14,6 +14,7 @@ from user.models import TelegramUser
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ForceReply
 
 API_TOKEN = os.getenv('API_TOKEN')
+print(API_TOKEN, "API_TOKENAPI_TOKENAPI_TOKENAPI_TOKENAPI_TOKEN")
 bot = telebot.TeleBot(API_TOKEN, parse_mode=None)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'TelegramBot.settings')
 application = get_wsgi_application()
@@ -60,7 +61,8 @@ def get_force_reply():
 
 
 def get_main_menu():
-    options = ["Create IVR Flow ➕", "View Flows 📂", "Delete Flow ❌", "Help ℹ️", 'Single IVR Call ☎️']
+    options = ["Create IVR Flow ➕", "View Flows 📂", "Delete Flow ❌", "Help ℹ️", 'Single IVR Call ☎️',
+               'Bulk IVR Call 📞📞']
     return get_reply_keyboard(options)
 
 
@@ -134,7 +136,9 @@ def get_node_complete_menu():
 
 # :: TRIGGERS ------------------------------------#
 
-
+@bot.message_handler(func=lambda message: message.text == 'Bulk IVR Call 📞📞')
+def trigger_bulk_ivr_call(message):
+    pass
 @bot.message_handler(func=lambda message: message.text == 'Single IVR Call ☎️')
 def trigger_single_ivr_call(message):
     """
@@ -876,7 +880,7 @@ def handle_single_ivr_call_flow(message):
     if status == 200:
         bot.send_message(user_id, "Call successfully queued.")
         return
-    bot.send_message(user_id, f"Error Occured! {response}")
+    bot.send_message(user_id, f"Error Occurred! {response}")
 
 
 @bot.message_handler(func=lambda message: True, content_types=['text', 'audio'])
