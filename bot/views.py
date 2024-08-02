@@ -287,9 +287,6 @@ def play_message(pathway_id: int, node_name: str, node_text: str, node_id: int, 
     return response
 
 
-# def handle_add_transfer_call_node(pathway_id:int ,transfer_number:str):
-#     pathway = Pathways.objects.get(pathway_id=pathway_id)
-#
 
 def handle_add_node(pathway_id: int, data) -> requests.Response:
     """
@@ -385,7 +382,7 @@ def send_call_through_pathway(pathway_id, phone_number):
         "pathway_id": f"{pathway_id}",
     }
     headers = {
-        "authorization": "sk-wvo26msfcc3qt0i7046jccgyo54tk7ow96fai01yrw0bmcjn8rbk8ld47bug8rww69",
+        'Authorization': f'{settings.BLAND_API_KEY}',
         "Content-Type": "application/json"
     }
 
@@ -398,12 +395,26 @@ def send_call_through_pathway(pathway_id, phone_number):
 
 
 def get_voices():
-    url = "https://api.bland.ai/v1/voices"
+    url = f"{base_url}/v1/voices"
 
     headers = {'Authorization': f'{settings.BLAND_API_KEY}'}
     response = requests.request("GET", url, headers=headers)
     return response.json()
 
 
-def send_batch_calls():
-    pass
+def bulk_ivr_flow(call_data, pathway_id):
+    endpoint = f"{base_url}/v1/batches"
+    headers = {
+        'Authorization': f'{settings.BLAND_API_KEY}',
+        "Content-Type": "application/json"
+    }
+    data = {
+        "call_data": call_data,
+        "test_mode": False,
+        "pathway_id": str(pathway_id)
+    }
+    response = requests.request("POST", endpoint, json=data, headers=headers)
+    print(response.text)
+    return response
+
+

@@ -1,6 +1,8 @@
 import os
 from uuid import UUID
-
+import re
+import io
+import pandas as pd
 import telebot
 from django.core.wsgi import get_wsgi_application
 from telebot import types
@@ -9,7 +11,7 @@ from bot.models import Pathways, TransferCallNumbers
 from bot.utils import generate_random_id
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
-    get_voices, empty_nodes
+    get_voices, empty_nodes, bulk_ivr_flow
 from user.models import TelegramUser
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ForceReply
 
@@ -29,6 +31,7 @@ available_commands = {
 
 user_data = {}
 voice_data = get_voices()
+call_data = []
 
 
 # :: MENUS ------------------------------------#
@@ -99,6 +102,11 @@ def get_node_menu():
     return get_reply_keyboard(options)
 
 
+def get_yes_no_keyboard():
+    options = ["Add Another Phone Numbers", "Done Adding Phone Numbers"]
+    return get_reply_keyboard(options)
+
+
 def get_flow_node_menu():
     options = [
         "Add Node",
@@ -136,9 +144,27 @@ def get_node_complete_menu():
 
 # :: TRIGGERS ------------------------------------#
 
+
 @bot.message_handler(func=lambda message: message.text == 'Bulk IVR Call 📞📞')
 def trigger_bulk_ivr_call(message):
-    pass
+    user_id = message.chat.id
+    user_data[user_id] = {'step': 'get_batch_numbers'}
+    view_flows(message)
+
+
+@bot.message_handler(func=lambda message: message.text == 'Add Another Phone Numbers')
+def trigger_yes(message):
+    user_id = message.chat.id
+    number = user_data[user_id]['batch_numbers']
+    data = {'phone_number': f"{number}"}
+    call_data.append(data)
+    print(call_data)
+
+
+# @bot.message_handler(func=lambda message: message.text == 'Done Adding Phone Numbers')
+# def trigger_no(message):
+#     bulk_ivr_flow()
+
 @bot.message_handler(func=lambda message: message.text == 'Single IVR Call ☎️')
 def trigger_single_ivr_call(message):
     """
@@ -163,7 +189,8 @@ def trigger_back_flow(message):
     display_flows(message)
 
 
-@bot.message_handler(func=lambda message: message.text == 'Done Adding Nodes' or message.text == 'Continue Adding Edges ▶️')
+@bot.message_handler(
+    func=lambda message: message.text == 'Done Adding Nodes' or message.text == 'Continue Adding Edges ▶️')
 def trigger_add_edges(message):
     """
     Handles the 'Done Adding Nodes' menu option to initiate edge addition.
@@ -257,6 +284,14 @@ def trigger_create_flow(message):
     Handle 'Create IVR Flow ➕' menu option.
     """
     create_flow(message)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "create_ivr_flow")
+def callback_create_ivr_flow(call):
+    """
+    Handle the 'Create IVR Flow ➕' button press.
+    """
+    create_flow(call.message)
 
 
 @bot.message_handler(func=lambda message: message.text == "View Flows 📂")
@@ -416,7 +451,7 @@ def handle_pathway_details(call):
 @bot.message_handler(commands=['list_flows'])
 def view_flows(message):
     """
-    Handle '/view_flows' command to retrieve all pathways.
+    Handle '/list_flows' command to retrieve all pathways.
     """
     pathways, status_code = handle_view_flows()
     if status_code != 200:
@@ -435,10 +470,15 @@ def view_flows(message):
             for pathway in filtered_pathways
         ]
         markup.add(*pathway_buttons)
-
-    markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
-
-    bot.send_message(message.chat.id, "list:", reply_markup=markup)
+        markup.add(InlineKeyboardButton("Create IVR Flow ➕", callback_data="create_ivr_flow"))
+        markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
+        bot.send_message(message.chat.id, "Please select an IVR Call Flow:", reply_markup=markup)
+    else:
+        markup.add(InlineKeyboardButton("Create IVR Flow ➕", callback_data="create_ivr_flow"))
+        markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
+        bot.send_message(message.chat.id,
+                         "You need to create an IVR flow before placing a call.\nPlease create a new IVR flow. ➕",
+                         reply_markup=markup)
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'ask_name')
@@ -471,6 +511,51 @@ def handle_ask_description(message):
 
     else:
         bot.send_message(user_id, f"Failed to create flow. Error: {response}!", reply_markup=get_node_menu())
+
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_batch_numbers',
+                     content_types=['text', 'document'])
+def get_batch_call_base_prompt(message):
+    user_id = message.chat.id
+    pathway_id = user_data[user_id]['call_flow_bulk']
+
+    valid_phone_number_pattern = re.compile(r'^[\d\+\-\(\)\s]+$')
+    base_prompts = []
+
+    if message.content_type == 'text':
+        lines = message.text.split('\n')
+        base_prompts = [line.strip() for line in lines if valid_phone_number_pattern.match(line.strip())]
+
+    elif message.content_type == 'document':
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        file_stream = io.BytesIO(downloaded_file)
+        print("Processing plain text file")
+        try:
+            content = file_stream.read().decode('utf-8')
+            print(f"File content: {content[:100]}")
+            lines = content.split('\n')
+            base_prompts = [line.strip() for line in lines if valid_phone_number_pattern.match(line.strip())]
+        except Exception as e:
+            print(f"Error reading plain text file: {e}")
+
+    formatted_prompts = [{"phone_number": phone} for phone in base_prompts if phone]
+
+    user_data[user_id]['base_prompts'] = formatted_prompts
+    user_data[user_id]['step'] = 'batch_numbers'
+
+    print(formatted_prompts)
+    response = bulk_ivr_flow(formatted_prompts, pathway_id)
+    if response.status_code == 200:
+        bot.send_message(user_id, "Successfully sent!", reply_markup=get_main_menu())
+    else:
+        bot.send_message(user_id, f"Error: {response.text}", reply_markup=get_main_menu())
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'batch_numbers')
+def get_batch_call_numbers(message):
+    user_id = message.chat.id
+    user_data[user_id]['batch_numbers'] = message.text
+    bot.message_handler(user_id, "Do you want to add another number?")
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_pathway')
@@ -507,6 +592,10 @@ def handle_pathway_selection(call):
         user_data[user_id]['step'] = 'initiate_call'
         user_data[user_id]['call_flow'] = pathway_id
         bot.send_message(user_id, "Enter number with country code:")
+    elif step == 'get_batch_numbers':
+        user_data[user_id]['call_flow_bulk'] = pathway_id
+        bot.send_message(user_id, "Please paste phone numbers (with country codes) or upload a file (TXT or CSV "
+                                  "format) with up to 500 phone numbers.")
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_edges')
@@ -574,7 +663,9 @@ def handle_target_node(call):
     user_data[call.message.chat.id]['src'] = source_node_id
     user_data[call.message.chat.id]['target'] = target_node_id
 
-    bot.send_message(call.message.chat.id, "Enter Label: (Default: User Responds) ", reply_markup=get_force_reply())
+    bot.send_message(call.message.chat.id,
+                     "Enter Label: (Default: User Responds, For DTMF: User enters {your option}) ",
+                     reply_markup=get_force_reply())
 
 
 @bot.message_handler(func=lambda message: user_data[message.chat.id]['step'] == 'add_label')
