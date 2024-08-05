@@ -176,6 +176,7 @@ def get_node_complete_menu():
 @bot.message_handler(func=lambda message: message.text == 'Profile 👤')
 def get_user_profile(message):
     user = TelegramUser.objects.get(user_id=message.chat.id)
+    bot.send_message(message.chat.id, f"Here is your profile information:")
     bot.send_message(message.chat.id, f"User Id: {user.user_id}", reply_markup=get_main_menu())
 
 
