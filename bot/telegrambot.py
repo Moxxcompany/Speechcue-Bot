@@ -2,7 +2,6 @@ import os
 from uuid import UUID
 import re
 import io
-import pandas as pd
 import telebot
 from django.core.wsgi import get_wsgi_application
 from telebot import types
@@ -17,7 +16,7 @@ from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 
 API_TOKEN = os.getenv('API_TOKEN')
 print(API_TOKEN, "API_TOKENAPI_TOKENAPI_TOKENAPI_TOKENAPI_TOKEN")
-bot = telebot.TeleBot(API_TOKEN, parse_mode=None)
+bot = telebot.TeleBot(API_TOKEN, parse_mode="MARKDOWN")
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'TelegramBot.settings')
 application = get_wsgi_application()
 
@@ -32,6 +31,31 @@ available_commands = {
 user_data = {}
 voice_data = get_voices()
 call_data = []
+TERMS_AND_CONDITIONS_URL = 'https://app.bland.ai/enterprise'
+
+
+# Sample plans
+SINGLE_IVR_PLANS = """
+
+_1._ ***Daily Plan: ***
+    _$5/day, Unlimited single IVR calls per day, 10 minutes of call transfer included, 24/7 standard customer support._
+
+_2._ ***Weekly Plan: ***
+    _$10/week, Unlimited single IVR calls per week, 50 minutes of call transfer included, Priority customer support._
+
+_3._ ***Monthly Plan: ***
+    _$30/month, Unlimited single IVR calls per month, 100 minutes of call transfer included, Premium customer support._
+"""
+
+BULK_IVR_PLANS = """
+
+_1. Cost per contact: [number_of_contacts]_
+
+_2. Cost per minute for answered calls: $_
+
+_3. Cost per minute for transferred calls: $_
+
+"""
 
 
 # :: MENUS ------------------------------------#
@@ -65,7 +89,7 @@ def get_force_reply():
 
 def get_main_menu():
     options = ["Create IVR Flow ➕", "View Flows 📂", "Delete Flow ❌", "Help ℹ️", 'Single IVR Call ☎️',
-               'Bulk IVR Call 📞📞']
+               'Bulk IVR Call 📞📞', 'Billing and Subscription 📅','Join Channel 🔗', 'Profile 👤']
     return get_reply_keyboard(options)
 
 
@@ -99,6 +123,11 @@ def get_node_menu():
         "Back to Main Menu ↩️"
     ]
 
+    return get_reply_keyboard(options)
+
+
+def get_terms_and_conditions():
+    options = ["View Terms and Conditions 📜", "Back ↩️"]
     return get_reply_keyboard(options)
 
 
@@ -143,6 +172,12 @@ def get_node_complete_menu():
 
 
 # :: TRIGGERS ------------------------------------#
+
+@bot.message_handler(func=lambda message: message.text == 'Profile 👤')
+def get_user_profile(message):
+    user = TelegramUser.objects.get(user_id=message.chat.id)
+    bot.send_message(message.chat.id, f"User Id: {user.user_id}", reply_markup=get_main_menu())
+
 
 
 @bot.message_handler(func=lambda message: message.text == 'Bulk IVR Call 📞📞')
@@ -338,12 +373,27 @@ def show_commands(message):
     bot.send_message(message.chat.id, f"Available commands:\n{formatted_commands}", reply_markup=get_main_menu())
 
 
-@bot.message_handler(commands=['name'])
+@bot.message_handler(commands=['sign_up'])
 def signup(message):
-    """
-    Handle '/name' command to initiate username collection.
-    """
-    bot.send_message(message.chat.id, "Enter your name:", reply_markup=get_force_reply())
+    user_id = message.chat.id
+    text = message.text if message.content_type == 'text' else None
+    try:
+        username = text + str(user_id)
+        existing_user, created = TelegramUser.objects.get_or_create(user_id=user_id, defaults={'user_name': username})
+        if not created:
+            if existing_user:
+                bot.send_message(user_id, "Welcome! 🎉🎉 We are glad to have you again. 🎉")
+                return
+            TelegramUser.objects.create(user_id=user_id, user_name=username)
+    except TelegramUser.DoesNotExist:
+        bot.reply_to(message, "An error occurred. Please try again later.", reply_markup=get_force_reply())
+
+    markup = types.InlineKeyboardMarkup()
+    english_button = types.InlineKeyboardButton("English 🇬🇧", callback_data="language:English")
+    spanish_button = types.InlineKeyboardButton("Español 🇪🇸", callback_data="language:Spanish")
+    markup.add(english_button)
+    markup.add(spanish_button)
+    bot.send_message(user_id, "Please select your language:", reply_markup=markup)
 
 
 @bot.message_handler(commands=['create_flow'])
@@ -550,6 +600,7 @@ def get_batch_call_base_prompt(message):
         bot.send_message(user_id, "Successfully sent!", reply_markup=get_main_menu())
     else:
         bot.send_message(user_id, f"Error: {response.text}", reply_markup=get_main_menu())
+
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'batch_numbers')
 def get_batch_call_numbers(message):
@@ -974,26 +1025,88 @@ def handle_single_ivr_call_flow(message):
     bot.send_message(user_id, f"Error Occurred! {response}")
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("language:"))
+def handle_language_selection(call):
+    user_id = call.from_user.id
+    selected_language = call.data.split(":")[1]
+    user_data[user_id] = {'language': selected_language, 'step': 'terms_and_conditions'}
+    bot.send_message(user_id,
+                     f"You have selected {selected_language}. Please review and accept the Terms and Conditions to proceed.")
+    markup = types.InlineKeyboardMarkup()
+    view_terms_button = types.InlineKeyboardButton("View Terms and Conditions 📜", callback_data="view_terms")
+    back_button = types.InlineKeyboardButton("Back ↩️", callback_data="back_to_language")
+    markup.add(view_terms_button)
+    markup.add(back_button)
+    bot.send_message(user_id, "Please review and accept the Terms and Conditions to proceed.", reply_markup=markup)
+
+
+# Step 2: Terms and Conditions Display
+@bot.callback_query_handler(func=lambda call: call.data == "view_terms")
+def handle_view_terms(call):
+    user_id = call.from_user.id
+    bot.send_message(user_id, f"View the Terms and Conditions here: {TERMS_AND_CONDITIONS_URL}")
+    bot.send_message(user_id, f"***Single IVR Call Subscription Plan:***\n {SINGLE_IVR_PLANS}")
+    bot.send_message(user_id, f"***Bulk IVR Call Subscription Plan:***\n {BULK_IVR_PLANS}")
+    markup = types.InlineKeyboardMarkup()
+    single_plan_button = types.InlineKeyboardButton("Single IVR Call Plans", callback_data="single_plans")
+    bulk_plan_button = types.InlineKeyboardButton("Bulk IVR Call Plans", callback_data="bulk_plans")
+    back_button = types.InlineKeyboardButton("Back ↩️", callback_data="back_to_language")
+    markup.add(single_plan_button)
+    markup.add(bulk_plan_button)
+    markup.add(back_button)
+    bot.send_message(user_id, "Choose a plan to view details or go back.", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "single_plans")
+def handle_single_plans(call):
+    user_id = call.from_user.id
+    bot.send_message(user_id, "You have subscribed to Single IVR plan successfully!")
+    send_confirmation_menu(user_id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "bulk_plans")
+def handle_bulk_plans(call):
+    user_id = call.from_user.id
+    bot.send_message(user_id, "You have subscribed to Bulk IVR plan successfully!")
+    send_confirmation_menu(user_id)
+
+
+# Step 3: Back to Language Selection
+@bot.callback_query_handler(func=lambda call: call.data == "back_to_language")
+def handle_back_to_language(call):
+    signup(call.message)
+
+
+# Step 4: Confirmation
+def send_confirmation_menu(user_id):
+    # Check if the user is a first-time user
+    if 'first_time' not in user_data.get(user_id, {}):
+        user_data[user_id]['first_time'] = False
+        bot.send_message(user_id, "Welcome! 🎉 You have one free Single IVR call as a welcome gift. ☎️")
+        user = TelegramUser.objects.get(user_id=user_id)
+        user.language = user_data[user_id]['language']
+        user.save()
+    markup = types.InlineKeyboardMarkup()
+    main_menu_button = types.InlineKeyboardButton("Main Menu", callback_data="main_menu")
+    back_button = types.InlineKeyboardButton("Back ↩️", callback_data="back_to_language")
+    markup.add(main_menu_button)
+    markup.add(back_button)
+    bot.send_message(user_id, "Please select an option:", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "main_menu")
+def handle_main_menu(call):
+    user_id = call.from_user.id
+    # Here you can implement the logic for the main menu of your bot
+    bot.send_message(user_id, "This is the main menu.", reply_markup=get_main_menu())
+
+
 @bot.message_handler(func=lambda message: True, content_types=['text', 'audio'])
 def echo_all(message):
     """
     Handle all messages except commands. Process user input for pathway creation or username registration.
     """
     user_id = message.chat.id
-    text = message.text if message.content_type == 'text' else None
-    try:
-        username = text + str(user_id)
-        existing_user, created = TelegramUser.objects.get_or_create(user_id=user_id, defaults={'user_name': username})
-        if not created:
-            if existing_user:
-                bot.send_message(user_id, "Chat Id already Exists!")
-                return
-            TelegramUser.objects.create(user_id=user_id, user_name=username)
-
-        bot.send_message(user_id, f"Hello, {text}! Welcome aboard. Your username is {username}")
-
-    except TelegramUser.DoesNotExist:
-        bot.reply_to(message, "An error occurred. Please try again later.", reply_markup=get_force_reply())
 
 
 def start_bot():

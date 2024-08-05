@@ -416,5 +416,3 @@ def bulk_ivr_flow(call_data, pathway_id):
     response = requests.request("POST", endpoint, json=data, headers=headers)
     print(response.text)
     return response
-
-
