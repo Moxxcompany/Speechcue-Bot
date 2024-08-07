@@ -12,7 +12,10 @@ from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow,
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
     get_voices, empty_nodes, bulk_ivr_flow
 from user.models import TelegramUser
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ForceReply
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ForceReply, \
+    ReplyKeyboardRemove
+
+VALID_NODE_TYPES = ["End Call 🛑", "Call Transfer 🔄", "Get DTMF Input 📞", "Play Message ▶️", "Menu 📋"]
 
 API_TOKEN = os.getenv('API_TOKEN')
 print(API_TOKEN, "API_TOKENAPI_TOKENAPI_TOKENAPI_TOKENAPI_TOKEN")
@@ -32,7 +35,6 @@ user_data = {}
 voice_data = get_voices()
 call_data = []
 TERMS_AND_CONDITIONS_URL = 'https://app.bland.ai/enterprise'
-
 
 # Sample plans
 SINGLE_IVR_PLANS = """
@@ -89,7 +91,7 @@ def get_force_reply():
 
 def get_main_menu():
     options = ["Create IVR Flow ➕", "View Flows 📂", "Delete Flow ❌", "Help ℹ️", 'Single IVR Call ☎️',
-               'Bulk IVR Call 📞📞', 'Billing and Subscription 📅','Join Channel 🔗', 'Profile 👤']
+               'Bulk IVR Call 📞📞', 'Billing and Subscription 📅', 'Join Channel 🔗', 'Profile 👤']
     return get_reply_keyboard(options)
 
 
@@ -98,8 +100,11 @@ def get_gender_menu():
     return get_reply_keyboard(options)
 
 
+languages = ["English", "Spanish", "Urdu", "Persian"]
+
+
 def get_language_menu():
-    options = ["English", "Spanish", "Urdu", "Persian"]
+    options = languages
     return get_reply_keyboard(options)
 
 
@@ -108,8 +113,11 @@ def get_voice_type_menu():
     return get_reply_keyboard(options)
 
 
+message_input_type = ["Text-to-Speech 🗣️", "Back ↩️"]
+
+
 def get_play_message_input_type():
-    options = ["Text-to-Speech 🗣️", "Back ↩️"]
+    options = message_input_type
     return get_reply_keyboard(options)
 
 
@@ -145,29 +153,38 @@ def get_flow_node_menu():
     return get_reply_keyboard(options)
 
 
+call_failed_menu = [
+    "Retry Node 🔄",
+    "Skip Node ⏭️",
+    "Transfer to Live Agent 👤",
+    "Back ↩️"
+]
+
+
 def get_call_failed_menu():
-    options = [
-        "Retry Node 🔄",
-        "Skip Node ⏭️",
-        "Transfer to Live Agent 👤",
-        "Back ↩️"
-    ]
+    options = call_failed_menu
     return get_reply_keyboard(options)
+
+
+edges_complete = [
+    "Continue Adding Edges ▶️",
+    "Done Adding Edges"
+]
 
 
 def edges_complete_menu():
-    options = [
-        "Continue Adding Edges ▶️",
-        "Done Adding Edges"
-    ]
+    options = edges_complete
     return get_reply_keyboard(options)
 
 
+node_complete = [
+    "Continue to Next Node ▶️",
+    "Done Adding Nodes",
+]
+
+
 def get_node_complete_menu():
-    options = [
-        "Continue to Next Node ▶️",
-        "Done Adding Nodes",
-    ]
+    options = node_complete
     return get_reply_keyboard(options)
 
 
@@ -178,7 +195,6 @@ def get_user_profile(message):
     user = TelegramUser.objects.get(user_id=message.chat.id)
     bot.send_message(message.chat.id, f"Here is your profile information:")
     bot.send_message(message.chat.id, f"User Id: {user.user_id}", reply_markup=get_main_menu())
-
 
 
 @bot.message_handler(func=lambda message: message.text == 'Bulk IVR Call 📞📞')
@@ -200,6 +216,11 @@ def trigger_yes(message):
 # @bot.message_handler(func=lambda message: message.text == 'Done Adding Phone Numbers')
 # def trigger_no(message):
 #     bulk_ivr_flow()
+
+@bot.message_handler(func=lambda message: message.text == 'Text-to-Speech 🗣️')
+def trigger_text_to_speech(message):
+    handle_get_node_type(message)
+
 
 @bot.message_handler(func=lambda message: message.text == 'Single IVR Call ☎️')
 def trigger_single_ivr_call(message):
@@ -557,11 +578,35 @@ def handle_ask_description(message):
     if status_code == 200:
         res = empty_nodes(pathway_name, pathway_description, pathway_id)
         bot.send_message(user_id,
-                         f"IVR Flow '{pathway_name}' created! ✅ Now, please select the type of node you want to add:"
-                         , reply_markup=get_node_menu())
+                         f"IVR Flow '{pathway_name}' created! ✅ Now, please select the language for this flow:"
+                         , reply_markup=get_language_menu())
+
+        if message.text not in languages:
+            print(message.text)
+            user_data[user_id]['step'] = 'show_error_language'
+
 
     else:
         bot.send_message(user_id, f"Failed to create flow. Error: {response}!", reply_markup=get_node_menu())
+
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'show_error_language')
+def handle_show_error_node_type(message):
+    user_id = message.chat.id
+    if message.text in languages:
+        user_data[user_id]['select_language'] = message.text
+        bot.send_message(user_id, "Select the type of node that you want to add: ", reply_markup=get_node_menu())
+        if message.text not in VALID_NODE_TYPES:
+            print(message.text)
+            user_data[user_id]['step'] = 'show_error_node_type'
+    else:
+        bot.send_message(user_id, "Select from the menu provided below:", reply_markup=get_language_menu())
+
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'show_error_node_type')
+def handle_show_error_node_type(message):
+    user_id = message.chat.id
+    bot.send_message(user_id, "Select from the menu provided below:", reply_markup=get_node_menu())
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_batch_numbers',
@@ -753,8 +798,17 @@ def add_label(message):
         pathway.pathway_description = data.get("description")
         pathway.pathway_payload = response.text
         pathway.save()
+        if message.text not in edges_complete:
+            user_data[chat_id]['step'] = 'error_edges_complete'
+
     else:
         bot.send_message(chat_id, f"Error: {response}")
+
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'error_edges_complete')
+def error_edges_complete(message):
+    user_id = message.chat.id
+    bot.send_message(user_id, "Select from the menu provided below: ", reply_markup=edges_complete_menu())
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_node')
@@ -785,15 +839,15 @@ def handle_add_node_id(message):
 
         node = user_data[user_id]['node']
         if node == "Play Message ▶️":
-            user_data[user_id]['step'] = 'get_node_type'
             user_data[user_id]['message_type'] = 'Play Message'
-            bot.send_message(user_id, "Would you like to use Text-to-Speech for the Greeting Message?",
-                             reply_markup=get_play_message_input_type())
+            text_to_speech(message)
+
+
         elif node == "End Call 🛑":
-            user_data[user_id]['step'] = 'get_node_type'
             user_data[user_id]['message_type'] = 'End Call'
-            bot.send_message(user_id, "Would you like to use Text-to-Speech for the Greeting Message?",
-                             reply_markup=get_play_message_input_type())
+            text_to_speech(message)
+
+
         elif node == "Get DTMF Input 📞":
             user_data[user_id]['step'] = 'get_dtmf_input'
             user_data[user_id]['message_type'] = 'DTMF Input'
@@ -834,20 +888,39 @@ def get_action_list(message):
     node_id = user_data[user_id]['add_node_id']
     response = handle_menu_node(pathway_id, node_id, prompt, node_name, menu)
     if response.status_code == 200:
-        bot.send_message(user_id, f"Node '{node_name}' with 'Menu' added successfully! ✅\nWhat should happen "
-                                  f"after this node?", reply_markup=get_node_complete_menu())
-
+        bot.send_message(user_id, f"Node '{node_name}' with 'Menu' added successfully! ✅",
+                         reply_markup=get_node_complete_menu())
+        if message.text not in node_complete:
+            print("here")
+            user_data[user_id]['step'] = 'error_nodes_complete'
     else:
         bot.send_message(user_id, f"Error! {response}")
+
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'error_nodes_complete')
+def error_nodes_complete(message):
+    user_id = message.chat.id
+    bot.send_message(user_id, "Select from the menu given below: ", reply_markup=get_node_complete_menu())
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'text-to-speech')
 def text_to_speech(message):
     user_id = message.chat.id
     text = message.text
-    user_data[user_id]['step'] = 'get_node_type'
     bot.send_message(user_id, "Would you like to use Text-to-Speech for the Greeting Message?",
                      reply_markup=get_play_message_input_type())
+    if message.text not in message_input_type:
+        user_data[user_id]['step'] = 'error_message_input_type'
+
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'error_message_input_type')
+def error_message_input_type(message):
+    user_id = message.chat.id
+    if message.text in message_input_type:
+        user_data[user_id]['step'] = 'get_node_type'
+        return
+
+    bot.send_message(user_id, "Select from an option given below: ", reply_markup=get_play_message_input_type())
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_dtmf_input')
@@ -861,9 +934,10 @@ def handle_get_dtmf_input(message):
     message_type = user_data[user_id]['message_type']
     response = handle_dtmf_input_node(pathway_id, node_id, prompt, node_name, message_type)
     if response.status_code == 200:
-        bot.send_message(user_id, f"Node '{node_name}' with '{message_type}' added successfully! ✅\nWhat should happen "
-                                  f"after this node?", reply_markup=get_node_complete_menu())
-
+        bot.send_message(user_id, f"Node '{node_name}' with '{message_type}' added successfully! ✅",
+                         reply_markup=get_node_complete_menu())
+        if message.text not in node_complete:
+            user_data[user_id]['step'] = 'error_nodes_complete'
     else:
         bot.send_message(user_id, f"Error! {response}")
 
@@ -886,15 +960,6 @@ def handle_play_message(message):
     user_id = message.chat.id
     text = message.text
     user_data[user_id]['play_message'] = text
-    user_data[user_id]['step'] = 'select_language'
-    bot.send_message(user_id, "Please select a language", reply_markup=get_language_menu())
-
-
-@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'select_language')
-def handle_select_language(message):
-    user_id = message.chat.id
-    text = message.text
-    user_data[user_id]['select_language'] = text
     user_data[user_id]['step'] = 'select_voice_type'
     bot.send_message(user_id,
                      "Please select the type of voice.", reply_markup=get_voice_type_menu())
@@ -920,6 +985,8 @@ def handle_select_voice_type(message):
     if response.status_code == 200:
         bot.send_message(user_id, f"Node '{node_name}' with '{message_type}' added successfully! ✅",
                          reply_markup=get_node_complete_menu())
+        if message.text not in node_complete:
+            user_data[user_id]['step'] = 'error_nodes_complete'
 
     else:
         bot.send_message(user_id, f"Error! {response}")
@@ -930,6 +997,14 @@ def handle_call_failure(message):
     user_id = message.chat.id
     text = message.text
     bot.send_message(user_id, "What should happen in case of failure?", reply_markup=get_call_failed_menu())
+    if message.text not in call_failed_menu:
+        user_data[user_id]['step'] = 'show_error_call_failed'
+
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'show_error_call_failed')
+def handle_show_error_call_failed(message):
+    user_id = message.chat.id
+    bot.send_message(user_id, "Select from the provided menu: ", reply_markup=get_call_failed_menu())
 
 
 @bot.message_handler(commands=['transfer'])
@@ -1041,7 +1116,6 @@ def handle_language_selection(call):
     bot.send_message(user_id, "Please review and accept the Terms and Conditions to proceed.", reply_markup=markup)
 
 
-# Step 2: Terms and Conditions Display
 @bot.callback_query_handler(func=lambda call: call.data == "view_terms")
 def handle_view_terms(call):
     user_id = call.from_user.id
@@ -1072,13 +1146,11 @@ def handle_bulk_plans(call):
     send_confirmation_menu(user_id)
 
 
-# Step 3: Back to Language Selection
 @bot.callback_query_handler(func=lambda call: call.data == "back_to_language")
 def handle_back_to_language(call):
     signup(call.message)
 
 
-# Step 4: Confirmation
 def send_confirmation_menu(user_id):
     # Check if the user is a first-time user
     if 'first_time' not in user_data.get(user_id, {}):
