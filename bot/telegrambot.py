@@ -1,3 +1,4 @@
+import json
 import os
 from uuid import UUID
 import re
@@ -6,19 +7,19 @@ import telebot
 from django.core.wsgi import get_wsgi_application
 from telebot import types
 
-from bot.models import Pathways, TransferCallNumbers
+from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable
 from bot.utils import generate_random_id
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
-    get_voices, empty_nodes, bulk_ivr_flow
+    get_voices, empty_nodes, bulk_ivr_flow, get_transcript, question_type, get_variables
 from user.models import TelegramUser
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ForceReply, \
     ReplyKeyboardRemove
 
-VALID_NODE_TYPES = ["End Call 🛑", "Call Transfer 🔄", "Get DTMF Input 📞", "Play Message ▶️", "Menu 📋"]
+VALID_NODE_TYPES = ["End Call 🛑", "Call Transfer 🔄", "Get DTMF Input 📞", "Play Message ▶️", "Menu 📋",
+                    "Feedback Node", "Question"]
 
 API_TOKEN = os.getenv('API_TOKEN')
-print(API_TOKEN, "API_TOKENAPI_TOKENAPI_TOKENAPI_TOKENAPI_TOKEN")
 bot = telebot.TeleBot(API_TOKEN, parse_mode="MARKDOWN")
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'TelegramBot.settings')
 application = get_wsgi_application()
@@ -91,7 +92,8 @@ def get_force_reply():
 
 def get_main_menu():
     options = ["Create IVR Flow ➕", "View Flows 📂", "Delete Flow ❌", "Help ℹ️", 'Single IVR Call ☎️',
-               'Bulk IVR Call 📞📞', 'Billing and Subscription 📅', 'Join Channel 🔗', 'Profile 👤']
+               'Bulk IVR Call 📞📞', 'Billing and Subscription 📅', 'Join Channel 🔗', 'Profile 👤', 'View Feedback',
+               'View Variables']
     return get_reply_keyboard(options)
 
 
@@ -128,6 +130,8 @@ def get_node_menu():
         "End Call 🛑",
         "Call Transfer 🔄",
         "Menu 📋",
+        "Feedback Node",
+        "Question",
         "Back to Main Menu ↩️"
     ]
 
@@ -210,7 +214,6 @@ def trigger_yes(message):
     number = user_data[user_id]['batch_numbers']
     data = {'phone_number': f"{number}"}
     call_data.append(data)
-    print(call_data)
 
 
 # @bot.message_handler(func=lambda message: message.text == 'Done Adding Phone Numbers')
@@ -330,10 +333,90 @@ def trigger_back(message):
                                           message.text == "Call Transfer 🔄" or
                                           message.text == "Get DTMF Input 📞" or
                                           message.text == "Play Message ▶️" or
-                                          message.text == "Menu 📋")
+                                          message.text == "Menu 📋" or
+                                          message.text == 'Feedback Node' or
+                                          message.text == "Question")
 def trigger_main_add_node(message):
     add_node(message)
 
+@bot.message_handler(func=lambda message: message.text == "View Variables")
+def view_variables(message):
+    user_id = message.chat.id
+
+
+    list_calls = CallLogsTable.objects.filter(user_id=user_id)
+
+    if not list_calls.exists():
+        bot.send_message(user_id, "No call logs found for your user ID.")
+        return
+    markup = types.InlineKeyboardMarkup()
+
+    for call in list_calls:
+        button_text = f"Call ID: {call.call_id}"
+        callback_data = f"variables_{call.call_id}"
+        markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
+
+    bot.send_message(user_id, "Select a call to view variables:", reply_markup=markup)
+@bot.callback_query_handler(func=lambda call: call.data.startswith("variables_"))
+def handle_call_selection_variable(call):
+    try:
+        call_id = call.data[len("variables_"):]
+        variables = get_variables(call_id)
+
+        if variables:
+            # Format the variables as a readable string
+            variable_message = "\n".join([f"{key}: {value}" for key, value in variables.items()])
+        else:
+            variable_message = "No transcript found for this call."
+
+        bot.send_message(call.message.chat.id, variable_message)
+    except Exception as e:
+        print(f"Error handling callback: {e}")
+        bot.send_message(call.message.chat.id, "An error occurred while processing your request.")
+
+@bot.message_handler(func=lambda message: message.text == "View Feedback")
+def view_feedback(message):
+    user_id = message.chat.id
+
+    feedback_pathway_ids = FeedbackLogs.objects.values_list('pathway_id', flat=True)
+
+    list_calls = CallLogsTable.objects.filter(user_id=user_id, pathway_id__in=feedback_pathway_ids)
+
+    if not list_calls.exists():
+        bot.send_message(user_id, "No call logs found for your user ID.")
+        return
+    markup = types.InlineKeyboardMarkup()
+
+    for call in list_calls:
+        button_text = f"Call ID: {call.call_id}"
+        callback_data = f"feedback_{call.call_id}"
+        markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
+
+    bot.send_message(user_id, "Select a call to view the transcript:", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("feedback_"))
+def handle_call_selection(call):
+    try:
+        # Extract call_id from the callback data by removing the "feedback_" prefix
+        call_id = call.data[len("feedback_"):]
+
+        # Find the pathway_id using the call_id from the CallLogsTable model
+        call_log = CallLogsTable.objects.get(call_id=call_id)
+        pathway_id = call_log.pathway_id
+
+        # Pass the call_id and pathway_id to the get_transcript function
+        transcript = get_transcript(call_id, pathway_id)
+
+        if transcript:
+            transcript_message = "\n".join(transcript.feedback_answers)
+        else:
+            transcript_message = "No transcript found for this call."
+
+        bot.send_message(call.message.chat.id, transcript_message)
+    except Exception as e:
+        print(f"Error handling callback: {e}")
+        bot.send_message(call.message.chat.id, "An error occurred while processing your request.")
 
 @bot.message_handler(func=lambda message: message.text == "Create IVR Flow ➕")
 def trigger_create_flow(message):
@@ -370,6 +453,13 @@ def trigger_delete_flow(message):
 @bot.message_handler(func=lambda message: message.text == "Add Node")
 def view_main_menu(message):
     user_id = message.chat.id
+    user_data[user_id]['step']= 'select_node'
+    bot.send_message(user_id, "Select the language for the node you want to add:", reply_markup=get_language_menu())
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'select_node')
+def select_node(message):
+    user_id = message.chat.id
+    user_data[user_id]['select_language']= message.text
     bot.send_message(user_id, "Select the type of node you want to add:", reply_markup=get_node_menu())
 
 
@@ -582,12 +672,19 @@ def handle_ask_description(message):
                          , reply_markup=get_language_menu())
 
         if message.text not in languages:
-            print(message.text)
             user_data[user_id]['step'] = 'show_error_language'
 
 
     else:
         bot.send_message(user_id, f"Failed to create flow. Error: {response}!", reply_markup=get_node_menu())
+
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_start_node')
+def handle_add_start_node(message):
+    user_id = message.chat.id
+    message.text = 'End Call 🛑'
+    print(message.text)
+    add_node(message)
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'show_error_language')
@@ -597,7 +694,6 @@ def handle_show_error_node_type(message):
         user_data[user_id]['select_language'] = message.text
         bot.send_message(user_id, "Select the type of node that you want to add: ", reply_markup=get_node_menu())
         if message.text not in VALID_NODE_TYPES:
-            print(message.text)
             user_data[user_id]['step'] = 'show_error_node_type'
     else:
         bot.send_message(user_id, "Select from the menu provided below:", reply_markup=get_language_menu())
@@ -626,21 +722,17 @@ def get_batch_call_base_prompt(message):
         file_info = bot.get_file(message.document.file_id)
         downloaded_file = bot.download_file(file_info.file_path)
         file_stream = io.BytesIO(downloaded_file)
-        print("Processing plain text file")
         try:
             content = file_stream.read().decode('utf-8')
-            print(f"File content: {content[:100]}")
             lines = content.split('\n')
             base_prompts = [line.strip() for line in lines if valid_phone_number_pattern.match(line.strip())]
         except Exception as e:
-            print(f"Error reading plain text file: {e}")
+            bot.send_message(user_id, f"Error reading plain text file: {e}")
 
     formatted_prompts = [{"phone_number": phone} for phone in base_prompts if phone]
 
     user_data[user_id]['base_prompts'] = formatted_prompts
     user_data[user_id]['step'] = 'batch_numbers'
-
-    print(formatted_prompts)
     response = bulk_ivr_flow(formatted_prompts, pathway_id)
     if response.status_code == 200:
         bot.send_message(user_id, "Successfully sent!", reply_markup=get_main_menu())
@@ -701,15 +793,24 @@ def handle_add_edges(message):
     pathway = Pathways.objects.get(pathway_name=user_data[chat_id]['pathway_name'])
     pathway_id = pathway.pathway_id
     response, status = handle_view_single_flow(pathway_id)
+    print("API Response:", response)
+
     if status != 200:
         bot.send_message(chat_id, f"Error: {response}", reply_markup=get_main_menu())
         return
+
     user_data[chat_id]['data'] = response
     edges = response.get("edges", [])
     nodes = response.get("nodes", [])
     user_data[chat_id]['node_info'] = nodes
     user_data[chat_id]['edge_info'] = edges
-    start_node = next((node for node in nodes if node['data'].get('isStart')), None)
+
+
+    # Debugging: Print the nodes to inspect the structure
+    print("Nodes Data:", nodes)
+
+    # Ensure the isStart is correctly detected as a boolean
+    start_node = next((node for node in nodes if node['data'].get('isStart') == True), None)
 
     if not edges:
         if start_node:
@@ -717,12 +818,17 @@ def handle_add_edges(message):
             markup = types.InlineKeyboardMarkup()
             for node in nodes:
                 if node['id'] != start_node['id']:
-                    markup.add(types.InlineKeyboardButton(f"{node['data']['name']} ({node['id']})",
+                    markup.add(types.InlineKeyboardButton(f"{node['data']['name']}",
                                                           callback_data=f"target_node_{node['id']}"))
             user_data[chat_id]['source_node_id'] = f"{start_node['id']}"
+
+            print("--------------------------------")
+            print("Source: ", user_data[chat_id]['source_node_id'])
+            print("")
             bot.send_message(chat_id,
                              f"Start Node ID: {start_node['id']}\nStart Node Name: {start_node['data']['name']}\nPlease select another node to connect to the start node:",
                              reply_markup=markup)
+
         else:
             bot.send_message(chat_id, "No start node found.")
     else:
@@ -749,12 +855,23 @@ def handle_source_node(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("target_node_"))
 def handle_target_node(call):
+    print("################################")
     target_node_id = call.data.split("_")[2]
+    print("Target node id: ", target_node_id)
     chat_id = call.message.chat.id
     nodes = user_data[call.message.chat.id]['node_info']
+    print("----------------------------------------")
+    print("Nodes: ", nodes)
+    print("----------------------------------------")
     edges = user_data[call.message.chat.id]['edge_info']
+    print("----------------------------------------")
+    print("Edges: ", edges)
+    print("----------------------------------------")
     source_node_id = user_data[call.message.chat.id]['source_node_id']
     data = user_data[call.message.chat.id]['data']
+    print("----------------------------------------")
+    print("Data: ", data)
+    print("----------------------------------------")
     pathway_id = user_data[call.message.chat.id]['select_pathway']
     user_data[call.message.chat.id]['step'] = 'add_label'
     user_data[call.message.chat.id]['src'] = source_node_id
@@ -810,14 +927,39 @@ def error_edges_complete(message):
     user_id = message.chat.id
     bot.send_message(user_id, "Select from the menu provided below: ", reply_markup=edges_complete_menu())
 
+#
+# @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_node')
+# def handle_add_node_t(message):
+#     user_id = message.chat.id
+#     text = message.text
+#     user_data[user_id]['add_node'] = text
+#     user_data[user_id]['step'] = 'add_node_id'
+#     bot.send_message(user_id, 'Please assign a number (0-9) for this node.', reply_markup=get_force_reply())
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_node')
 def handle_add_node_t(message):
     user_id = message.chat.id
-    text = message.text
-    user_data[user_id]['add_node'] = text
+    node_name = message.text
+
+    # Retrieve the pathway ID
+    pathway_id = user_data[user_id]['select_pathway']
+
+
+        # Retrieve the pathway from the database
+    pathway = Pathways.objects.get(pathway_id=pathway_id)
+
+    if pathway.pathway_payload:
+        pathway_data = json.loads(pathway.pathway_payload).get('pathway_data', {})
+        nodes = pathway_data.get('nodes', [])
+        if any(node['data']['name'].lower() == node_name.lower() for node in nodes):
+            bot.send_message(user_id,
+                             'This name is already taken for another node. Please try again with a different name.')
+            return
+
+    user_data[user_id]['add_node'] = node_name
     user_data[user_id]['step'] = 'add_node_id'
     bot.send_message(user_id, 'Please assign a number (0-9) for this node.', reply_markup=get_force_reply())
+
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_node_id')
@@ -838,29 +980,38 @@ def handle_add_node_id(message):
         user_data[user_id]['add_node_id'] = int(text)
 
         node = user_data[user_id]['node']
+
         if node == "Play Message ▶️":
             user_data[user_id]['message_type'] = 'Play Message'
-            text_to_speech(message)
 
+            text_to_speech(message)
 
         elif node == "End Call 🛑":
             user_data[user_id]['message_type'] = 'End Call'
             text_to_speech(message)
 
-
         elif node == "Get DTMF Input 📞":
             user_data[user_id]['step'] = 'get_dtmf_input'
             user_data[user_id]['message_type'] = 'DTMF Input'
             bot.send_message(user_id, "Please enter the prompt message for DTMF input.", reply_markup=get_force_reply())
+
         elif node == 'Call Transfer 🔄':
             user_data[user_id]['step'] = 'get_dtmf_input'
             user_data[user_id]['message_type'] = 'Transfer Call'
             bot.send_message(user_id, "Please enter the phone number to transfer the call to",
                              reply_markup=get_force_reply())
+
         elif node == 'Menu 📋':
             user_data[user_id]['step'] = 'get_menu'
             bot.send_message(user_id, "Please enter the prompt message for the menu:", reply_markup=get_force_reply())
 
+        elif node =='Feedback Node':
+            user_data[user_id]['message_type'] = 'Feedback Node'
+            text_to_speech(message)
+
+        elif node == 'Question':
+            user_data[user_id]['message_type'] = 'Question'
+            text_to_speech(message)
 
     else:
         bot.send_message(user_id, "Invalid input. Please enter a valid number between 0 and 9.",
@@ -891,7 +1042,6 @@ def get_action_list(message):
         bot.send_message(user_id, f"Node '{node_name}' with 'Menu' added successfully! ✅",
                          reply_markup=get_node_complete_menu())
         if message.text not in node_complete:
-            print("here")
             user_data[user_id]['step'] = 'error_nodes_complete'
     else:
         bot.send_message(user_id, f"Error! {response}")
@@ -959,6 +1109,18 @@ def handle_get_node_type(message):
 def handle_play_message(message):
     user_id = message.chat.id
     text = message.text
+    if user_data[user_id]['message_type'] == 'Feedback Node':
+        pathway_id = user_data[user_id]['select_pathway']
+
+        # Retrieve or create the FeedbackLogs instance
+        feedback_log, created = FeedbackLogs.objects.get_or_create(
+            pathway_id=pathway_id,
+            defaults={'feedback_questions': []}
+        )
+        feedback_log.feedback_questions.append(text)
+        feedback_log.save()
+
+
     user_data[user_id]['play_message'] = text
     user_data[user_id]['step'] = 'select_voice_type'
     bot.send_message(user_id,
@@ -980,8 +1142,11 @@ def handle_select_voice_type(message):
 
     language = user_data[user_id]['select_language']
     message_type = user_data[user_id]['message_type']
+    if message_type == 'Question':
+        response = question_type(pathway_id, node_name, node_text, node_id, voice_type, language)
+    else:
+        response = play_message(pathway_id, node_name, node_text, node_id, voice_type, language, message_type)
 
-    response = play_message(pathway_id, node_name, node_text, node_id, voice_type, language, message_type)
     if response.status_code == 200:
         bot.send_message(user_id, f"Node '{node_name}' with '{message_type}' added successfully! ✅",
                          reply_markup=get_node_complete_menu())
@@ -1019,7 +1184,6 @@ def transfer_to_agent(message):
     else:
         bot.send_message(user_id, "Please enter the phone number to transfer to.", reply_markup=get_force_reply())
         user_data[user_id] = {'step': 'enter_new_number'}
-
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'use_previous_number')
 def handle_use_previous_number(message):
@@ -1094,7 +1258,7 @@ def handle_single_ivr_call_flow(message):
     user_data[user_id]['initiate_call'] = text
     pathway_id = user_data[user_id]['call_flow']
     phone_number = text
-    response, status = send_call_through_pathway(pathway_id, phone_number)
+    response, status = send_call_through_pathway(pathway_id, phone_number, user_id)
     if status == 200:
         bot.send_message(user_id, "Call successfully queued.")
         return
@@ -1174,12 +1338,12 @@ def handle_main_menu(call):
     bot.send_message(user_id, "This is the main menu.", reply_markup=get_main_menu())
 
 
-@bot.message_handler(func=lambda message: True, content_types=['text', 'audio'])
-def echo_all(message):
-    """
-    Handle all messages except commands. Process user input for pathway creation or username registration.
-    """
-    user_id = message.chat.id
+# @bot.message_handler(func=lambda message: True, content_types=['text', 'audio'])
+# def echo_all(message):
+#     """
+#     Handle all messages except commands. Process user input for pathway creation or username registration.
+#     """
+#     user_id = message.chat.id
 
 
 def start_bot():
