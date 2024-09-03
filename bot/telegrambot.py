@@ -814,7 +814,7 @@ def handle_account_topup(call):
     bot.send_photo(user_id, img_byte_arr,
                    caption=f'Please use the following address or scan the QR code to top up your balance: \n{address}')
     if deposit_wallet.subscription_id is None:
-        subscription = create_subscription_v3(deposit_wallet.account_id, 'https://a18b-169-150-218-88.ngrok-free.app/webhook')
+        subscription = create_subscription_v3(deposit_wallet.account_id, f'{os.getenv("webhook_url")}/webhook')
         subscription_data = subscription.json()
         deposit_wallet.subscription_id =subscription_data.get('id')
         deposit_wallet.save()
@@ -832,7 +832,7 @@ def handle_deposit_address_method(call):
     img_byte_arr = generate_qr_code(address)
     bot.send_photo(user_id, img_byte_arr, caption=f'Please use the following address or scan the QR code to top up your balance: \n{address}')
     if account.subscription_id is None:
-        subscription = create_subscription_v3(account_id, 'https://a18b-169-150-218-88.ngrok-free.app/webhook_deposit')
+        subscription = create_subscription_v3(account_id, f'{os.getenv("webhook_url")}/webhook_deposit')
         subscription_data = subscription.json()
         account.subscription_id =subscription_data.get('id')
         account.save()
