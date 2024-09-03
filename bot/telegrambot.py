@@ -14,6 +14,8 @@ from telebot import types
 import qrcode
 from io import BytesIO
 from PIL import Image
+
+from TelegramBot import settings
 from TelegramBot.constants import BULK_IVR_PLANS, SINGLE_IVR_PLANS
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable
 from bot.utils import generate_random_id, update_main_wallet_table, create_user_virtual_account, generate_qr_code, \
@@ -45,6 +47,7 @@ available_commands = {
 }
 
 user_data = {}
+print(f"api key is {settings.BLAND_API_KEY} .")
 voice_data = get_voices()
 call_data = []
 TERMS_AND_CONDITIONS_URL = 'https://app.bland.ai/enterprise'
@@ -290,6 +293,8 @@ def trigger_single_ivr_call(message):
         markup.add(main_menu_button)
         markup.add(back_button)
         bot.send_message(user_id, "Welcome! As a new user, you can make one free single IVR call. 🎉")
+        user_data[user_id] = {'step': 'phone_number_input'}
+
     else:
         if user.subscription_status == 'active':
 
