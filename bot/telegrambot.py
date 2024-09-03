@@ -598,7 +598,7 @@ def signup(message):
         else:
             bot.send_message(user_id, f"{trc_20}")
     except Exception as e:
-        bot.reply_to(message, "An error occurred. Please try again later.", reply_markup=get_force_reply())
+        bot.reply_to(message, f"An error occurred. Please try again later.{str(e)}", reply_markup=get_force_reply())
 
     markup = types.InlineKeyboardMarkup()
     english_button = types.InlineKeyboardButton("English 🇬🇧", callback_data="language:English")
