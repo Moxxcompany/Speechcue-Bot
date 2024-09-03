@@ -4,7 +4,7 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-
+from TelegramBot.constants import SINGLE_IVR_PLANS, BULK_IVR_PLANS
 from TelegramBot.constants import base_url, invalid_data, error
 from bot.models import Pathways, CallLogsTable, FeedbackDetails, FeedbackLogs
 from bot.utils import add_node, get_pathway_data

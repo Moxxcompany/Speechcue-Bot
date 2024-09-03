@@ -4,7 +4,6 @@ from django.contrib.postgres.fields.array import ArrayField
 from django.db import models
 
 
-# Create your models here.
 class Pathways(models.Model):
     pathway_id = models.TextField(primary_key=True)
     pathway_name = models.TextField()

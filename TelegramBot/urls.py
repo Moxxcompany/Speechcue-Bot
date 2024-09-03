@@ -17,11 +17,14 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from bot import views as bot_views
+from bot.telegrambot import handle_webhook, handle_deposit_webhook
+from payment import views as payment_views
 from django.conf.urls.static import static
 from django.conf import settings
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('create_flow/', bot_views.create_flow, name='create_flow'),
     path('view_flows/', bot_views.view_flows, name='view_flows'),
-
+    path('webhook', handle_webhook, name='handle_webhook'),
+    path('webhook_deposit', handle_deposit_webhook, name='handle_deposit_webhook'),
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -3,3 +3,6 @@ pyTelegramBotAPI==4.21.0
 python-dotenv==1.0.1
 psycopg2-binary==2.9.9
 pandas==2.2.2
+qrcode==7.4.2
+Pillow==9.0.1
+
