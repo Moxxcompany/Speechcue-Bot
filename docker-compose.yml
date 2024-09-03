@@ -28,6 +28,8 @@ services:
     depends_on:
       - web
       - pg_db
+    env_file:
+      - docker.env
     networks:
       - my_network
     restart: always
