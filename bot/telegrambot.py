@@ -292,8 +292,7 @@ def trigger_single_ivr_call(message):
         back_button = types.InlineKeyboardButton("Back ↩️", callback_data="back_to_language")
         markup.add(main_menu_button)
         markup.add(back_button)
-        bot.send_message(user_id, "Welcome! As a new user, you can make one free single IVR call. 🎉")
-        user_data[user_id] = {'step': 'phone_number_input'}
+        bot.send_message(user_id, "Welcome! As a new user, you can make one free single IVR call. 🎉",reply_markup=markup )
 
     else:
         if user.subscription_status == 'active':
