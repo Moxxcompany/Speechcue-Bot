@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: bash -c "docker-compose exec db psql -U postgres -c 'CREATE DATABASE tele_bot;' & python manage.py migrate && python manage.py startbot"
+    command: bash -c "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
     volumes:
       - .:/code
     ports:
@@ -15,8 +15,22 @@ services:
     env_file:
       - docker.env
 
+  bot:
+    build: .
+    command: bash -c "python manage.py startbot"
+    volumes:
+      - .:/code
+    ports:
+      - "8001:8001"
+    environment:
+      - DEBUG=1
+    depends_on:
+      - web
+      - pg_db
+    networks:
+      - my_network
+    restart: always
 
-  # PostgreSQL database service
   pg_db:
     container_name: pg_db
     hostname: db
@@ -25,5 +39,25 @@ services:
       POSTGRES_DB: tele_bot
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5431:5431"
+
+  pgadmin_speech_card:
+    image: dpage/pgadmin4
+    container_name: pgadmin_speech_card
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8080:80"
+    depends_on:
+      - pg_db
+
+networks:
+  my_network:
+    driver: bridge
+
+volumes:
+  db_data:
