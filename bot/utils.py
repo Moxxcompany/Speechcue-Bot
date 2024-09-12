@@ -155,32 +155,46 @@ def set_user_subscription(user, plan_id):
 
 
 def get_btc_price():
-    symbol = "BTCUSDT"
-    response = requests.get(crypto_conversion_base_url, params={"symbol": symbol})
+    url = f"{crypto_conversion_base_url}"
+    params = {
+        'ids': 'bitcoin',
+        'vs_currencies': 'usd'
+    }
+    response = requests.get(url, params=params)
     data = response.json()
-    return float(data['price'])
-
+    return float(data['bitcoin']['usd'])
 
 def get_eth_price():
-    symbol = "ETHUSDT"
-    response = requests.get(crypto_conversion_base_url, params={"symbol": symbol})
+    url = f"{crypto_conversion_base_url}"
+    params = {
+        'ids': 'ethereum',
+        'vs_currencies': 'usd'
+    }
+    response = requests.get(url, params=params)
     data = response.json()
-    return float(data['price'])
+    return float(data['ethereum']['usd'])
 
 def get_trx_price():
-    symbol = "TRXUSDT"
-    response = requests.get(crypto_conversion_base_url, params={"symbol": symbol})
+    url = f"{crypto_conversion_base_url}"
+    params = {
+        'ids': 'tron',
+        'vs_currencies': 'usd'
+    }
+    response = requests.get(url, params=params)
     data = response.json()
-    return float(data['price'])
+    return float(data['tron']['usd'])
 
 def get_ltc_price():
-    symbol = "LTCUSDT"
-    response = requests.get(crypto_conversion_base_url, params={"symbol": symbol})
+    url = f"{crypto_conversion_base_url}"
+    params = {
+        'ids': 'litecoin',
+        'vs_currencies': 'usd'
+    }
+    response = requests.get(url, params=params)
     data = response.json()
-    return float(data['price'])
+    return float(data['litecoin']['usd'])
 
 def convert_dollars_to_crypto(amount_in_usd, price_in_usd):
-    # Ensure both values are floats before division
     return float(amount_in_usd) / float(price_in_usd)
 
 def get_plan_price(payment_currency, plan_price):

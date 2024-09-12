@@ -739,7 +739,7 @@ def handle_payment_method(call):
     user_data[user_id]['payment_currency'] = payment_currency
 
     markup = types.InlineKeyboardMarkup()
-    wallet_button = types.InlineKeyboardButton("Wallet 🏦", callback_data="wallet_payment")
+    wallet_button = types.InlineKeyboardButton("Wallet", callback_data="wallet_payment")
     deposit_address_button = types.InlineKeyboardButton("Get Deposit Address", callback_data="get_deposit_address")
     markup.add(wallet_button)
     markup.add(deposit_address_button)
@@ -761,6 +761,7 @@ def handle_wallet_method(call):
     bot.send_message(user_id,f"Your current balance is {available_balance}." )
     plan_price = float(user_data[user_id]['subscription_price'])
     plan_price = get_plan_price(user_data[user_id]['payment_currency'], plan_price)
+    print(plan_price)
     if float(available_balance) < float(plan_price):
         markup = types.InlineKeyboardMarkup()
         top_up_wallet_button = types.InlineKeyboardButton("Top Up Wallet 💳", callback_data="top_up_wallet")
