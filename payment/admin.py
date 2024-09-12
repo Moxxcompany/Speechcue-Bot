@@ -3,14 +3,14 @@ from payment.models import SubscriptionPlans
 
 @admin.register(SubscriptionPlans)
 class SubscriptionPlansAdmin(admin.ModelAdmin):
-    list_display = (   'name', 'plan_price', 'number_of_calls', 'minutes_of_call_transfer', 'customer_support_level')
-    list_filter = ('plan_price', 'number_of_calls', 'customer_support_level' )
-    search_fields = ('name', 'customer_support_level', )
+    list_display = (   'name', 'plan_price', 'number_of_calls', 'minutes_of_call_transfer', 'customer_support_level', 'validity_days')
+    list_filter = ('plan_price', 'number_of_calls', 'customer_support_level' , 'validity_days')
+    search_fields = ('name', 'customer_support_level','validity_days' )
     ordering = ('plan_price',)
 
     fieldsets = (
         (None, {
-            'fields': ('name', 'plan_price')
+            'fields': ('name', 'plan_price', 'validity_days')
         }),
         ('Call Details', {
             'fields': ('number_of_calls', 'minutes_of_call_transfer')

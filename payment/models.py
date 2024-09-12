@@ -48,7 +48,7 @@ class VirtualAccountsTable(models.Model):
 
 
 class UserSubscription(models.Model):
-    user_id = models.ForeignKey(TelegramUser, on_delete=models.CASCADE, related_name='subscription_user_id')
+    user_id = models.ForeignKey(TelegramUser, on_delete= models.DO_NOTHING,related_name='subscription_user_id')
     subscription_status = models.CharField(max_length=50, null=True, default='inactive')
     plan_id = models.ForeignKey(SubscriptionPlans, on_delete=models.CASCADE, related_name='subscription_user_plan')
     transfer_minutes_left = models.IntegerField(null=True, default=0)

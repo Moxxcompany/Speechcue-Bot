@@ -225,7 +225,8 @@ def get_account_balance(account_id):
 
 def create_subscription_v3(account_id, webhook):
     url = "https://api.tatum.io/v3/subscription"
-
+    print("account id ", account_id)
+    print("webhook ", webhook)
     payload = {
             "type": "ACCOUNT_INCOMING_BLOCKCHAIN_TRANSACTION",
             "attr": {
@@ -233,6 +234,8 @@ def create_subscription_v3(account_id, webhook):
                 "url": f"{webhook}"
             }
     }
+
+    print(f" x api {x_api_key}")
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
@@ -240,7 +243,7 @@ def create_subscription_v3(account_id, webhook):
     }
 
     response = requests.post(url, json=payload, headers=headers)
-
+    print(response)
     return response
 
 #---------------------  PAYMENT  ----------------------#

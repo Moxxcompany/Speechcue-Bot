@@ -1,9 +1,15 @@
 import json
 from io import BytesIO
 import qrcode
-
-from payment.models import MainWalletTable, VirtualAccountsTable
+from django.core.exceptions import ObjectDoesNotExist
+import os
+import requests
+from payment.models import MainWalletTable, VirtualAccountsTable, SubscriptionPlans, UserSubscription
 from payment.views import create_virtual_account, create_deposit_address, get_account_balance
+from user.models import TelegramUser
+
+
+crypto_conversion_base_url = os.getenv('crypto_conversion_base_url')
 
 
 def add_node(data, new_node):
@@ -128,3 +134,71 @@ def check_balance(account_id):
     balance_data = balance.json()
     available_balance = balance_data["availableBalance"]
     return f"{available_balance}"
+
+def set_user_subscription(user, plan_id):
+    try:
+        plan = SubscriptionPlans.objects.get(plan_id=plan_id)
+    except ObjectDoesNotExist:
+        return f"Error: Subscription plan with ID {plan_id} does not exist."
+
+
+    user_subscription, created = UserSubscription.objects.update_or_create(
+        user_id=user,
+        defaults={
+            'subscription_status': 'active',
+            'plan_id': plan,
+            'transfer_minutes_left': plan.minutes_of_call_transfer,
+            'bulk_ivr_calls_left': plan.number_of_calls
+        }
+    )
+    return '200'
+
+
+def get_btc_price():
+    symbol = "BTCUSDT"
+    response = requests.get(crypto_conversion_base_url, params={"symbol": symbol})
+    data = response.json()
+    return float(data['price'])
+
+
+def get_eth_price():
+    symbol = "ETHUSDT"
+    response = requests.get(crypto_conversion_base_url, params={"symbol": symbol})
+    data = response.json()
+    return float(data['price'])
+
+def get_trx_price():
+    symbol = "TRXUSDT"
+    response = requests.get(crypto_conversion_base_url, params={"symbol": symbol})
+    data = response.json()
+    return float(data['price'])
+
+def get_ltc_price():
+    symbol = "LTCUSDT"
+    response = requests.get(crypto_conversion_base_url, params={"symbol": symbol})
+    data = response.json()
+    return float(data['price'])
+
+def convert_dollars_to_crypto(amount_in_usd, price_in_usd):
+    # Ensure both values are floats before division
+    return float(amount_in_usd) / float(price_in_usd)
+
+def get_plan_price(payment_currency, plan_price):
+    if payment_currency == 'BTC':
+        btc_price = get_btc_price()
+        plan_price = convert_dollars_to_crypto(plan_price, btc_price)
+
+    elif payment_currency == 'ETH':
+
+        eth_price = get_eth_price()
+        plan_price = convert_dollars_to_crypto(plan_price, eth_price)
+
+    elif payment_currency == 'TRC':
+        tron_price = get_trx_price()
+        plan_price = convert_dollars_to_crypto(plan_price, tron_price)
+
+    elif payment_currency == 'LTC':
+        ltc_price = get_ltc_price()
+        plan_price = convert_dollars_to_crypto(plan_price, ltc_price)
+
+    return plan_price

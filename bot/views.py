@@ -499,7 +499,8 @@ def send_call_through_pathway(pathway_id, phone_number, user_id):
 
         return pathway, 200
     else:
-        return {{error}: 'Failed to retrieve pathways'}, response.status_code
+        return {f"{response.text}": 'Failed to retrieve pathways'}, response.status_code
+
 
 
 def get_voices():
