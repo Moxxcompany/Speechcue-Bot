@@ -315,56 +315,56 @@ def trigger_delete_node(message):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("delete_node_"))
 def delete_node(call):
     user_id = call.message.chat.id
-    node_name = call.data.replace("delete_node_", "")  # Extract node name from callback data
+    node_name = call.data.replace("delete_node_", "")
 
-    # Fetch the pathway and the payload
     pathway_id = user_data[user_id]['view_pathway']
-    pathway = Pathways.objects.get(pathway_id=pathway_id)
+    try:
+        pathway = Pathways.objects.get(pathway_id=pathway_id)
+    except Pathways.DoesNotExist:
+        bot.send_message(user_id, "Pathway not found.")
+        return
+
     pathway_payload = json.loads(pathway.pathway_payload)  # Parse payload as JSON
 
-    # Locate the node by its name in the nodes array
     nodes = pathway_payload['pathway_data']['nodes']
     node_id_to_delete = None
+
     for node in nodes:
         if node['data']['name'] == node_name:
             node_id_to_delete = node['id']
             break
-    print("Node id to delete: ",node_id_to_delete)
+
     if not node_id_to_delete:
         bot.send_message(user_id, f"Node {node_name} not found.")
         return
-    print("Nodes before: ", nodes)
 
-    nodes = [node for node in nodes if node['id'] != node_id_to_delete]
-    print("Nodes after: ", nodes)
-
+    new_nodes = [node for node in nodes if node['id'] != node_id_to_delete]
     edges = pathway_payload['pathway_data']['edges']
-    edges = [edge for edge in edges if edge['source'] != node_id_to_delete and edge['target'] != node_id_to_delete]
-    print("Edge ",edges)
+    new_edges = [edge for edge in edges if edge['source'] != node_id_to_delete and edge['target'] != node_id_to_delete]
 
-    print(pathway_payload)
-    pathway_name = pathway_payload['pathway_data']['name']
-    pathway_description = pathway_payload['pathway_data']['description']
+    pathway_payload['pathway_data']['nodes'] = new_nodes
+    pathway_payload['pathway_data']['edges'] = new_edges
 
-    pathway.pathway_payload = json.dumps(pathway_payload)  # Convert back to JSON string
+    pathway.pathway_payload = json.dumps(pathway_payload)
+
     data = {
-        "name": pathway_name,
-        "description": pathway_description,
-        "nodes": nodes,
-        "edges": edges
+        "name": pathway_payload['pathway_data']['name'],
+        "description": pathway_payload['pathway_data']['description'],
+        "nodes": new_nodes,
+        "edges": new_edges
     }
+
     updated = handle_add_node(pathway_id, data)
     if updated.status_code != 200:
         bot.send_message(user_id, f"Failed to update due to the following error:\n"
                                   f"{updated.text}")
         return
-    bot.send_message(user_id, f"Node {node_name} and its associated edges have been deleted.")
-    # pathway_payload['pathway_data']['nodes'] = nodes
-    # pathway_payload['pathway_data']['edges'] = edges
+
     pathway.pathway_payload = updated.text
     pathway.save()
-    print("After updating: " ,pathway_payload)
 
+
+    bot.send_message(user_id, f"Node {node_name} and its associated edges have been deleted successfully.")
 
 @bot.message_handler(func=lambda message: message.text == 'Retry Node 🔄')
 def trigger_retry_node(message):
@@ -978,7 +978,7 @@ def handle_webhook(request):
     fromm = data.get("from")
     user = VirtualAccountsTable.objects.get(account_id=account_id)
     user_id = user.user_id
-    bot.send_message(user_id, f"Top Up successful! ✅ ")
+    bot.send_message(user_id, f"Top Up successful! ✅ ", reply_markup=get_main_menu())
     balance = get_account_balance(account_id)
     if balance.status_code != 200:
         bot.send_message(user_id, f"Error occurred while getting the balance:\n{balance.json()}")
