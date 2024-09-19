@@ -1839,7 +1839,7 @@ def handle_language_selection(call):
     selected_language = call.data.split(":")[1]
     user_data[user_id] = {'language': selected_language, 'step': 'terms_and_conditions'}
     bot.send_message(user_id,
-                     f"You have selected {selected_language}. Please review and accept the Terms and Conditions to proceed.")
+                     f"You have selected {selected_language}.")
     markup = types.InlineKeyboardMarkup()
     view_terms_button = types.InlineKeyboardButton("View Terms and Conditions 📜", callback_data="view_terms")
     back_button = types.InlineKeyboardButton("Back ↩️", callback_data="back_to_language")

@@ -233,6 +233,11 @@ def get_plan_price(payment_currency, plan_price):
 
     return plan_price
 
+
+def remove_spaces(username):
+
+
+
 #-------------- Decorator Functions ---------------#
 
 def check_subscription_status(func):
