@@ -235,7 +235,7 @@ def get_plan_price(payment_currency, plan_price):
 
 
 def remove_spaces(username):
-
+    pass
 
 
 #-------------- Decorator Functions ---------------#
