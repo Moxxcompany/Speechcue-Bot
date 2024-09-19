@@ -14,7 +14,7 @@ from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTabl
 from bot.utils import generate_random_id, update_main_wallet_table, create_user_virtual_account, generate_qr_code, \
     check_balance, set_user_subscription, convert_dollars_to_crypto, get_btc_price, get_eth_price, get_ltc_price, \
     get_trx_price, crypto_conversion_base_url, get_plan_price, check_validity, \
-    check_subscription_status
+    check_subscription_status, username_formating
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
@@ -559,7 +559,8 @@ def get_user_name(message):
 def get_profile_language(message):
     user_id = message.chat.id
     text = message.text
-    username = text + str(user_id)
+    username = username_formating(text)
+    username = username + str(user_id)
     user = TelegramUser.objects.get(user_id=user_id)
     user.user_name = username
     user.save()

@@ -234,8 +234,8 @@ def get_plan_price(payment_currency, plan_price):
     return plan_price
 
 
-def remove_spaces(username):
-    pass
+def username_formating(username):
+    return username.replace(' ', '_').lower
 
 
 #-------------- Decorator Functions ---------------#
