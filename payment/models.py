@@ -53,3 +53,5 @@ class UserSubscription(models.Model):
     plan_id = models.ForeignKey(SubscriptionPlans, on_delete=models.CASCADE, related_name='subscription_user_plan')
     transfer_minutes_left = models.IntegerField(null=True, default=0)
     bulk_ivr_calls_left = models.IntegerField(null=True, default=0)
+    date_of_subscription = models.DateField(auto_now_add=True, blank=True, null=True)
+    date_of_expiry = models.DateField(null = True, blank=True)

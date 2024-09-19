@@ -7,10 +7,13 @@ import requests
 from payment.models import MainWalletTable, VirtualAccountsTable, SubscriptionPlans, UserSubscription
 from payment.views import create_virtual_account, create_deposit_address, get_account_balance
 from user.models import TelegramUser
-
-
+from datetime import timedelta
+from django.utils import timezone
+from functools import wraps
+from bot.bot_config import *
 crypto_conversion_base_url = os.getenv('crypto_conversion_base_url')
-
+import random
+import string
 
 def add_node(data, new_node):
     data = json.loads(data)
@@ -19,9 +22,7 @@ def add_node(data, new_node):
     return nodes
 
 def generate_random_id(length=20):
-    """Generates a random ID with a given length"""
-    import random
-    import string
+
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 def get_pathway_data(data):
@@ -135,22 +136,37 @@ def check_balance(account_id):
     available_balance = balance_data["availableBalance"]
     return f"{available_balance}"
 
+
 def set_user_subscription(user, plan_id):
     try:
+        # Fetch the subscription plan based on the plan_id
         plan = SubscriptionPlans.objects.get(plan_id=plan_id)
     except ObjectDoesNotExist:
         return f"Error: Subscription plan with ID {plan_id} does not exist."
 
+    # Get the current date
+    date_of_subscription = timezone.now().date()
+    try:
+        validity_days = int(plan.validity_days)
+    except (ValueError, TypeError):
+        return "Error: Invalid validity_days in the subscription plan."
 
+    # Calculate the date_of_expiry by adding the validity_days to the subscription date
+    date_of_expiry = date_of_subscription + timedelta(days=validity_days)
+
+    # Update or create the user's subscription
     user_subscription, created = UserSubscription.objects.update_or_create(
         user_id=user,
         defaults={
             'subscription_status': 'active',
             'plan_id': plan,
             'transfer_minutes_left': plan.minutes_of_call_transfer,
-            'bulk_ivr_calls_left': plan.number_of_calls
+            'bulk_ivr_calls_left': plan.number_of_calls,
+            'date_of_subscription': date_of_subscription,
+            'date_of_expiry': date_of_expiry
         }
     )
+
     return '200'
 
 
@@ -216,3 +232,67 @@ def get_plan_price(payment_currency, plan_price):
         plan_price = convert_dollars_to_crypto(plan_price, ltc_price)
 
     return plan_price
+
+#-------------- Decorator Functions ---------------#
+
+def check_subscription_status(func):
+    @wraps(func)
+    def wrapper(call, *args, **kwargs):
+        user_id = call.message.chat.id
+
+        if check_expiry_date(user_id):
+            return func(call, *args, **kwargs)
+        else:
+            change_subscription_status(user_id)
+            bot.send_message(user_id, "Please check your subscription status! "
+                                      "You're currently not subscribed to any plan!")
+            return None
+
+    return wrapper
+
+def change_subscription_status(user_id):
+    try:
+        subscription = UserSubscription.objects.get(user_id__user_id=user_id)
+        if subscription.subscription_status != 'inactive':
+            subscription.subscription_status = 'inactive'
+            subscription.save()
+    except UserSubscription.DoesNotExist:
+        pass
+    try:
+        user = TelegramUser.objects.get(user_id=user_id)
+        if user.subscription_status != 'inactive':
+            user.subscription_status = 'inactive'
+            user.save()
+
+    except TelegramUser.DoesNotExist:
+        pass
+
+
+def check_validity(func):
+    @wraps(func)
+    def wrapper(message, *args, **kwargs):
+        user_id = message.chat.id
+
+        if check_expiry_date(user_id):
+            return func(message, *args, **kwargs)
+        else:
+            change_subscription_status(user_id)
+            bot.send_message(user_id, "Please check your subscription status! "
+                                      "You're currently not subscribed to any plan!")
+            return None
+
+    return wrapper
+
+def check_expiry_date(user_id):
+    try:
+        user = TelegramUser.objects.get(user_id=user_id)
+        user_subscription = UserSubscription.objects.get(user_id=user)
+    except TelegramUser.DoesNotExist:
+        return False
+    except UserSubscription.DoesNotExist:
+        return False
+
+    current_date = timezone.now().date()
+    print(current_date, " ", user_subscription.date_of_expiry)
+    return user_subscription.date_of_expiry and current_date < user_subscription.date_of_expiry
+

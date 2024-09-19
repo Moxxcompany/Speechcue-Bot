@@ -13,7 +13,8 @@ from TelegramBot.constants import BULK_IVR_PLANS, SINGLE_IVR_PLANS
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable
 from bot.utils import generate_random_id, update_main_wallet_table, create_user_virtual_account, generate_qr_code, \
     check_balance, set_user_subscription, convert_dollars_to_crypto, get_btc_price, get_eth_price, get_ltc_price, \
-    get_trx_price, crypto_conversion_base_url, get_plan_price
+    get_trx_price, crypto_conversion_base_url, get_plan_price, check_validity, \
+    check_subscription_status
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
@@ -108,7 +109,10 @@ def get_user_profile(message):
 def handle_help(message):
     user_id = message.chat.id
     bot.send_message(user_id, f"Here are the available commands:", reply_markup=get_available_commands())
+
+
 @bot.message_handler(func=lambda message: message.text == 'Bulk IVR Call 📞📞')
+@check_validity
 def trigger_bulk_ivr_call(message):
 
     user_id = message.chat.id
@@ -137,14 +141,13 @@ def get_billing_and_subscription_keyboard():
     markup.add(back_btn)
     return markup
 
-
 @bot.message_handler(func=lambda message: message.text == 'Billing and Subscription 📅')
 def trigger_billing_and_subscription(message):
     user_id = message.chat.id
     bot.send_message(user_id, "Select from the following:", reply_markup=get_billing_and_subscription_keyboard())
 
-
 @bot.callback_query_handler(func=lambda call: call.data == 'view_subscription')
+@check_subscription_status
 def handle_view_subscription(call):
     user_id = call.message.chat.id
 
@@ -222,6 +225,7 @@ def trigger_text_to_speech(message):
     handle_get_node_type(message)
 
 @bot.message_handler(func=lambda message: message.text == 'Single IVR Call ☎️')
+@check_validity
 def trigger_single_ivr_call(message):
     """
    Handles the 'Single IVR Call ☎️' menu option to initiate an IVR call.
@@ -258,13 +262,9 @@ def trigger_flow_single(call):
 
 @bot.message_handler(func=lambda message: message.text == 'Back')
 def trigger_back_flow(message):
-    """
-    Handles the 'Back' menu option to display previous flows.
+    user_id = message.chat.id
+    bot.send_message(user_id, "Welcome to main menu!", reply_markup=get_main_menu())
 
-    Args:
-        message: The message object from the user.
-    """
-    display_flows(message)
 
 @bot.message_handler(
     func=lambda message: message.text == 'Done Adding Nodes' or message.text == 'Continue Adding Edges ▶️')
@@ -632,7 +632,6 @@ def handle_activate_subscription(call):
 
     # Retrieve all subscription plans from the database
     plans = SubscriptionPlans.objects.all()
-
     # Create a message with details of all plans
     message_text = "Available subscription plans:\n\n"
     for plan in plans:
@@ -643,13 +642,19 @@ def handle_activate_subscription(call):
                          f"🔧 Customer Support Level: {plan.customer_support_level}\n"
                          f"📅 Validity: {plan.validity_days} days\n\n")
 
+    plan_names = set(plan.name for plan in plans)
+    plan_names_list = list(plan_names)
+
     message_text += "Please select a subscription plan below:"
 
     markup = types.InlineKeyboardMarkup()
 
-    for plan in plans:
-        plan_button = types.InlineKeyboardButton(plan.name, callback_data=f"plan_{plan.plan_id}")
+    for plan_name in plan_names_list:
+        plan_button = types.InlineKeyboardButton(plan_name, callback_data=f"plan_name_{plan_name}")
         markup.add(plan_button)
+
+
+
 
     # Add a back button
     back_button = types.InlineKeyboardButton("Back ↩️", callback_data="back_to_welcome_message")
@@ -657,6 +662,31 @@ def handle_activate_subscription(call):
 
     # Send the message with plan details and selection buttons
     bot.send_message(user_id, message_text, reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("plan_name_"))
+def view_plan_validity(call):
+    user_id = call.message.chat.id
+    plan_name = call.data.split("_")[2]
+
+    print("Selected plan name is : ",plan_name)
+    plans = SubscriptionPlans.objects.filter(name=plan_name)
+    message_text = f"{plan_name} subscription plans with different validity:\n\n"
+    for plan in plans:
+        message_text += (f"📅 Validity: {plan.validity_days} days\n\n"
+                         f"🆔 Plan Name: {plan.name} Plan 📅\n"
+                         f"💲 Price: ${plan.plan_price:.6f}\n"
+                         f"📞 Number of Calls: {plan.number_of_calls}\n"
+                         f"🕒 Minutes of Call Transfer: {plan.minutes_of_call_transfer}\n"
+                         f"🔧 Customer Support Level: {plan.customer_support_level}\n")
+
+    markup = types.InlineKeyboardMarkup()
+    for plan in plans:
+        plan_button = types.InlineKeyboardButton(f"{plan.validity_days} Days", callback_data=f"plan_{plan.plan_id}")
+        markup.add(plan_button)
+
+    bot.send_message(user_id, f"{message_text}\nSelect validity for your plan:\n\n", reply_markup=markup)
+
+
 
 @bot.callback_query_handler(func=lambda call: call.data == 'back_to_welcome_message')
 def handle_back_message(call):
@@ -696,8 +726,23 @@ def handle_plan_selection(call):
     user.plan = plan.plan_id
     user.save()
 
-    bot.send_message(user_id, invoice_message, parse_mode="Markdown")
+    if plan.plan_price == 0:
+        if user.free_plan:
+            bot.send_message(user_id, invoice_message, parse_mode="Markdown")
+            bot.send_message(user_id, f"You have successfully subscribed to {plan.name}. You have unlimited number "
+                                      f"of SINGLE IVR calls, {plan.number_of_calls} of BULK IVR calls, and "
+                                      f"{plan.minutes_of_call_transfer} number of transfer call minutes valid "
+                                      f"for {plan.validity_days} days.\n", reply_markup=get_billing_and_subscription_keyboard())
+            set_subscription = set_user_subscription(user, plan_id)
+            if set_subscription != '200':
+                bot.send_message(user_id, set_subscription)
+            user.subscription_status = 'active'
+            user.free_plan = False
+            user.save()
 
+        else:
+            bot.send_message(user_id, "You have already availed your free trial!", reply_markup=get_billing_and_subscription_keyboard())
+        return
     markup = types.InlineKeyboardMarkup()
     payment_methods = ['Bitcoin (BTC) ₿', 'Ethereum (ETH) Ξ', 'TRC-20 USDT 💵', 'ERC-20 USDT 💵',
                        'Litecoin (LTC) Ł', 'Back ↩️']

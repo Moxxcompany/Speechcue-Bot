@@ -34,12 +34,18 @@ class VirtualAccountsTableAdmin(admin.ModelAdmin):
     list_display = ('user', 'balance', 'currency', 'account_detail', 'account_id')
     search_fields = ('user__username', 'account_detail', 'currency')
     list_filter = ('currency',)
-
 @admin.register(UserSubscription)
 class UserSubscriptionAdmin(admin.ModelAdmin):
-    list_display = ('user_id_id', 'subscription_status', 'plan_id', 'transfer_minutes_left', 'bulk_ivr_calls_left')  # Display user_id_id instead of the object
+    # Custom method to display the Telegram user_id
+    def get_user_id(self, obj):
+        return obj.user_id.user_id  # Access the user_id from the related TelegramUser
+
+    get_user_id.short_description = 'User ID'  # This will change the column name in the admin interface
+
+    list_display = ('get_user_id', 'subscription_status', 'plan_id', 'transfer_minutes_left', 'bulk_ivr_calls_left',
+                    'date_of_subscription', 'date_of_expiry')
     list_filter = ('subscription_status', 'plan_id')
-    search_fields = ('user_id__id', 'subscription_status', 'plan_id__name')  # Search by user_id's actual id
+    search_fields = ('user_id__user_id', 'subscription_status', 'plan_id__name')  # Search by the user_id directly
     ordering = ('subscription_status', 'plan_id')
 
     fieldsets = (
@@ -47,6 +53,6 @@ class UserSubscriptionAdmin(admin.ModelAdmin):
             'fields': ('user_id', 'subscription_status')
         }),
         ('Plan Details', {
-            'fields': ('plan_id', 'transfer_minutes_left', 'bulk_ivr_calls_left')
+            'fields': ('plan_id', 'transfer_minutes_left', 'bulk_ivr_calls_left', 'date_of_expiry')
         }),
     )
