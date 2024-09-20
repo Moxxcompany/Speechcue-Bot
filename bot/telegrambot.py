@@ -9,11 +9,10 @@ from rest_framework.decorators import api_view
 from telebot import types
 
 import bot.utils
-from TelegramBot.constants import BULK_IVR_PLANS, SINGLE_IVR_PLANS
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable
-from bot.utils import generate_random_id, update_main_wallet_table, create_user_virtual_account, generate_qr_code, \
+from bot.utils import generate_random_id, create_user_virtual_account, generate_qr_code, \
     check_balance, set_user_subscription, convert_dollars_to_crypto, get_btc_price, get_eth_price, get_ltc_price, \
-    get_trx_price, crypto_conversion_base_url, get_plan_price, check_validity, \
+    get_trx_price, get_plan_price, check_validity, \
     check_subscription_status, username_formating
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
@@ -735,7 +734,7 @@ def handle_plan_selection(call):
             bot.send_message(user_id, f"You have successfully subscribed to {plan.name}. You have unlimited number "
                                       f"of SINGLE IVR calls, {plan.number_of_calls} of BULK IVR calls, and "
                                       f"{plan.minutes_of_call_transfer} number of transfer call minutes valid "
-                                      f"for {plan.validity_days} days.\n", reply_markup=get_billing_and_subscription_keyboard())
+                                      f"for {plan.validity_days} days.\n", reply_markup=get_main_menu())
             set_subscription = set_user_subscription(user, plan_id)
             if set_subscription != '200':
                 bot.send_message(user_id, set_subscription)
