@@ -561,11 +561,12 @@ def get_profile_language(message):
     user_id = message.chat.id
     text = message.text
     username = username_formating(text)
-    username = username + str(user_id)
+    username = f"{username}_{user_id}"
+    username_formatting = username.replace('_', '\\_')
+    bot.send_message(user_id, f"Your username is {username_formatting}", parse_mode="MarkdownV2")
     user = TelegramUser.objects.get(user_id=user_id)
     user.user_name = username
     user.save()
-    bot.send_message(user_id, f"Your username is {username}")
 
     # Create the markup
     markup = types.InlineKeyboardMarkup()

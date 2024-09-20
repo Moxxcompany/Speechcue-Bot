@@ -235,7 +235,11 @@ def get_plan_price(payment_currency, plan_price):
 
 
 def username_formating(username):
-    return username.replace(' ', '_').lower()
+    username = username.lower()
+    print("username after converting to lower case ", username)
+    username = username.replace(" ", "_")
+    print("After replacing spaces ",username)
+    return username
 
 
 #-------------- Decorator Functions ---------------#
