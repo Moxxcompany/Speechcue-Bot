@@ -46,6 +46,9 @@ services:
       - "5432:5432"
     networks:
       - my_network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
 
   pgadmin_speech_card:
     image: dpage/pgadmin4
@@ -63,3 +66,7 @@ services:
 networks:
   my_network:
     driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
