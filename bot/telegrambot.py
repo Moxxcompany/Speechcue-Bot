@@ -189,29 +189,30 @@ def update_subscription(call):
 def check_wallet(call):
 
     user_id = call.message.chat.id
+
     bot.send_message(user_id, "Checking your wallets...")
-    bitcoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='BTC').account_id
-    etheruem = VirtualAccountsTable.objects.get(user_id=user_id, currency='ETH').account_id
-    tron = VirtualAccountsTable.objects.get(user_id=user_id, currency='TRON').account_id
-    litecoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='LTC').account_id
-    bitcoin_balance = check_balance(bitcoin)
-    bot.send_message(user_id,f"Bitcoin : {bitcoin_balance} BTC")
-    etheruem_balance = check_balance(etheruem)
-    bot.send_message(user_id,  f"Ethereum & USSTD (ERC-20) : {etheruem_balance} ETH")
-    tron_balance = check_balance(tron)
-    bot.send_message(user_id,f"USTD (TRC-20) : {tron_balance} TRC")
-    litecoin_balance = check_balance(litecoin)
+    try:
+        bitcoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='BTC').account_id
+        etheruem = VirtualAccountsTable.objects.get(user_id=user_id, currency='ETH').account_id
+        tron = VirtualAccountsTable.objects.get(user_id=user_id, currency='TRON').account_id
+        litecoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='LTC').account_id
+        bitcoin_balance = check_balance(bitcoin)
+        bot.send_message(user_id,f"Bitcoin : {bitcoin_balance} BTC")
+        etheruem_balance = check_balance(etheruem)
+        bot.send_message(user_id,  f"Ethereum & USSTD (ERC-20) : {etheruem_balance} ETH")
+        tron_balance = check_balance(tron)
+        bot.send_message(user_id,f"USTD (TRC-20) : {tron_balance} TRC")
+        litecoin_balance = check_balance(litecoin)
 
-    markup = InlineKeyboardMarkup()
-    top_up_wallet_button = types.InlineKeyboardButton("Top Up Wallet 💳", callback_data="top_up_wallet")
-    back_button = types.InlineKeyboardButton("Back", callback_data=get_billing_and_subscription_keyboard())
-    markup.add(top_up_wallet_button)
-    markup.add(back_button)
-    bot.send_message(user_id,f"Litecoin : {litecoin_balance} LTC",reply_markup=markup)
-
-
-
-
+        markup = InlineKeyboardMarkup()
+        top_up_wallet_button = types.InlineKeyboardButton("Top Up Wallet 💳", callback_data="top_up_wallet")
+        back_button = types.InlineKeyboardButton("Back", callback_data=get_billing_and_subscription_keyboard())
+        markup.add(top_up_wallet_button)
+        markup.add(back_button)
+        bot.send_message(user_id,f"Litecoin : {litecoin_balance} LTC",reply_markup=markup)
+    except Exception as e:
+        bot.send_message(user_id, f"Cannot process your request due to the following server issue. \n\n"
+                                  f"{e}")
 
 @bot.message_handler(func=lambda message: message.text == 'Add Another Phone Numbers')
 def trigger_yes(message):
@@ -793,60 +794,118 @@ def handle_payment_method(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'wallet_payment')
 def handle_wallet_method(call):
-
     user_id = call.message.chat.id
-    user = VirtualAccountsTable.objects.get(user_id=user_id, currency=user_data[user_id]['payment_currency'])
-    print("Payment currency: ",user_data[user_id]['payment_currency'])
 
-    account_id = user.account_id
-    balance = get_account_balance(account_id)
-    if balance.status_code != 200:
-        bot.send_message(user_id, f"Error occurred while getting the balance:\n{balance.json()}")
-    balance_data = balance.json()
-    available_balance = balance_data["availableBalance"]
-    bot.send_message(user_id,f"Your current balance is {available_balance}." )
-    plan_price = float(user_data[user_id]['subscription_price'])
-    plan_price = get_plan_price(user_data[user_id]['payment_currency'], plan_price)
-    print(plan_price)
-    if float(available_balance) < float(plan_price):
-        markup = types.InlineKeyboardMarkup()
-        top_up_wallet_button = types.InlineKeyboardButton("Top Up Wallet 💳", callback_data="top_up_wallet")
-        back_button = types.InlineKeyboardButton("Back", callback_data='back_to_handle_payment')
-        markup.add(top_up_wallet_button)
-        markup.add(back_button)
-        bot.send_message(user_id, 'Insufficient balance.Please top up your wallet or select another payment method. ⚠️', reply_markup=markup)
-    else:
+    try:
+        # Get the user's virtual account based on user_id and payment currency
+        user = VirtualAccountsTable.objects.get(user_id=user_id, currency=user_data[user_id]['payment_currency'])
+        print("Payment currency: ", user_data[user_id]['payment_currency'])
+
+    except VirtualAccountsTable.DoesNotExist:
+        bot.send_message(user_id, "Your virtual account was not found.")
+        return
+    except Exception as e:
+        bot.send_message(user_id, f"An error occurred while fetching your account: {str(e)}")
+        return
+
+    try:
+        account_id = user.account_id
+        balance = get_account_balance(account_id)
+
+        if balance.status_code != 200:
+            bot.send_message(user_id, f"Error occurred while getting the balance:\n{balance.json()}")
+            return
+
+        balance_data = balance.json()
+        available_balance = balance_data["availableBalance"]
+        bot.send_message(user_id, f"Your current balance is {available_balance}.")
+    except Exception as e:
+        bot.send_message(user_id, f"An error occurred while fetching the balance: {str(e)}")
+        return
+
+    try:
+        plan_price = float(user_data[user_id]['subscription_price'])
+        plan_price = get_plan_price(user_data[user_id]['payment_currency'], plan_price)
+        print(plan_price)
+
+        if float(available_balance) < float(plan_price):
+            markup = types.InlineKeyboardMarkup()
+            top_up_wallet_button = types.InlineKeyboardButton("Top Up Wallet 💳", callback_data="top_up_wallet")
+            back_button = types.InlineKeyboardButton("Back", callback_data='back_to_handle_payment')
+            markup.add(top_up_wallet_button)
+            markup.add(back_button)
+            bot.send_message(user_id, 'Insufficient balance. Please top up your wallet or select another payment method. ⚠️', reply_markup=markup)
+            return
+
+    except Exception as e:
+        bot.send_message(user_id, f"An error occurred while calculating the plan price: {str(e)}")
+        return
+
+    try:
+        # Get the receiver's virtual account
         receiver = MainWalletTable.objects.get(currency=user_data[user_id]['payment_currency'])
         receiver_account = receiver.virtual_account
-        payment_response= send_payment(account_id, receiver_account, float(plan_price))
-        if payment_response.status_code != 200:
-            bot.send_message(user_id, f"Error occurred while getting the payment response:\n{payment_response.json()}")
-        else:
-            balance = get_account_balance(account_id)
-            if balance.status_code != 200:
-                bot.send_message(user_id, f"Error occurred while updating sender balance:\n{balance.json()}")
-            balance_data = balance.json()
-            available_balance = balance_data["availableBalance"]
-            user.balance = available_balance
-            user.save()
-            balance = get_account_balance(receiver_account)
-            if balance.status_code != 200:
-                bot.send_message(user_id, f"Error occurred while updating receiver balance:\n{balance.json()}")
-            balance_data = balance.json()
-            available_balance = balance_data["availableBalance"]
-            receiver.balance = available_balance
-            receiver.save()
-            plan_id = user_data[user_id]['subscription_id']
-            current_user = TelegramUser.objects.get(user_id=user_id)
-            current_user.subscription_status = 'active'
-            current_user.plan = plan_id
-            current_user.save()
-            set_subscription = set_user_subscription(current_user, plan_id)
-            if set_subscription != '200':
-                bot.send_message(user_id, set_subscription)
-            send_confirmation_menu(user_id)
-            bot.send_message(user_id, f"Payment successful! ✅ Subscription activated. Here is the main menu: ", reply_markup=get_main_menu())
 
+        # Send payment from user's account to receiver's account
+        payment_response = send_payment(account_id, receiver_account, float(plan_price))
+
+        if payment_response.status_code != 200:
+            bot.send_message(user_id, f"Error occurred while processing the payment:\n{payment_response.json()}")
+            return
+
+    except MainWalletTable.DoesNotExist:
+        bot.send_message(user_id, "The receiver's wallet could not be found.")
+        return
+    except Exception as e:
+        bot.send_message(user_id, f"An error occurred while processing the payment: {str(e)}")
+        return
+
+    try:
+        # Update balances for both user and receiver
+        balance = get_account_balance(account_id)
+        if balance.status_code != 200:
+            bot.send_message(user_id, f"Error occurred while updating sender balance:\n{balance.json()}")
+            return
+
+        balance_data = balance.json()
+        available_balance = balance_data["availableBalance"]
+        user.balance = available_balance
+        user.save()
+
+        balance = get_account_balance(receiver_account)
+        if balance.status_code != 200:
+            bot.send_message(user_id, f"Error occurred while updating receiver balance:\n{balance.json()}")
+            return
+
+        balance_data = balance.json()
+        available_balance = balance_data["availableBalance"]
+        receiver.balance = available_balance
+        receiver.save()
+
+    except Exception as e:
+        bot.send_message(user_id, f"An error occurred while updating balances: {str(e)}")
+        return
+
+    try:
+        # Activate the subscription
+        plan_id = user_data[user_id]['subscription_id']
+        current_user = TelegramUser.objects.get(user_id=user_id)
+        current_user.subscription_status = 'active'
+        current_user.plan = plan_id
+        current_user.save()
+
+        set_subscription = set_user_subscription(current_user, plan_id)
+        if set_subscription != '200':
+            bot.send_message(user_id, set_subscription)
+            return
+
+        send_confirmation_menu(user_id)
+        bot.send_message(user_id, f"Payment successful! ✅ Subscription activated. Here is the main menu:", reply_markup=get_main_menu())
+
+    except TelegramUser.DoesNotExist:
+        bot.send_message(user_id, "User information not found.")
+    except Exception as e:
+        bot.send_message(user_id, f"An error occurred while activating the subscription: {str(e)}")
 
 def get_currency_keyboard():
     markup = types.InlineKeyboardMarkup()
@@ -963,7 +1022,6 @@ def handle_deposit_webhook(request):
     user_account = VirtualAccountsTable.objects.get(main_wallet_deposit_address=to)
     user = user_account.user
     user_id = user.user_id
-
     balance = get_account_balance(account_id)
     if balance.status_code != 200:
         bot.send_message(user_id, f"Error occurred while getting the balance:\n{balance.json()}")
