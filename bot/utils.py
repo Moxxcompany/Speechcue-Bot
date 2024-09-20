@@ -235,7 +235,7 @@ def get_plan_price(payment_currency, plan_price):
 
 
 def username_formating(username):
-    return username.replace(' ', '_').lower
+    return username.replace(' ', '_').lower()
 
 
 #-------------- Decorator Functions ---------------#
