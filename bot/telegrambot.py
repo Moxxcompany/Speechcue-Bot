@@ -520,14 +520,8 @@ def trigger_delete_flow(message):
 def view_main_menu(message):
     user_id = message.chat.id
     user_data[user_id]['first_node'] = False
-    markup = InlineKeyboardMarkup()
-    for language, flag in languages_flag:
-        language_button = types.InlineKeyboardButton(
-            text=f"{language} {flag} ",
-            callback_data=f"flowlanguage:{language}"
-        )
-        markup.add(language_button)
-    bot.send_message(user_id, "Select the language for the node you want to add:", reply_markup=markup)
+
+    bot.send_message(user_id, "Select the language for the node you want to add:", reply_markup=get_language_markup('flowlanguage'))
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'select_node')
 def select_node(message):
@@ -573,18 +567,7 @@ def get_profile_language(message):
     user = TelegramUser.objects.get(user_id=user_id)
     user.user_name = username
     user.save()
-
-    # Create the markup
-    markup = types.InlineKeyboardMarkup()
-
-    for language, flag in languages_flag:
-        language_button = types.InlineKeyboardButton(
-            text=f"{language} {flag} ",
-            callback_data=f"language:{language}"
-        )
-        markup.add(language_button)
-
-    bot.send_message(user_id, "Please select your preferred language:", reply_markup=markup)
+    bot.send_message(user_id, "Please select your preferred language:", reply_markup=get_language_markup('language'))
 
 @bot.message_handler(commands=['sign_up', 'start'])
 def signup(message):
@@ -1261,15 +1244,8 @@ def handle_ask_description(message):
         res = empty_nodes(pathway_name, pathway_description, pathway_id)
         user_data[user_id]['first_node'] = True
         bot.send_message(user_id, f"IVR Flow '{pathway_name}' created! ✅ ")
-        markup = InlineKeyboardMarkup()
-        for language, flag in languages_flag:
-            language_button = types.InlineKeyboardButton(
-                text=f"{language} {flag} ",
-                callback_data=f"flowlanguage:{language}"
-            )
 
-            markup.add(language_button)
-        bot.send_message(user_id, f"Now, please select the language for this flow:", reply_markup=markup)
+        bot.send_message(user_id, f"Now, please select the language for this flow:", reply_markup=get_language_markup('flowlanguage'))
 
         #
         # if message.text not in languages:
