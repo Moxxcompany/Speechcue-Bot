@@ -519,8 +519,15 @@ def trigger_delete_flow(message):
 @bot.message_handler(func=lambda message: message.text == "Add Node")
 def view_main_menu(message):
     user_id = message.chat.id
-    user_data[user_id]['step'] = 'select_node'
-    bot.send_message(user_id, "Select the language for the node you want to add:", reply_markup=get_language_menu())
+    user_data[user_id]['first_node'] = False
+    markup = InlineKeyboardMarkup()
+    for language, flag in languages_flag:
+        language_button = types.InlineKeyboardButton(
+            text=f"{language} {flag} ",
+            callback_data=f"flowlanguage:{language}"
+        )
+        markup.add(language_button)
+    bot.send_message(user_id, "Select the language for the node you want to add:", reply_markup=markup)
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'select_node')
 def select_node(message):
@@ -572,7 +579,7 @@ def get_profile_language(message):
 
     for language, flag in languages_flag:
         language_button = types.InlineKeyboardButton(
-            text=f"{flag} {language}",
+            text=f"{language} {flag} ",
             callback_data=f"language:{language}"
         )
         markup.add(language_button)
@@ -1254,11 +1261,19 @@ def handle_ask_description(message):
         res = empty_nodes(pathway_name, pathway_description, pathway_id)
         user_data[user_id]['first_node'] = True
         bot.send_message(user_id, f"IVR Flow '{pathway_name}' created! ✅ ")
-        bot.send_message(user_id, f"Now, please select the language for this flow:", reply_markup=get_language_menu())
+        markup = InlineKeyboardMarkup()
+        for language, flag in languages_flag:
+            language_button = types.InlineKeyboardButton(
+                text=f"{language} {flag} ",
+                callback_data=f"flowlanguage:{language}"
+            )
 
+            markup.add(language_button)
+        bot.send_message(user_id, f"Now, please select the language for this flow:", reply_markup=markup)
 
-        if message.text not in languages:
-            user_data[user_id]['step'] = 'show_error_language'
+        #
+        # if message.text not in languages:
+        #     user_data[user_id]['step'] = 'show_error_language'
 
 
     else:
@@ -1272,26 +1287,22 @@ def handle_add_start_node(message):
     add_node(message)
 
 
-@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'show_error_language')
-def handle_show_error_node_type(message):
-    user_id = message.chat.id
-    if message.text in languages:
-        user_data[user_id]['select_language'] = message.text
-        first_node = user_data[user_id]['first_node']
-        if first_node:
-            user_data[user_id]['message_type'] = 'Play Message'
-            message.text = 'Play Message ▶️'
-            user_data[user_id]['first_node'] = False
-            bot.send_message(user_id, "Add your greeting node!")
-            add_node(message)
+@bot.callback_query_handler(func=lambda call : call.data.startswith('flowlanguage:'))
+def handle_add_flow_language(call):
+    user_id = call.message.chat.id
+    text = call.data
+    lang = text.split(":")[1]
+    user_data[user_id]['select_language'] = lang
+    first_node = user_data[user_id]['first_node']
+    if first_node:
+        user_data[user_id]['message_type'] = 'Play Message'
+        call.message.text = 'Play Message ▶️'
+        user_data[user_id]['first_node'] = False
+        bot.send_message(user_id, "Add your greeting node!")
+        add_node(call.message)
 
-        else:
-            bot.send_message(user_id, "Select the type of node that you want to add: ", reply_markup=get_node_menu())
-
-        if message.text not in VALID_NODE_TYPES:
-            user_data[user_id]['step'] = 'show_error_node_type'
     else:
-        bot.send_message(user_id, "Select from the menu provided below:", reply_markup=get_language_menu())
+        bot.send_message(user_id, "Select the type of node that you want to add: ", reply_markup=get_node_menu())
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'show_error_node_type')
 def handle_show_error_node_type(message):

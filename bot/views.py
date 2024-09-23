@@ -220,7 +220,7 @@ def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name, mes
 
     if node_type == 'Transfer Call' and not transfer_call_exists:
         node["data"]["isGlobal"] = True
-        node["data"]["globalPrompt"] = "User says end call"
+        node["data"]["globalPrompt"] = "User says transfer call"
 
     # Add the new node to the existing nodes or create a new list if necessary
     if existing_payload:

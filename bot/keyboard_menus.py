@@ -3,6 +3,7 @@ from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
     ReplyKeyboardRemove
 
 from bot.views import get_voices
+from telebot import types
 
 voice_data = get_voices()
 
@@ -12,7 +13,6 @@ def get_reply_keyboard(options):
     for option in options:
         markup.add(KeyboardButton(option))
     return markup
-
 
 def get_delete_confirmation_keyboard():
     options = [
@@ -47,7 +47,6 @@ def get_gender_menu():
     options = ["Male", "Female"]
     return get_reply_keyboard(options)
 
-languages = ["English", "Indian Language", "Chinese", "French"]
 
 languages_flag = [
     ("English", "🇬🇧"),
@@ -56,9 +55,15 @@ languages_flag = [
     ("French", "🇫🇷")
 ]
 
-def get_language_menu():
-    options = languages
-    return get_reply_keyboard(options)
+def get_language_markup(callback_query_string):
+    markup = types.InlineKeyboardMarkup()
+    for language, flag in languages_flag:
+        language_button = types.InlineKeyboardButton(
+            text=f"{language} {flag} ",
+            callback_data=f"{callback_query_string}:{language}"
+        )
+        markup.add(language_button)
+    return markup
 def get_language_flag_menu():
     options = [lang for lang, _ in languages_flag]
     return get_reply_keyboard(options)
