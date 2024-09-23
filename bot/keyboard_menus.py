@@ -47,7 +47,9 @@ def get_gender_menu():
     options = ["Male", "Female"]
     return get_reply_keyboard(options)
 
-languages = [
+languages = ["English", "Indian Language", "Chinese", "French"]
+
+languages_flag = [
     ("English", "🇬🇧"),
     ("Indian Language", "🇮🇳"),
     ("Chinese", "🇨🇳"),
@@ -55,7 +57,10 @@ languages = [
 ]
 
 def get_language_menu():
-    options = [lang for lang, _ in languages]
+    options = languages
+    return get_reply_keyboard(options)
+def get_language_flag_menu():
+    options = [lang for lang, _ in languages_flag]
     return get_reply_keyboard(options)
 
 

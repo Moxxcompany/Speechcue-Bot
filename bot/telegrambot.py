@@ -570,7 +570,7 @@ def get_profile_language(message):
     # Create the markup
     markup = types.InlineKeyboardMarkup()
 
-    for language, flag in languages:
+    for language, flag in languages_flag:
         language_button = types.InlineKeyboardButton(
             text=f"{flag} {language}",
             callback_data=f"language:{language}"
@@ -1292,7 +1292,6 @@ def handle_show_error_node_type(message):
             user_data[user_id]['step'] = 'show_error_node_type'
     else:
         bot.send_message(user_id, "Select from the menu provided below:", reply_markup=get_language_menu())
-
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'show_error_node_type')
 def handle_show_error_node_type(message):
