@@ -4,7 +4,7 @@ from user.models import TelegramUser
 
 
 class TelegramUserAdmin(admin.ModelAdmin):
-    list_display = ('user_id', 'user_name', 'language', 'subscription_status', 'free_gift_single_ivr')
+    list_display = ('user_id', 'user_name', 'language', 'subscription_status', 'free_gift_single_ivr', 'free_plan')
     search_fields = ('user_name','subscription_status', 'language')
 
 

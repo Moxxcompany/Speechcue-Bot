@@ -570,10 +570,9 @@ def get_profile_language(message):
     # Create the markup
     markup = types.InlineKeyboardMarkup()
 
-    # Loop through the list of languages to create a button for each
-    for language in languages:
+    for language, flag in languages:
         language_button = types.InlineKeyboardButton(
-            text=language,
+            text=f"{flag} {language}",
             callback_data=f"language:{language}"
         )
         markup.add(language_button)
@@ -1254,9 +1253,9 @@ def handle_ask_description(message):
     if status_code == 200:
         res = empty_nodes(pathway_name, pathway_description, pathway_id)
         user_data[user_id]['first_node'] = True
-        bot.send_message(user_id,
-                         f"IVR Flow '{pathway_name}' created! ✅ Now, please select the language for this flow:"
-                         , reply_markup=get_language_menu())
+        bot.send_message(user_id, f"IVR Flow '{pathway_name}' created! ✅ ")
+        bot.send_message(user_id, f"Now, please select the language for this flow:", reply_markup=get_language_menu())
+
 
         if message.text not in languages:
             user_data[user_id]['step'] = 'show_error_language'

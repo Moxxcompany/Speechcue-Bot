@@ -47,13 +47,17 @@ def get_gender_menu():
     options = ["Male", "Female"]
     return get_reply_keyboard(options)
 
-
-languages = ["English", "Indian Language", "Chinese", "French"]
-
+languages = [
+    ("English", "🇬🇧"),
+    ("Indian Language", "🇮🇳"),
+    ("Chinese", "🇨🇳"),
+    ("French", "🇫🇷")
+]
 
 def get_language_menu():
-    options = languages
+    options = [lang for lang, _ in languages]
     return get_reply_keyboard(options)
+
 
 
 def get_voice_type_menu():

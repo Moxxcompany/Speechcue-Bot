@@ -16,7 +16,6 @@ services:
       - docker.env
     networks:
       - my_network
-    restart: always
 
   bot:
     build: .
@@ -32,7 +31,6 @@ services:
       - docker.env
     networks:
       - my_network
-    restart: always
 
   pg_db:
     container_name: pg_db
@@ -48,20 +46,6 @@ services:
       - my_network
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: always
-
-  pgadmin_speech_card:
-    image: dpage/pgadmin4
-    container_name: pgadmin_speech_card
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@example.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "8080:80"
-    depends_on:
-      - pg_db
-    networks:
-      - my_network
 
 networks:
   my_network:
