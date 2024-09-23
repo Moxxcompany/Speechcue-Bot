@@ -540,26 +540,19 @@ def get_transcript(call_id, pathway_id):
     # Retrieve feedback questions associated with the pathway_id
     feedback_log = FeedbackLogs.objects.get(pathway_id=pathway_id)
     feedback_questions = feedback_log.feedback_questions
-
+    print("Feedback questions: ", feedback_questions)
     response = get_call_details(call_id)
-    data = response  # Directly use the response as it is already a dictionary
+    data = response
 
-    # Log the structure of the response for debugging
-
-    # List to store the answers corresponding to each feedback question
     feedback_answers = []
 
     for feedback_question in feedback_questions:
         index = None
-        # Find the transcript related to the feedback question
         for i, transcript in enumerate(data.get("transcripts", [])):
-            # Log the transcript to understand its structure
-
-            if transcript.get("user") == "assistant" and transcript.get("text") == feedback_question:
+            if transcript.get("user") == "assistant" and transcript.get("text").lower() == feedback_question.lower():
                 index = i
                 break
 
-        # Retrieve the next text in the transcript if it exists
         if index is not None and index + 1 < len(data["transcripts"]):
             next_text = data["transcripts"][index + 1].get("text", "No response found.")
             feedback_answers.append(next_text)
@@ -573,8 +566,6 @@ def get_transcript(call_id, pathway_id):
             'feedback_answers': feedback_answers,
         }
     )
-
-    # Optionally, return the feedback details
     return feedback_detail
 
 def get_variables(call_id):
