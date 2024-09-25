@@ -1,5 +1,6 @@
 import json
 import os
+from multiprocessing.managers import convert_to_error
 from uuid import UUID
 import re
 import io
@@ -9,11 +10,27 @@ from rest_framework.decorators import api_view
 from telebot import types
 
 import bot.utils
+from TelegramBot.constants import BITCOIN, ACCOUNT_CREATED_SUCCESSFULLY, \
+    PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH, trc20, erc20, TRON, litecoin, LTC, back, TOP_UP, \
+    INSUFFICIENT_BALANCE, BACK, WALLET, DEPOSIT_ADDRESS, PAYMENT_METHOD_PROMPT, ETHEREUM, ERC, TRC, LITECOIN, \
+    AVAILABLE_COMMANDS_PROMPT, SUBSCRIPTION_PLAN, NAME, BULK_IVR_LEFT, CALL_TRANSFER_MINS_LEFT, WALLET_INFORMATION, \
+    USERNAME, PROFILE_INFORMATION_PROMPT, NO_SUBSCRIPTION_PLAN, JOIN_CHANNEL_PROMPT, INACTIVE, \
+    BULK_IVR_SUBSCRIPTION_PROMPT, ACTIVE_SUBSCRIPTION_PLAN_PROMPT, SUBSCRIPTION_PLAN_NOT_FOUND, CHECKING_WALLETS, \
+    PLAN_NAME, PRICE, FEATURES, CUSTOMER_SUPPORT_LEVEL, DAY_PLAN, UNLIMITED_SINGLE_IVR, BULK_IVR_CALLS, \
+    SELECTION_PROMPT, WELCOME_PROMPT, PATHWAY_NOT_FOUND, NOT_FOUND, STATUS_CODE_200, ACTIVE, \
+    INSUFFICIENT_DEPOSIT_AMOUNT, WEBHOOK_RECEIVED, invalid_data, INVALID_JSON, WEBHOOK_DEPOSIT, WEBHOOK, TOP_UP_PROMPT, \
+    SUBSCRIPTION_PAYMENT_METHOD_PROMPT, USER_INFORMATION_NOT_FOUND, SUBSCRIPTION_ACTIVATED, MAIN_MENU_PROMPT, \
+    PAYMENT_SUCCESSFUL, RECEIVERS_WALLET_NOT_FOUND, CURRENT_BALANCE, VIRTUAL_ACCOUNT_NOT_FOUND, CALL_TRANSFER_MINS, \
+    INVOICE_REVIEW_PROMPT, PLAN_DOESNT_EXIST, DAYS, VALIDITY_PROMPT, PLAN_VALIDITY, VALIDITY, \
+    SUBSCRIPTION_PLAN_SELECTION_PROMPT, NAME_INPUT_PROMPT, SETUP_PROMPT, EXISTING_USER_WELCOME, \
+    LANGUAGE_SELECTION_PROMPT, USERNAME_PROMPT, NEW_USER_WELCOME, ACKNOWLEDGE_AND_PROCEED, NODE_TYPE_SELECTION_PROMPT, \
+    TRANSCRIPT_NOT_FOUND, VIEW_TRANSCRIPT_PROMPT, CALL_LOGS_NOT_FOUND, VIEW_VARIABLES_PROMPT, EDGES_DELETED, \
+    BALANCE_IN_USD, USD
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable
 from bot.utils import generate_random_id, create_user_virtual_account, generate_qr_code, \
     check_balance, set_user_subscription, convert_dollars_to_crypto, get_btc_price, get_eth_price, get_ltc_price, \
     get_trx_price, get_plan_price, check_validity, \
-    check_subscription_status, username_formating
+    check_subscription_status, username_formating, convert_crypto_to_usd
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
@@ -42,15 +59,7 @@ user_data = {}
 call_data = []
 TERMS_AND_CONDITIONS_URL = 'https://app.bland.ai/enterprise'
 
-
-# Sample plans
-
-
-# :: MENUS ------------------------------------#
-
-
-
-
+CHANNEL_LINK = "www.google.com"
 
 # :: TRIGGERS ------------------------------------#
 @bot.message_handler(func=lambda message: message.text == 'Join Channel 🔗')
@@ -72,42 +81,64 @@ def handle_join_channel(message):
     # keyboard.add(back_button)
 
     # Send a message with the inline keyboard
-    bot.send_message(user_id, "Join our channel for updates and support:", reply_markup=get_main_menu())
+    bot.send_message(user_id, f"{JOIN_CHANNEL_PROMPT}\n {CHANNEL_LINK}", reply_markup=get_main_menu())
+
+
+
 
 
 @bot.message_handler(func=lambda message: message.text == 'Profile 👤')
 def get_user_profile(message):
     user_id = message.chat.id
     user = TelegramUser.objects.get(user_id=message.chat.id)
-    bot.send_message(user_id, f"Here is your profile information:")
-    bot.send_message(user_id, f"Username : {user.user_name}")
-    if user.subscription_status == 'inactive':
-        bot.send_message(user_id, "No Subscription Plan")
+    bot.send_message(user_id, f"{PROFILE_INFORMATION_PROMPT}")
+    username_formated = user.user_name.replace('_', '\\_')
+    bot.send_message(user_id, f"{USERNAME} : {username_formated}", parse_mode="Markdownv2" )
+    if user.subscription_status == f'{INACTIVE}':
+        bot.send_message(user_id, f"{NO_SUBSCRIPTION_PLAN}")
     else:
         user_plan = UserSubscription.objects.get(user_id=user.user_id)
-        bot.send_message(user_id, f"Subscription Plan : \n"
-                                  f"Name :{user_plan.plan_id.name}\n"
-                                  f"Number of Bulk IVR calls left : {user_plan.bulk_ivr_calls_left}\n"
-                                  f"Number of Call Transfer minutes left : {user_plan.transfer_minutes_left}\n")
-        bot.send_message(user_id, f"Your wallet information is as follows: \n")
+        bot.send_message(user_id, f"{SUBSCRIPTION_PLAN}: \n"
+                                  f"{NAME} :{user_plan.plan_id.name}\n"
+                                  f"{BULK_IVR_LEFT} : {user_plan.bulk_ivr_calls_left}\n"
+                                  f"{CALL_TRANSFER_MINS_LEFT} : {user_plan.transfer_minutes_left}\n")
+        bot.send_message(user_id, f"{WALLET_INFORMATION} \n")
+
         bitcoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='BTC').account_id
         etheruem = VirtualAccountsTable.objects.get(user_id=user_id, currency='ETH').account_id
         tron = VirtualAccountsTable.objects.get(user_id=user_id, currency='TRON').account_id
         litecoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='LTC').account_id
+        sum_in_usd = 0
         bitcoin_balance = check_balance(bitcoin)
-        bot.send_message(user_id, f"Bitcoin : {bitcoin_balance} BTC")
+        balance_in_usd = convert_crypto_to_usd(int(bitcoin_balance), 'btc')
+        sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{BITCOIN} : {bitcoin_balance} {BTC} & {balance_in_usd} {USD}")
+
+
         etheruem_balance = check_balance(etheruem)
-        bot.send_message(user_id, f"Ethereum & USSTD (ERC-20) : {etheruem_balance} ETH")
+        balance_in_usd = convert_crypto_to_usd(int(etheruem_balance), 'eth')
+        sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{ETHEREUM} & {ERC} : {etheruem_balance} {ETH} & {balance_in_usd} {USD}")
+
+
         tron_balance = check_balance(tron)
-        bot.send_message(user_id, f"USTD (TRC-20) : {tron_balance} TRC")
+        balance_in_usd = convert_crypto_to_usd(int(tron_balance), 'trx')
+        sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{TRC} : {tron_balance} {TRON} & {balance_in_usd} {USD}")
+
+
         litecoin_balance = check_balance(litecoin)
-        bot.send_message(user_id, f"Litecoin : {litecoin_balance} LTC",
-                         reply_markup=get_main_menu())
+        balance_in_usd = convert_crypto_to_usd(int(litecoin_balance), 'ltc')
+        sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{LITECOIN} : {litecoin_balance} {LTC} & {balance_in_usd} {USD}")
+
+
+        bot.send_message(user_id, f"{BALANCE_IN_USD} : {sum_in_usd}", reply_markup=get_main_menu())
 
 @bot.message_handler(func=lambda message: message.text == 'Help ℹ️')
 def handle_help(message):
     user_id = message.chat.id
-    bot.send_message(user_id, f"Here are the available commands:", reply_markup=get_available_commands())
+    bot.send_message(user_id, f"{AVAILABLE_COMMANDS_PROMPT}", reply_markup=get_available_commands())
 
 
 @bot.message_handler(func=lambda message: message.text == 'Bulk IVR Call 📞📞')
@@ -120,30 +151,16 @@ def trigger_bulk_ivr_call(message):
         user_data[user_id] = {'step': 'get_batch_numbers'}
         view_flows(message)
     else:
-        bot.send_message(user_id, "A Bulk IVR call requires an active subscription. Please activate your "
-                                  "subscription to proceed.", reply_markup=get_subscription_activation_markup())
+        bot.send_message(user_id, f"{BULK_IVR_SUBSCRIPTION_PROMPT}", reply_markup=get_subscription_activation_markup())
 
 @bot.callback_query_handler(func=lambda call: call.data == 'help')
 def handle_help_callback(call):
     handle_help(call.message)
-def get_billing_and_subscription_keyboard():
-
-    markup = types.InlineKeyboardMarkup()
-    view_subscription_btn = types.InlineKeyboardButton('View Subscription 📅', callback_data='view_subscription')
-    update_subscription_btn = types.InlineKeyboardButton('Upgrade Subscription ⬆️', callback_data='update_subscription')
-    wallet_btn = types.InlineKeyboardButton('Wallet 💰', callback_data='check_wallet')
-    help_btn = types.InlineKeyboardButton("Help ℹ️", callback_data='help')
-    back_btn = types.InlineKeyboardButton('Back', callback_data='back_to_welcome_message')
-    markup.add(view_subscription_btn)
-    markup.add(update_subscription_btn)
-    markup.add(wallet_btn)
-    markup.add(back_btn)
-    return markup
 
 @bot.message_handler(func=lambda message: message.text == 'Billing and Subscription 📅')
 def trigger_billing_and_subscription(message):
     user_id = message.chat.id
-    bot.send_message(user_id, "Select from the following:", reply_markup=get_billing_and_subscription_keyboard())
+    bot.send_message(user_id, f"{SELECTION_PROMPT}", reply_markup=get_billing_and_subscription_keyboard())
 
 @bot.callback_query_handler(func=lambda call: call.data == 'view_subscription')
 @check_subscription_status
@@ -157,25 +174,26 @@ def handle_view_subscription(call):
         subscription_plan = SubscriptionPlans.objects.get(plan_id=plan)
 
         plan_details = (
-            f"**Plan Name:** {subscription_plan.name}\n"
-            f"**Price:** ${subscription_plan.plan_price}\n\n"
-            f"**Features:**\n"
-            f"- Unlimited {subscription_plan.number_of_calls} calls\n"
-            f"- {subscription_plan.minutes_of_call_transfer} minutes of call transfer included\n"
-            f"- {subscription_plan.customer_support_level} customer support level\n"
-            f"- {subscription_plan.validity_days} Day Plan\n"
+            f"**{PLAN_NAME}** {subscription_plan.name}\n"
+            f"**{PRICE}** ${subscription_plan.plan_price}\n\n"
+            f"**{FEATURES}**\n"
+            f"- '{UNLIMITED_SINGLE_IVR}'\n"
+            f"- {subscription_plan.number_of_calls} {BULK_IVR_CALLS}\n"
+            f"- {subscription_plan.minutes_of_call_transfer} {CALL_TRANSFER_MINS}\n"
+            f"- {subscription_plan.customer_support_level} {CUSTOMER_SUPPORT_LEVEL}\n"
+            f"- {subscription_plan.validity_days} {DAY_PLAN}\n"
 
         )
 
-        bot.send_message(user_id, f"You are currently assigned to the following subscription plan:\n\n{plan_details}",
+        bot.send_message(user_id, f"{ACTIVE_SUBSCRIPTION_PLAN_PROMPT}\n\n{plan_details}",
                          reply_markup=get_billing_and_subscription_keyboard())
 
     except TelegramUser.DoesNotExist:
-        bot.send_message(user_id, "You haven't subscribed to any plan yet.",
+        bot.send_message(user_id, f"{SUBSCRIPTION_PLAN_NOT_FOUND}",
                          reply_markup=get_billing_and_subscription_keyboard())
 
     except SubscriptionPlans.DoesNotExist:
-        bot.send_message(user_id, "It seems that you haven't subscribed to any plan yet.",
+        bot.send_message(user_id, f"{NO_SUBSCRIPTION_PLAN}",
                          reply_markup=get_billing_and_subscription_keyboard())
 
 
@@ -189,29 +207,49 @@ def check_wallet(call):
 
     user_id = call.message.chat.id
 
-    bot.send_message(user_id, "Checking your wallets...")
+    bot.send_message(user_id, f"{CHECKING_WALLETS}")
     try:
         bitcoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='BTC').account_id
         etheruem = VirtualAccountsTable.objects.get(user_id=user_id, currency='ETH').account_id
         tron = VirtualAccountsTable.objects.get(user_id=user_id, currency='TRON').account_id
         litecoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='LTC').account_id
+        sum_in_usd = 0
         bitcoin_balance = check_balance(bitcoin)
-        bot.send_message(user_id,f"Bitcoin : {bitcoin_balance} BTC")
-        etheruem_balance = check_balance(etheruem)
-        bot.send_message(user_id,  f"Ethereum & USSTD (ERC-20) : {etheruem_balance} ETH")
-        tron_balance = check_balance(tron)
-        bot.send_message(user_id,f"USTD (TRC-20) : {tron_balance} TRC")
-        litecoin_balance = check_balance(litecoin)
+        balance_in_usd = convert_crypto_to_usd(int(bitcoin_balance), 'btc')
+        sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{BITCOIN} : {bitcoin_balance} {BTC} & {balance_in_usd} {USD}")
 
+        etheruem_balance = check_balance(etheruem)
+        balance_in_usd = convert_crypto_to_usd(int(etheruem_balance), 'eth')
+        sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{ETHEREUM} & {ERC} : {etheruem_balance} {ETH} & {balance_in_usd} {USD}")
+
+        tron_balance = check_balance(tron)
+        balance_in_usd = convert_crypto_to_usd(int(tron_balance), 'trx')
+        sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{TRC} : {tron_balance} {TRON} & {balance_in_usd} {USD}")
+
+        litecoin_balance = check_balance(litecoin)
+        balance_in_usd = convert_crypto_to_usd(int(litecoin_balance), 'ltc')
+        sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{LITECOIN} : {litecoin_balance} {LTC} & {balance_in_usd} {USD}")
+
+        bot.send_message(user_id, f"{BALANCE_IN_USD} : {sum_in_usd}", reply_markup=get_main_menu())
         markup = InlineKeyboardMarkup()
         top_up_wallet_button = types.InlineKeyboardButton("Top Up Wallet 💳", callback_data="top_up_wallet")
-        back_button = types.InlineKeyboardButton("Back", callback_data=get_billing_and_subscription_keyboard())
+        back_button = types.InlineKeyboardButton("Back", callback_data='back_to_billing')
         markup.add(top_up_wallet_button)
         markup.add(back_button)
-        bot.send_message(user_id,f"Litecoin : {litecoin_balance} LTC",reply_markup=markup)
+        bot.send_message(user_id,f"{LITECOIN} : {litecoin_balance} {LTC}",reply_markup=markup)
     except Exception as e:
-        bot.send_message(user_id, f"Cannot process your request due to the following server issue. \n\n"
-                                  f"{e}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR} \n\n"
+                                  f"{str(e)}")
+
+
+@bot.callback_query_handler(func=lambda call : call.data == 'back_to_billing')
+def back_to_billing(call):
+    user_id = call.message.chat.id
+    bot.send_message(user_id, f"{SELECTION_PROMPT}", reply_markup=get_billing_and_subscription_keyboard())
 
 @bot.message_handler(func=lambda message: message.text == 'Add Another Phone Numbers')
 def trigger_yes(message):
@@ -237,12 +275,12 @@ def trigger_single_ivr_call(message):
     user = TelegramUser.objects.get(user_id=user_id)
     if user.free_gift_single_ivr:
         markup = types.InlineKeyboardMarkup()
-        main_menu_button = types.InlineKeyboardButton("Acknowledge and Proceed ✅",
+        main_menu_button = types.InlineKeyboardButton(f"{ACKNOWLEDGE_AND_PROCEED}",
                                                       callback_data='trigger_single_flow')
-        back_button = types.InlineKeyboardButton("Back ↩️", callback_data="back_to_language")
+        back_button = types.InlineKeyboardButton(f"{BACK} ↩️", callback_data="back_to_language")
         markup.add(main_menu_button)
         markup.add(back_button)
-        bot.send_message(user_id, "Welcome! As a new user, you can make one free single IVR call. 🎉",reply_markup=markup )
+        bot.send_message(user_id, f"{NEW_USER_WELCOME}",reply_markup=markup )
 
     else:
         if user.subscription_status == 'active':
@@ -263,7 +301,7 @@ def trigger_flow_single(call):
 @bot.message_handler(func=lambda message: message.text == 'Back')
 def trigger_back_flow(message):
     user_id = message.chat.id
-    bot.send_message(user_id, "Welcome to main menu!", reply_markup=get_main_menu())
+    bot.send_message(user_id, f"{WELCOME_PROMPT}", reply_markup=get_main_menu())
 
 
 @bot.message_handler(
@@ -301,7 +339,7 @@ def trigger_delete_node(message):
     pathway, status_code = handle_view_single_flow(pathway_id)
 
     if status_code != 200:
-        bot.send_message(user_id, f"Failed to fetch pathways. Error: {pathway.get('error')}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {pathway.get('error')}")
         return
     keyboard = InlineKeyboardMarkup()
 
@@ -309,7 +347,7 @@ def trigger_delete_node(message):
         node_name = node['data']['name']
         button = InlineKeyboardButton(text=node_name, callback_data=f"delete_node_{node_name}")
         keyboard.add(button)
-    bot.send_message(user_id, 'Select from the following options:', reply_markup=keyboard)
+    bot.send_message(user_id, f"{SELECTION_PROMPT}", reply_markup=keyboard)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("delete_node_"))
@@ -321,7 +359,7 @@ def delete_node(call):
     try:
         pathway = Pathways.objects.get(pathway_id=pathway_id)
     except Pathways.DoesNotExist:
-        bot.send_message(user_id, "Pathway not found.")
+        bot.send_message(user_id, f"{PATHWAY_NOT_FOUND}")
         return
 
     pathway_payload = json.loads(pathway.pathway_payload)  # Parse payload as JSON
@@ -335,7 +373,7 @@ def delete_node(call):
             break
 
     if not node_id_to_delete:
-        bot.send_message(user_id, f"Node {node_name} not found.")
+        bot.send_message(user_id, f"{node_name} {NOT_FOUND}")
         return
 
     new_nodes = [node for node in nodes if node['id'] != node_id_to_delete]
@@ -355,8 +393,8 @@ def delete_node(call):
     }
 
     updated = handle_add_node(pathway_id, data)
-    if updated.status_code != 200:
-        bot.send_message(user_id, f"Failed to update due to the following error:\n"
+    if updated.status_code != f"{STATUS_CODE_200}":
+        bot.send_message(user_id, f"{PROCESSING_ERROR}\n"
                                   f"{updated.text}")
         return
 
@@ -364,7 +402,7 @@ def delete_node(call):
     pathway.save()
 
 
-    bot.send_message(user_id, f"Node {node_name} and its associated edges have been deleted successfully.")
+    bot.send_message(user_id, f"{node_name} {EDGES_DELETED}")
 
 @bot.message_handler(func=lambda message: message.text == 'Retry Node 🔄')
 def trigger_retry_node(message):
@@ -396,7 +434,7 @@ def trigger_end_call_option(message):
 
 @bot.message_handler(func=lambda message: message.text == 'Continue to Next Node ▶️')
 def trigger_add_another_node(message):
-    bot.send_message(message.chat.id, "Select the type of node you want to add next: ", reply_markup=get_node_menu())
+    bot.send_message(message.chat.id, f"{NODE_TYPE_SELECTION_PROMPT}", reply_markup=get_node_menu())
 
 @bot.message_handler(func=lambda message: message.text == 'Repeat Message 🔁')
 def trigger_repeat_message(message):
@@ -423,7 +461,7 @@ def view_variables(message):
     list_calls = CallLogsTable.objects.filter(user_id=user_id)
 
     if not list_calls.exists():
-        bot.send_message(user_id, "No call logs found for your user ID.")
+        bot.send_message(user_id, f"{CALL_LOGS_NOT_FOUND}")
         return
     markup = types.InlineKeyboardMarkup()
 
@@ -432,7 +470,7 @@ def view_variables(message):
         callback_data = f"variables_{call.call_id}"
         markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
 
-    bot.send_message(user_id, "Select a call to view variables:", reply_markup=markup)
+    bot.send_message(user_id, f"{VIEW_VARIABLES_PROMPT}", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("variables_"))
 def handle_call_selection_variable(call):
@@ -443,11 +481,11 @@ def handle_call_selection_variable(call):
         if variables:
             variable_message = "\n".join([f"{key}: {value}" for key, value in variables.items()])
         else:
-            variable_message = "No transcript found for this call."
+            variable_message = f"{TRANSCRIPT_NOT_FOUND}"
 
         bot.send_message(call.message.chat.id, variable_message)
     except Exception as e:
-        bot.send_message(call.message.chat.id, "An error occurred while processing your request.")
+        bot.send_message(call.message.chat.id, f"{PROCESSING_ERROR} {str(e)}")
 
 @bot.message_handler(func=lambda message: message.text == "View Feedback")
 def view_feedback(message):
@@ -458,7 +496,7 @@ def view_feedback(message):
     list_calls = CallLogsTable.objects.filter(user_id=user_id, pathway_id__in=feedback_pathway_ids)
 
     if not list_calls.exists():
-        bot.send_message(user_id, "No call logs found for your user ID.")
+        bot.send_message(user_id, f"{CALL_LOGS_NOT_FOUND}")
         return
     markup = types.InlineKeyboardMarkup()
 
@@ -467,7 +505,7 @@ def view_feedback(message):
         callback_data = f"feedback_{call.call_id}"
         markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
 
-    bot.send_message(user_id, "Select a call to view the transcript:", reply_markup=markup)
+    bot.send_message(user_id, f"{VIEW_TRANSCRIPT_PROMPT}", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("feedback_"))
 def handle_call_selection(call):
@@ -482,11 +520,11 @@ def handle_call_selection(call):
         if transcript:
             transcript_message = "\n".join(transcript.feedback_answers)
         else:
-            transcript_message = "No transcript found for this call."
+            transcript_message = f"{TRANSCRIPT_NOT_FOUND}"
 
         bot.send_message(call.message.chat.id, transcript_message)
     except Exception as e:
-        bot.send_message(call.message.chat.id, "An error occurred while processing your request.")
+        bot.send_message(call.message.chat.id, f"{PROCESSING_ERROR} {str(e)}")
 
 @bot.message_handler(func=lambda message: message.text == "Create IVR Flow ➕")
 def trigger_create_flow(message):
@@ -521,13 +559,13 @@ def view_main_menu(message):
     user_id = message.chat.id
     user_data[user_id]['first_node'] = False
 
-    bot.send_message(user_id, "Select the language for the node you want to add:", reply_markup=get_language_markup('flowlanguage'))
+    bot.send_message(user_id, f"{LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('flowlanguage'))
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'select_node')
 def select_node(message):
     user_id = message.chat.id
     user_data[user_id]['select_language'] = message.text
-    bot.send_message(user_id, "Select the type of node you want to add:", reply_markup=get_node_menu())
+    bot.send_message(user_id, f"{NODE_TYPE_SELECTION_PROMPT}", reply_markup=get_node_menu())
 
 
 # :: BOT MESSAGE HANDLERS FOR FUNCTIONS ------------------------------------#
@@ -538,7 +576,7 @@ def send_welcome(message):
     Sends a welcome message when the user starts a conversation.
     """
 
-    bot.send_message(message.chat.id, "Welcome to the Main Menu!", reply_markup=get_main_menu())
+    bot.send_message(message.chat.id, f"{WELCOME_PROMPT}", reply_markup=get_main_menu())
 
 
 @bot.message_handler(commands=['help'])
@@ -548,7 +586,7 @@ def show_commands(message):
     """
     formatted_commands = "\n".join(
         [f"{command} - {description}" for command, description in available_commands.items()])
-    bot.send_message(message.chat.id, f"Available commands:\n{formatted_commands}", reply_markup=get_main_menu())
+    bot.send_message(message.chat.id, f"{AVAILABLE_COMMANDS_PROMPT}\n{formatted_commands}", reply_markup=get_main_menu())
 
 
 
@@ -563,11 +601,11 @@ def get_profile_language(message):
     username = username_formating(text)
     username = f"{username}_{user_id}"
     username_formatting = username.replace('_', '\\_')
-    bot.send_message(user_id, f"Your username is {username_formatting}", parse_mode="MarkdownV2")
+    bot.send_message(user_id, f"{USERNAME_PROMPT} {username_formatting}", parse_mode="MarkdownV2")
     user = TelegramUser.objects.get(user_id=user_id)
     user.user_name = username
     user.save()
-    bot.send_message(user_id, "Please select your preferred language:", reply_markup=get_language_markup('language'))
+    bot.send_message(user_id, f"{LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('language'))
 
 @bot.message_handler(commands=['sign_up', 'start'])
 def signup(message):
@@ -578,42 +616,42 @@ def signup(message):
         existing_user, created = TelegramUser.objects.get_or_create(user_id=user_id, defaults={'user_name': f'{user_id}'})
 
         if not created:
-            bot.send_message(user_id, f"Welcome! 🎉 We are glad to have you again. 🎉 Here is the main menu!", reply_markup=get_main_menu())
+            bot.send_message(user_id, f"{EXISTING_USER_WELCOME}", reply_markup=get_main_menu())
             return
-        bot.send_message(user_id, "Let's get you setup! It will take a few seconds!")
+        bot.send_message(user_id, f"{SETUP_PROMPT}")
         bitcoin = create_user_virtual_account('BTC', existing_user)
-        if bitcoin == '200':
-            bot.send_message(user_id, "Bitcoin Account Created successfully!")
+        if bitcoin == f"{STATUS_CODE_200}":
+            bot.send_message(user_id, f"{BITCOIN} {ACCOUNT_CREATED_SUCCESSFULLY}")
         else:
-            bot.send_message(user_id, f"{bitcoin}")
+            bot.send_message(user_id, f"{PROCESSING_ERROR} {bitcoin.text()}")
 
         ethereum = create_user_virtual_account('ETH', existing_user)
-        if ethereum == '200':
-            bot.send_message(user_id, "Ethereum and USDT (ERC-20) account created successfully!")
+        if ethereum == f"{STATUS_CODE_200}":
+            bot.send_message(user_id, f"{ETHEREUM} & {ERC} {ACCOUNT_CREATED_SUCCESSFULLY}")
         else:
-            bot.send_message(user_id, f"{ethereum}")
+            bot.send_message(user_id, f"{PROCESSING_ERROR} {ethereum.text()}" )
 
         litecoin = create_user_virtual_account('LTC', existing_user)
-        if litecoin == '200':
-            bot.send_message(user_id, "Litecoin account created successfully!")
+        if litecoin == f"{STATUS_CODE_200}":
+            bot.send_message(user_id, f"{LITECOIN} {ACCOUNT_CREATED_SUCCESSFULLY}")
         else:
-            bot.send_message(user_id, f"{litecoin}")
+            bot.send_message(user_id, f"{PROCESSING_ERROR} {litecoin.text()}")
 
         trc_20 = create_user_virtual_account('TRON', existing_user)
-        if trc_20 == '200':
-            bot.send_message(user_id, "USDT (TRC-20) account created successfully!")
+        if trc_20 == f"{STATUS_CODE_200}":
+            bot.send_message(user_id, f"{TRC} {ACCOUNT_CREATED_SUCCESSFULLY}")
         else:
-            bot.send_message(user_id, f"{trc_20}")
+            bot.send_message(user_id, f"{PROCESSING_ERROR} {trc_20.text()}")
 
         if user_id not in user_data:
             user_data[user_id] = {}
         user_data[user_id]['step'] = 'profile_language'
-        bot.send_message(user_id, "Enter Your name: ")
+        bot.send_message(user_id, f"{NAME_INPUT_PROMPT}")
 
         return
 
     except Exception as e:
-        bot.reply_to(message, f"An error occurred. Please try again later.{str(e)}", reply_markup=get_force_reply())
+        bot.reply_to(message, f"{PROCESSING_ERROR} {str(e)}", reply_markup=get_force_reply())
     get_profile_language(message)
 
 
@@ -621,61 +659,50 @@ def signup(message):
 def handle_activate_subscription(call):
     user_id = call.message.chat.id
 
-    # Retrieve all subscription plans from the database
     plans = SubscriptionPlans.objects.all()
-    # Create a message with details of all plans
     message_text = "Available subscription plans:\n\n"
     for plan in plans:
-        message_text += (f"🆔 Plan Name: {plan.name} Plan 📅\n"
-                         f"💲 Price: ${plan.plan_price:.6f}\n"
-                         f"📞 Number of Calls: {plan.number_of_calls}\n"
-                         f"🕒 Minutes of Call Transfer: {plan.minutes_of_call_transfer}\n"
-                         f"🔧 Customer Support Level: {plan.customer_support_level}\n"
-                         f"📅 Validity: {plan.validity_days} days\n\n")
+        message_text += (f"🆔 {PLAN_NAME} {plan.name} Plan 📅\n"
+                         f"💲 {PRICE} ${plan.plan_price:.6f}\n"
+                         f"📞 {UNLIMITED_SINGLE_IVR} & {plan.number_of_calls} {BULK_IVR_CALLS}\n"
+                         f"🕒 {CALL_TRANSFER_MINS}: {plan.minutes_of_call_transfer}\n"
+                         f"🔧 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n"
+                         f"📅 {VALIDITY} {plan.validity_days} {DAYS}\n\n")
 
     plan_names = set(plan.name for plan in plans)
     plan_names_list = list(plan_names)
 
-    message_text += "Please select a subscription plan below:"
+    message_text += f"{SUBSCRIPTION_PLAN_SELECTION_PROMPT}"
 
     markup = types.InlineKeyboardMarkup()
-
     for plan_name in plan_names_list:
         plan_button = types.InlineKeyboardButton(plan_name, callback_data=f"plan_name_{plan_name}")
         markup.add(plan_button)
-
-
-
-
-    # Add a back button
-    back_button = types.InlineKeyboardButton("Back ↩️", callback_data="back_to_welcome_message")
+    back_button = types.InlineKeyboardButton(f"{BACK} ↩️", callback_data="back_to_welcome_message")
     markup.add(back_button)
-
-    # Send the message with plan details and selection buttons
     bot.send_message(user_id, message_text, reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("plan_name_"))
 def view_plan_validity(call):
     user_id = call.message.chat.id
     plan_name = call.data.split("_")[2]
-
-    print("Selected plan name is : ",plan_name)
     plans = SubscriptionPlans.objects.filter(name=plan_name)
-    message_text = f"{plan_name} subscription plans with different validity:\n\n"
+    message_text = f"{plan_name} {PLAN_VALIDITY}\n\n"
     for plan in plans:
-        message_text += (f"📅 Validity: {plan.validity_days} days\n\n"
-                         f"🆔 Plan Name: {plan.name} Plan 📅\n"
-                         f"💲 Price: ${plan.plan_price:.6f}\n"
-                         f"📞 Number of Calls: {plan.number_of_calls}\n"
-                         f"🕒 Minutes of Call Transfer: {plan.minutes_of_call_transfer}\n"
-                         f"🔧 Customer Support Level: {plan.customer_support_level}\n")
+        message_text += (f"📅 {VALIDITY} {plan.validity_days} {DAYS}\n\n"
+                         f"🆔 {PLAN_NAME} {plan.name} Plan 📅\n"
+                         f"💲 {PRICE} ${plan.plan_price:.6f}\n"
+                         f"💲 {PRICE} ${plan.plan_price:.6f}\n"
+                         f"📞 {UNLIMITED_SINGLE_IVR} & {plan.number_of_calls} {BULK_IVR_CALLS}\n"
+                         f"🕒 {CALL_TRANSFER_MINS}: {plan.minutes_of_call_transfer}\n"
+                         f"🔧 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n")
 
     markup = types.InlineKeyboardMarkup()
     for plan in plans:
-        plan_button = types.InlineKeyboardButton(f"{plan.validity_days} Days", callback_data=f"plan_{plan.plan_id}")
+        plan_button = types.InlineKeyboardButton(f"{plan.validity_days} {DAYS}", callback_data=f"plan_{plan.plan_id}")
         markup.add(plan_button)
 
-    bot.send_message(user_id, f"{message_text}\nSelect validity for your plan:\n\n", reply_markup=markup)
+    bot.send_message(user_id, f"{message_text}\n{VALIDITY_PROMPT}\n\n", reply_markup=markup)
 
 
 
@@ -694,18 +721,19 @@ def handle_plan_selection(call):
     try:
         plan = SubscriptionPlans.objects.get(plan_id=plan_id)
     except SubscriptionPlans.DoesNotExist:
-        bot.send_message(user_id, "Sorry, the selected plan does not exist.")
+        bot.send_message(user_id, f"{PLAN_DOESNT_EXIST}")
         return
 
     invoice_message = (
-        f"Please review the invoice for your selected subscription plan:\n\n"
-        f"**Plan Name:** {plan.name}\n"
-        f"**Price:** ${plan.plan_price}\n\n"
-        f"**Features:**\n"
-        f"- Unlimited {plan.number_of_calls} calls\n"
-        f"- {plan.minutes_of_call_transfer} minutes of call transfer included\n"
-        f"- {plan.customer_support_level} customer support level\n"
-        f"- {plan.validity_days} Days Plan\n"
+        f"{INVOICE_REVIEW_PROMPT}\n\n"
+        f"**{PLAN_NAME}** {plan.name}\n"
+        f"**{PRICE}** ${plan.plan_price}\n\n"
+        f"**{FEATURES}:**\n"
+        f"- {UNLIMITED_SINGLE_IVR}\n"
+        f"- {plan.number_of_calls} {BULK_IVR_CALLS}\n"
+        f"- {plan.minutes_of_call_transfer} {CALL_TRANSFER_MINS}\n"
+        f"- {plan.customer_support_level} {CUSTOMER_SUPPORT_LEVEL}\n"
+        f"- {plan.validity_days} {DAY_PLAN}\n"
 
     )
     if user_id not in user_data:
@@ -725,9 +753,9 @@ def handle_plan_selection(call):
                                       f"{plan.minutes_of_call_transfer} number of transfer call minutes valid "
                                       f"for {plan.validity_days} days.\n", reply_markup=get_main_menu())
             set_subscription = set_user_subscription(user, plan_id)
-            if set_subscription != '200':
+            if set_subscription != f"{STATUS_CODE_200}":
                 bot.send_message(user_id, set_subscription)
-            user.subscription_status = 'active'
+            user.subscription_status = f"{ACTIVE}"
             user.free_plan = False
             user.save()
 
@@ -741,7 +769,7 @@ def handle_plan_selection(call):
         payment_button = types.InlineKeyboardButton(method, callback_data=f"pay_{method.lower().replace(' ', '_')}")
         markup.add(payment_button)
 
-    bot.send_message(user_id, "Please select a payment currency to pay for the subscription:", reply_markup=markup)
+    bot.send_message(user_id, f"{SUBSCRIPTION_PAYMENT_METHOD_PROMPT}", reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pay_"))
@@ -750,23 +778,23 @@ def handle_payment_method(call):
     payment_method = call.data.split("_")[1]
     payment_currency = ''
 
-    if payment_method == 'bitcoin':
-        payment_currency = 'BTC'
+    if payment_method == f'{bitcoin}':
+        payment_currency = f"{BTC}"
 
 
-    elif payment_method == 'ethereum' or payment_method == 'erc-20':
-        payment_currency = 'ETH'
+    elif payment_method == f'{ethereum}' or payment_method == f'{erc20}':
+        payment_currency = f'{ETH}'
 
 
-    elif payment_method == 'trc-20':
-        payment_currency = 'TRON'
+    elif payment_method == f'{trc20}':
+        payment_currency = f'{TRON}'
 
 
-    elif payment_method == 'litecoin':
-        payment_currency = 'LTC'
+    elif payment_method == f'{litecoin}':
+        payment_currency = f'{LTC}'
 
 
-    elif payment_method == 'back':
+    elif payment_method == f'{back}':
         handle_activate_subscription(call)
         return
     if user_id not in user_data:
@@ -775,26 +803,24 @@ def handle_payment_method(call):
     user_data[user_id]['payment_currency'] = payment_currency
 
     markup = types.InlineKeyboardMarkup()
-    wallet_button = types.InlineKeyboardButton("Wallet", callback_data="wallet_payment")
-    deposit_address_button = types.InlineKeyboardButton("Get Deposit Address", callback_data="get_deposit_address")
+    wallet_button = types.InlineKeyboardButton(f"{WALLET}", callback_data="wallet_payment")
+    deposit_address_button = types.InlineKeyboardButton(f"{DEPOSIT_ADDRESS}", callback_data="get_deposit_address")
     markup.add(wallet_button)
     markup.add(deposit_address_button)
-    bot.send_message(user_id, "How would you like to make payment for your subscription?", reply_markup=markup)
+    bot.send_message(user_id, f"{PAYMENT_METHOD_PROMPT}", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == 'wallet_payment')
 def handle_wallet_method(call):
     user_id = call.message.chat.id
 
     try:
-        # Get the user's virtual account based on user_id and payment currency
         user = VirtualAccountsTable.objects.get(user_id=user_id, currency=user_data[user_id]['payment_currency'])
-        print("Payment currency: ", user_data[user_id]['payment_currency'])
 
     except VirtualAccountsTable.DoesNotExist:
-        bot.send_message(user_id, "Your virtual account was not found.")
+        bot.send_message(user_id, f"{VIRTUAL_ACCOUNT_NOT_FOUND}")
         return
     except Exception as e:
-        bot.send_message(user_id, f"An error occurred while fetching your account: {str(e)}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
         return
 
     try:
@@ -802,14 +828,14 @@ def handle_wallet_method(call):
         balance = get_account_balance(account_id)
 
         if balance.status_code != 200:
-            bot.send_message(user_id, f"Error occurred while getting the balance:\n{balance.json()}")
+            bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
             return
 
         balance_data = balance.json()
         available_balance = balance_data["availableBalance"]
-        bot.send_message(user_id, f"Your current balance is {available_balance}.")
+        bot.send_message(user_id, f"{CURRENT_BALANCE} {available_balance}.")
     except Exception as e:
-        bot.send_message(user_id, f"An error occurred while fetching the balance: {str(e)}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
         return
 
     try:
@@ -819,15 +845,15 @@ def handle_wallet_method(call):
 
         if float(available_balance) < float(plan_price):
             markup = types.InlineKeyboardMarkup()
-            top_up_wallet_button = types.InlineKeyboardButton("Top Up Wallet 💳", callback_data="top_up_wallet")
-            back_button = types.InlineKeyboardButton("Back", callback_data='back_to_handle_payment')
+            top_up_wallet_button = types.InlineKeyboardButton(f"{TOP_UP}", callback_data="top_up_wallet")
+            back_button = types.InlineKeyboardButton(f"{BACK}", callback_data='back_to_handle_payment')
             markup.add(top_up_wallet_button)
             markup.add(back_button)
-            bot.send_message(user_id, 'Insufficient balance. Please top up your wallet or select another payment method. ⚠️', reply_markup=markup)
+            bot.send_message(user_id, f'{INSUFFICIENT_BALANCE}', reply_markup=markup)
             return
 
     except Exception as e:
-        bot.send_message(user_id, f"An error occurred while calculating the plan price: {str(e)}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
         return
 
     try:
@@ -839,21 +865,21 @@ def handle_wallet_method(call):
         payment_response = send_payment(account_id, receiver_account, float(plan_price))
 
         if payment_response.status_code != 200:
-            bot.send_message(user_id, f"Error occurred while processing the payment:\n{payment_response.json()}")
+            bot.send_message(user_id, f"{PROCESSING_ERROR} \n{payment_response.json()}")
             return
 
     except MainWalletTable.DoesNotExist:
-        bot.send_message(user_id, "The receiver's wallet could not be found.")
+        bot.send_message(user_id, f"{RECEIVERS_WALLET_NOT_FOUND}")
         return
     except Exception as e:
-        bot.send_message(user_id, f"An error occurred while processing the payment: {str(e)}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
         return
 
     try:
         # Update balances for both user and receiver
         balance = get_account_balance(account_id)
         if balance.status_code != 200:
-            bot.send_message(user_id, f"Error occurred while updating sender balance:\n{balance.json()}")
+            bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
             return
 
         balance_data = balance.json()
@@ -863,7 +889,7 @@ def handle_wallet_method(call):
 
         balance = get_account_balance(receiver_account)
         if balance.status_code != 200:
-            bot.send_message(user_id, f"Error occurred while updating receiver balance:\n{balance.json()}")
+            bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
             return
 
         balance_data = balance.json()
@@ -872,43 +898,35 @@ def handle_wallet_method(call):
         receiver.save()
 
     except Exception as e:
-        bot.send_message(user_id, f"An error occurred while updating balances: {str(e)}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
         return
 
     try:
         # Activate the subscription
         plan_id = user_data[user_id]['subscription_id']
         current_user = TelegramUser.objects.get(user_id=user_id)
-        current_user.subscription_status = 'active'
+        current_user.subscription_status = f'{ACTIVE}'
         current_user.plan = plan_id
         current_user.save()
 
         set_subscription = set_user_subscription(current_user, plan_id)
-        if set_subscription != '200':
+        if set_subscription != f"{STATUS_CODE_200}":
             bot.send_message(user_id, set_subscription)
             return
 
         send_confirmation_menu(user_id)
-        bot.send_message(user_id, f"Payment successful! ✅ Subscription activated. Here is the main menu:", reply_markup=get_main_menu())
+        bot.send_message(user_id, f"{PAYMENT_SUCCESSFUL} {SUBSCRIPTION_ACTIVATED} {MAIN_MENU_PROMPT}", reply_markup=get_main_menu())
 
     except TelegramUser.DoesNotExist:
-        bot.send_message(user_id, "User information not found.")
+        bot.send_message(user_id, f"{USER_INFORMATION_NOT_FOUND}")
     except Exception as e:
-        bot.send_message(user_id, f"An error occurred while activating the subscription: {str(e)}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
 
-def get_currency_keyboard():
-    markup = types.InlineKeyboardMarkup()
-    payment_methods = ['Bitcoin (BTC) ₿', 'Ethereum (ETH) Ξ', 'TRC-20 USDT 💵', 'ERC-20 USDT 💵',
-                       'Litecoin (LTC) Ł', 'Back ↩️']
-    for method in payment_methods:
-        payment_button = types.InlineKeyboardButton(method, callback_data=f"pay_{method.lower().replace(' ', '_')}")
-        markup.add(payment_button)
 
-    return markup
 @bot.callback_query_handler(func=lambda call: call.data == 'back_to_handle_payment')
 def handle_back_to_handle_payment(call):
     user_id = call.message.chat.id
-    bot.send_message(user_id, "Please select a payment method to pay for the subscription:", reply_markup=get_currency_keyboard())
+    bot.send_message(user_id, f"{SUBSCRIPTION_PAYMENT_METHOD_PROMPT}", reply_markup=get_currency_keyboard())
 
 @bot.callback_query_handler(func=lambda call: call.data == 'top_up_wallet')
 def handle_top_up_wallet(call):
@@ -920,7 +938,7 @@ def handle_top_up_wallet(call):
         payment_button = types.InlineKeyboardButton(method, callback_data=f"topup_{method.lower().replace(' ', '_')}")
         markup.add(payment_button)
 
-    bot.send_message(user_id, "Please select a payment method to top up your balance:", reply_markup=markup)
+    bot.send_message(user_id, f"{TOP_UP_PROMPT}", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("topup_"))
 def handle_account_topup(call):
@@ -929,27 +947,27 @@ def handle_account_topup(call):
     payment_currency = ''
     plan_price = float(user_data[user_id]['subscription_price'])  # Convert to float
 
-    if payment_method == 'bitcoin':
-        payment_currency = 'BTC'
+    if payment_method == f'{bitcoin}':
+        payment_currency = f'{BTC}'
         btc_price = get_btc_price()
         plan_price = convert_dollars_to_crypto(plan_price, btc_price)
 
-    elif payment_method == 'ethereum' or payment_method == 'erc-20':
-        payment_currency = 'ETH'
+    elif payment_method == f'{ethereum}' or payment_method == f'{erc20}':
+        payment_currency = f'{ETH}'
         eth_price = get_eth_price()
         plan_price = convert_dollars_to_crypto(plan_price, eth_price)
 
-    elif payment_method == 'trc-20':
-        payment_currency = 'TRON'
+    elif payment_method == f'{trc20}':
+        payment_currency = f'{TRON}'
         tron_price = get_trx_price()
         plan_price = convert_dollars_to_crypto(plan_price, tron_price)
 
-    elif payment_method == 'litecoin':
-        payment_currency = 'LTC'
+    elif payment_method == f'{litecoin}':
+        payment_currency = f'{LTC}'
         ltc_price = get_ltc_price()
         plan_price = convert_dollars_to_crypto(plan_price, ltc_price)
 
-    elif payment_method == 'back':
+    elif payment_method == f'{back}':
         handle_wallet_method(call)
         return
 
@@ -963,7 +981,7 @@ def handle_account_topup(call):
                            f'Please use the following address or scan the QR code to top up your balance! \n{address}')
 
     if deposit_wallet.subscription_id is None:
-        subscription = create_subscription_v3(deposit_wallet.account_id, f'{os.getenv("webhook_url")}/webhook')
+        subscription = create_subscription_v3(deposit_wallet.account_id, f'{os.getenv("webhook_url")}/{WEBHOOK}')
         subscription_data = subscription.json()
         deposit_wallet.subscription_id = subscription_data.get('id')
         deposit_wallet.save()
@@ -978,18 +996,14 @@ def handle_deposit_address_method(call):
     account_id = account.virtual_account
     plan_price = float(user_data[user_id]['subscription_price'])
     img_byte_arr = generate_qr_code(address)
-    print("payment currency: ", payment_currency)
     plan_price = get_plan_price(payment_currency, plan_price)
     bot.send_photo(user_id, img_byte_arr, caption=f'You need to deposit {plan_price:.6f} amount. Please use the following '
                                                   f'address or scan the QR code to deposit balance: \n{address}')
-    print("Before if")
     if account.subscription_id is None:
-        print("Hello world")
-        subscription = create_subscription_v3(account_id, f'{os.getenv("webhook_url")}/webhook_deposit')
+        subscription = create_subscription_v3(account_id, f'{os.getenv("webhook_url")}/{WEBHOOK_DEPOSIT}')
         subscription_data = subscription.json()
         account.subscription_id =subscription_data.get('id')
         account.save()
-    print("Done")
 
 @csrf_exempt
 @api_view(['GET', 'POST'])
@@ -997,7 +1011,7 @@ def handle_deposit_webhook(request):
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON payload"}, status=400)
+        return JsonResponse({"error": f"{INVALID_JSON}"}, status=400)
 
     data = json.loads(request.body)
     transaction_id = data.get("id")
@@ -1013,43 +1027,43 @@ def handle_deposit_webhook(request):
     user_id = user.user_id
     balance = get_account_balance(account_id)
     if balance.status_code != 200:
-        bot.send_message(user_id, f"Error occurred while getting the balance:\n{balance.json()}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR} \n{balance.json()}")
     balance_data = balance.json()
     available_balance = balance_data["availableBalance"]
     user_account.balance = available_balance
     user_account.save()
-    user.subscription_status='active'
+    user.subscription_status=f'{ACTIVE}'
     user.save()
     plan_id = user.plan
     print(f'plan id : {plan_id}')
     price = SubscriptionPlans.objects.get(plan_id= plan_id).plan_price
 
-    if currency == 'BTC':
+    if currency == f'{BTC}':
         btc_price = get_btc_price()
         price = convert_dollars_to_crypto(price, btc_price)
 
 
-    elif currency == 'ETH':
+    elif currency == f'{ETH}':
         eth_price = get_eth_price()
         price = convert_dollars_to_crypto(price, eth_price)
 
-    elif currency == 'TRON':
+    elif currency == f'{TRON}':
         tron_price = get_trx_price()
         price = convert_dollars_to_crypto(price, tron_price)
 
-    elif currency == 'LTC':
+    elif currency == f'{LTC}':
         ltc_price = get_ltc_price()
         price = convert_dollars_to_crypto(price, ltc_price)
 
     if float(price) <= float(amount):
-        bot.send_message(user_id, f"Deposit successful! ✅ ")
+        bot.send_message(user_id, f"{DEPOSIT_ADDRESS}")
         set_subscription = set_user_subscription(user, plan_id )
-        if set_subscription != '200':
+        if set_subscription != f"{STATUS_CODE_200}":
             bot.send_message(user_id, set_subscription)
 
     else:
-        bot.send_message(user_id, "Not the right amount")
-    return JsonResponse({"message": "Webhook received successfully"}, status=200)
+        bot.send_message(user_id, f"{INSUFFICIENT_DEPOSIT_AMOUNT}")
+    return JsonResponse({"message": f"{WEBHOOK_RECEIVED}"}, status=200)
 
 
 @csrf_exempt
@@ -1074,7 +1088,7 @@ def handle_webhook(request):
     bot.send_message(user_id, f"Top Up successful! ✅ ", reply_markup=get_main_menu())
     balance = get_account_balance(account_id)
     if balance.status_code != 200:
-        bot.send_message(user_id, f"Error occurred while getting the balance:\n{balance.json()}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR} \n{balance.json()}")
     balance_data = balance.json()
     available_balance = balance_data["availableBalance"]
     user.balance = available_balance
@@ -1130,7 +1144,7 @@ def display_flows(message):
     """
     pathways, status_code = handle_view_flows()
     if status_code != 200:
-        bot.send_message(message.chat.id, f"Failed to fetch pathways. Error: {pathways.get('error')}")
+        bot.send_message(message.chat.id, f"{PROCESSING_ERROR} {pathways.get('error')}")
         return
 
     current_users_pathways = Pathways.objects.filter(pathway_user_id=message.chat.id)
@@ -1174,7 +1188,7 @@ def handle_pathway_details(call):
     pathway, status_code = handle_view_single_flow(pathway_id)
 
     if status_code != 200:
-        bot.send_message(user_id, f"Failed to fetch pathways. Error: {pathway.get('error')}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {pathway.get('error')}")
         return
     pathway_info = f"Name: {pathway.get('name')}\nDescription: {pathway.get('description')}\n\nNodes:\n" + \
                    "\n".join(
@@ -1192,7 +1206,7 @@ def view_flows(message):
     """
     pathways, status_code = handle_view_flows()
     if status_code != 200:
-        bot.send_message(message.chat.id, f"Failed to fetch pathways. Error: {pathways.get('error')}")
+        bot.send_message(message.chat.id, f"{PROCESSING_ERROR} {pathways.get('error')}")
         return
 
     current_users_pathways = Pathways.objects.filter(pathway_user_id=message.chat.id)
@@ -1247,13 +1261,8 @@ def handle_ask_description(message):
 
         bot.send_message(user_id, f"Now, please select the language for this flow:", reply_markup=get_language_markup('flowlanguage'))
 
-        #
-        # if message.text not in languages:
-        #     user_data[user_id]['step'] = 'show_error_language'
-
-
     else:
-        bot.send_message(user_id, f"Failed to create flow. Error: {response}!", reply_markup=get_node_menu())
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {response}!", reply_markup=get_node_menu())
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_start_node')
@@ -1286,44 +1295,6 @@ def handle_show_error_node_type(message):
     bot.send_message(user_id, "Select from the menu provided below:", reply_markup=get_node_menu())
 
 
-# @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_batch_numbers',
-#                      content_types=['text', 'document'])
-# def get_batch_call_base_prompt(message):
-#     user_id = message.chat.id
-#     pathway_id = user_data[user_id]['call_flow_bulk']
-#
-#     valid_phone_number_pattern = re.compile(r'^[\d\+\-\(\)\s]+$')
-#     base_prompts = []
-#
-#     if message.content_type == 'text':
-#         lines = message.text.split('\n')
-#         base_prompts = [line.strip() for line in lines if valid_phone_number_pattern.match(line.strip())]
-#
-#     elif message.content_type == 'document':
-#         file_info = bot.get_file(message.document.file_id)
-#         downloaded_file = bot.download_file(file_info.file_path)
-#         file_stream = io.BytesIO(downloaded_file)
-#         try:
-#             content = file_stream.read().decode('utf-8')
-#             lines = content.split('\n')
-#             base_prompts = [line.strip() for line in lines if valid_phone_number_pattern.match(line.strip())]
-#         except Exception as e:
-#             bot.send_message(user_id, f"Error reading plain text file: {e}")
-#
-#     formatted_prompts = [{"phone_number": phone} for phone in base_prompts if phone]
-#
-#     user_data[user_id]['base_prompts'] = formatted_prompts
-#     user_data[user_id]['step'] = 'batch_numbers'
-#     response = bulk_ivr_flow(formatted_prompts, pathway_id)
-#     if response.status_code == 200:
-#         bot.send_message(user_id, "Successfully sent!", reply_markup=get_main_menu())
-#         user = TelegramUser.objects.get(user_id=user_id)
-#         user.free_gift_bulk_ivr = False
-#         user.save()
-#     else:
-#         bot.send_message(user_id, f"Error: {response.text}", reply_markup=get_main_menu())
-#
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_batch_numbers',
                      content_types=['text', 'document'])
 def get_batch_call_base_prompt(message):
@@ -1350,7 +1321,8 @@ def get_batch_call_base_prompt(message):
             lines = content.split('\n')
             base_prompts = [line.strip() for line in lines if valid_phone_number_pattern.match(line.strip())]
         except Exception as e:
-            bot.send_message(user_id, f"Error reading plain text file: {e}", reply_markup=get_main_menu())
+            bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}", reply_markup=get_main_menu())
+
             return
     calls_sent = len(base_prompts)
 
@@ -1376,7 +1348,7 @@ def get_batch_call_base_prompt(message):
         subscription_details.save()
 
     else:
-        bot.send_message(user_id, f"Error: {response.text}", reply_markup=get_main_menu())
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {response.text}", reply_markup=get_main_menu())
 
 
 
@@ -1397,7 +1369,7 @@ def handle_get_pathway(message):
     if status_code == 200:
         bot.send_message(user_id, "Flow deleted successfully! ✅", reply_markup=get_main_menu())
     else:
-        bot.send_message(user_id, f"Error deleting pathway. Error: {response}!", reply_markup=get_main_menu())
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {response}!", reply_markup=get_main_menu())
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('select_pathway_'))
@@ -1435,7 +1407,7 @@ def handle_add_edges(message):
     response, status = handle_view_single_flow(pathway_id)
 
     if status != 200:
-        bot.send_message(chat_id, f"Error: {response}", reply_markup=get_main_menu())
+        bot.send_message(chat_id, f"{PROCESSING_ERROR} {response}", reply_markup=get_main_menu())
         return
 
     user_data[chat_id]['data'] = response
@@ -1544,7 +1516,7 @@ def add_label(message):
             user_data[chat_id]['step'] = 'error_edges_complete'
 
     else:
-        bot.send_message(chat_id, f"Error: {response}")
+        bot.send_message(chat_id, f"{PROCESSING_ERROR} {response}")
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'error_edges_complete')
@@ -1654,7 +1626,7 @@ def get_action_list(message):
         if message.text not in node_complete:
             user_data[user_id]['step'] = 'error_nodes_complete'
     else:
-        bot.send_message(user_id, f"Error! {response}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {response}")
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'error_nodes_complete')
@@ -1699,7 +1671,7 @@ def handle_get_dtmf_input(message):
         if message.text not in node_complete:
             user_data[user_id]['step'] = 'error_nodes_complete'
     else:
-        bot.send_message(user_id, f"Error! {response}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {response}")
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_node_type')
@@ -1762,7 +1734,7 @@ def handle_select_voice_type(message):
             user_data[user_id]['step'] = 'error_nodes_complete'
 
     else:
-        bot.send_message(user_id, f"Error! {response}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {response}")
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'call_failed')
@@ -1874,7 +1846,7 @@ def handle_single_ivr_call_flow(message):
         user.free_gift_single_ivr = False
         user.save()
         return
-    bot.send_message(user_id, f"Error Occurred! {response}")
+    bot.send_message(user_id, f"{PROCESSING_ERROR} {response}")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("language:"))

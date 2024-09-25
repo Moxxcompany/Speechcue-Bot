@@ -1,25 +1,95 @@
+from lib2to3.fixes.fix_asserts import NAMES
+from multiprocessing.reduction import ACKNOWLEDGE
+
 base_url = 'https://api.bland.ai'
 invalid_data = 'Invalid Data!'
 error = 'Error! '
-
-SINGLE_IVR_PLANS = """
-
-_1._ ***Daily Plan: ***
-    _$5/day, Unlimited single IVR calls per day, 10 minutes of call transfer included, 24/7 standard customer support._
-
-_2._ ***Weekly Plan: ***
-    _$10/week, Unlimited single IVR calls per week, 50 minutes of call transfer included, Priority customer support._
-
-_3._ ***Monthly Plan: ***
-    _$30/month, Unlimited single IVR calls per month, 100 minutes of call transfer included, Premium customer support._
-"""
-
-BULK_IVR_PLANS = """
-
-_1. Cost per contact: [number_of_contacts]_
-
-_2. Cost per minute for answered calls: $_
-
-_3. Cost per minute for transferred calls: $_
-
-"""
+PROCESSING_ERROR = 'We were unable to process your request due to the following error:'
+BITCOIN = 'Bitcoin'
+LITECOIN = 'Litecoin'
+ETHEREUM = 'Ethereum'
+ERC = 'USSTD (ERC-20)'
+TRC = 'USTD (TRC-20)'
+BTC = 'BTC'
+ETH = 'ETH'
+LTC = 'LTC'
+TRON = 'TRON'
+ACCOUNT_CREATED_SUCCESSFULLY = 'Account Created successfully!'
+bitcoin = 'bitcoin'
+ethereum = 'ethereum'
+litecoin = 'litecoin'
+erc20 = 'erc-20'
+trc20 = 'TRC'
+back = 'back'
+WALLET = 'Wallet'
+TOP_UP = 'Top Up Wallet 💳'
+BACK = 'Back'
+INSUFFICIENT_BALANCE = 'Insufficient balance. Please top up your wallet or select another payment method. ⚠️'
+DEPOSIT_ADDRESS = 'Get Deposit Address'
+PAYMENT_METHOD_PROMPT = 'How would you like to make payment for your subscription?'
+AVAILABLE_COMMANDS_PROMPT = 'Here are the available commands:'
+SUBSCRIPTION_PLAN = 'Subscription Plan'
+NAME = 'Name'
+BULK_IVR_LEFT = 'Number of Bulk IVR calls left'
+CALL_TRANSFER_MINS_LEFT = 'Number of Call Transfer minutes left'
+WALLET_INFORMATION = 'Your wallet information is as follows:'
+PROFILE_INFORMATION_PROMPT = 'Here is your profile information:'
+USERNAME = 'Username'
+NO_SUBSCRIPTION_PLAN = 'No Subscription Plan!'
+JOIN_CHANNEL_PROMPT = 'Join our channel for updates and support:'
+INACTIVE = 'inactive'
+BULK_IVR_SUBSCRIPTION_PROMPT = 'A Bulk IVR call requires an active subscription. Please activate your subscription to proceed.'
+ACTIVE_SUBSCRIPTION_PLAN_PROMPT = 'You are currently assigned to the following subscription plan:'
+SUBSCRIPTION_PLAN_NOT_FOUND = 'Subscription Plan not found!'
+CHECKING_WALLETS = 'Checking your wallets...'
+PLAN_NAME = 'Plan Name:'
+PRICE = 'Price:'
+FEATURES = 'Features:'
+CUSTOMER_SUPPORT_LEVEL = 'Customer Support Level'
+DAY_PLAN = 'Day Plan'
+UNLIMITED_SINGLE_IVR = 'Unlimited Single IVR calls'
+BULK_IVR_CALLS = 'Bulk IVR calls'
+CALL_TRANSFER_MINS = 'Minutes of Call Transfer'
+SELECTION_PROMPT = 'Select from the following options:'
+WELCOME_PROMPT = 'Welcome to the Main Menu!'
+PATHWAY_NOT_FOUND = 'Pathway not found!'
+NOT_FOUND = 'not found!'
+STATUS_CODE_200 = '200'
+ACTIVE = 'active'
+DEPOSIT_SUCCESSFUL = 'Deposit successful! ✅ '
+INSUFFICIENT_DEPOSIT_AMOUNT = 'The amount you deposited was insufficient!'
+WEBHOOK_RECEIVED = 'Webhook received successfully'
+INVALID_JSON = 'Invalid JSON payload'
+WEBHOOK_DEPOSIT = 'webhook_deposit'
+WEBHOOK = 'webhook'
+TOP_UP_PROMPT = 'Please select a payment method to top up your balance:'
+SUBSCRIPTION_PAYMENT_METHOD_PROMPT = 'Please select a payment method to pay for the subscription'
+USER_INFORMATION_NOT_FOUND = 'User information not found!'
+MAIN_MENU_PROMPT = 'Here is the main menu:'
+SUBSCRIPTION_ACTIVATED = 'Subscription activated!'
+PAYMENT_SUCCESSFUL = 'Payment successful! ✅'
+RECEIVERS_WALLET_NOT_FOUND = "The receiver's wallet could not be found."
+CURRENT_BALANCE = 'Your current balance is'
+VIRTUAL_ACCOUNT_NOT_FOUND = 'Account Not Found!'
+INVOICE_REVIEW_PROMPT = 'Please review the invoice for your selected subscription plan:'
+PLAN_DOESNT_EXIST = 'Sorry, the selected plan does not exist anymore!'
+DAYS = 'Days'
+VALIDITY_PROMPT = 'Select validity for your plan:'
+PLAN_VALIDITY = 'subscription plans with different validity:'
+VALIDITY = 'Validity:S'
+SUBSCRIPTION_PLAN_SELECTION_PROMPT = 'Please select a subscription plan below:'
+NAME_INPUT_PROMPT = 'Enter Your name: '
+SETUP_PROMPT = "Let's get you setup! It will take a few seconds!"
+EXISTING_USER_WELCOME = "Welcome! 🎉 We are glad to have you again. 🎉 Here is the main menu!"
+NEW_USER_WELCOME = "Welcome! As a new user, you can make one free single IVR call. 🎉"
+LANGUAGE_SELECTION_PROMPT = "Select your preferred language:"
+USERNAME_PROMPT = "Your username is"
+ACKNOWLEDGE_AND_PROCEED = 'Acknowledge and Proceed ✅'
+NODE_TYPE_SELECTION_PROMPT = 'Select the type of node:'
+TRANSCRIPT_NOT_FOUND = 'No transcript found for this call.'
+VIEW_TRANSCRIPT_PROMPT = 'Select a call to view the transcript:'
+CALL_LOGS_NOT_FOUND = 'No call logs found for your user ID.'
+VIEW_VARIABLES_PROMPT = 'Select a call to view variables:'
+EDGES_DELETED = "Node and its associated edges have been deleted successfully."
+BALANCE_IN_USD = "Total balance in USD :"
+USD = 'USD'

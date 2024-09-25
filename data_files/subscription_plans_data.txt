@@ -4,3 +4,4 @@ Prime|30|500|10|24/7|30
 Elite|15|150|30|Priority|1
 Elite|25|300|30|Priority|7
 Elite|35|600|30|Priority|30
+Free|0|20|2|24/7|2

@@ -4,7 +4,6 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from TelegramBot.constants import SINGLE_IVR_PLANS, BULK_IVR_PLANS
 from TelegramBot.constants import base_url, invalid_data, error
 from bot.models import Pathways, CallLogsTable, FeedbackDetails, FeedbackLogs
 from bot.utils import add_node, get_pathway_data
@@ -570,13 +569,8 @@ def get_transcript(call_id, pathway_id):
 
 def get_variables(call_id):
     try:
-        # Fetch the call details using the provided function
         call_details = get_call_details(call_id)
-
-        # Extract the variables dictionary from the call details
         variables = call_details.get('variables', {})
-
-        # Create a dictionary to store variables ending with 'user_input'
         user_input_variables = {}
 
         for key, value in variables.items():

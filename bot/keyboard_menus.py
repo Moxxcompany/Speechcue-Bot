@@ -40,7 +40,7 @@ def get_main_menu():
     return get_reply_keyboard(options)
 
 def get_available_commands():
-    options = ["Create IVR Flow ➕", "View Flows 📂", "Delete Flow ❌", "Help ℹ️"]
+    options = ["Create IVR Flow ➕", "View Flows 📂", "Delete Flow ❌", "Help ℹ️", "Back to Main Menu ↩️"]
     return get_reply_keyboard(options)
 
 def get_gender_menu():
@@ -104,6 +104,30 @@ def get_node_menu():
 
     return get_reply_keyboard(options)
 
+
+def get_billing_and_subscription_keyboard():
+
+    markup = types.InlineKeyboardMarkup()
+    view_subscription_btn = types.InlineKeyboardButton('View Subscription 📅', callback_data='view_subscription')
+    update_subscription_btn = types.InlineKeyboardButton('Upgrade Subscription ⬆️', callback_data='update_subscription')
+    wallet_btn = types.InlineKeyboardButton('Wallet 💰', callback_data='check_wallet')
+    help_btn = types.InlineKeyboardButton("Help ℹ️", callback_data='help')
+    back_btn = types.InlineKeyboardButton('Back', callback_data='back_to_welcome_message')
+    markup.add(view_subscription_btn)
+    markup.add(update_subscription_btn)
+    markup.add(wallet_btn)
+    markup.add(back_btn)
+    return markup
+
+def get_currency_keyboard():
+    markup = types.InlineKeyboardMarkup()
+    payment_methods = ['Bitcoin (BTC) ₿', 'Ethereum (ETH) Ξ', 'TRC-20 USDT 💵', 'ERC-20 USDT 💵',
+                       'Litecoin (LTC) Ł', 'Back ↩️']
+    for method in payment_methods:
+        payment_button = types.InlineKeyboardButton(method, callback_data=f"pay_{method.lower().replace(' ', '_')}")
+        markup.add(payment_button)
+
+    return markup
 
 def get_terms_and_conditions():
     options = ["View Terms and Conditions 📜", "Back ↩️"]

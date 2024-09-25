@@ -208,10 +208,26 @@ def get_ltc_price():
     }
     response = requests.get(url, params=params)
     data = response.json()
+    print("Response data litecoin: ", data)
     return float(data['litecoin']['usd'])
 
 def convert_dollars_to_crypto(amount_in_usd, price_in_usd):
     return float(amount_in_usd) / float(price_in_usd)
+
+
+def convert_crypto_to_usd(crypto_amount, crypto_type):
+    if crypto_type.lower() == 'btc':
+        price_in_usd = get_btc_price()
+    elif crypto_type.lower() == 'eth':
+        price_in_usd = get_eth_price()
+    elif crypto_type.lower() == 'trx':
+        price_in_usd = get_trx_price()
+    elif crypto_type.lower() == 'ltc':
+        price_in_usd = get_ltc_price()
+    else:
+        raise ValueError(f"Unsupported cryptocurrency type: {crypto_type}")
+
+    return crypto_amount * price_in_usd
 
 def get_plan_price(payment_currency, plan_price):
     if payment_currency == 'BTC':

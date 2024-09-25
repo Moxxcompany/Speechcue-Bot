@@ -1,7 +1,9 @@
 import os
 import uuid
 import psycopg2
+from dotenv.main import load_dotenv
 
+load_dotenv()
 def read_wallet_data(file_path):
     wallet_data = []
     with open(file_path, 'r') as file:
@@ -9,7 +11,7 @@ def read_wallet_data(file_path):
             line = line.strip()
             parts = line.split('|')
             if len(parts) == 5:
-                parts.insert(3, '')  # Adding an empty string for missing "virtual_account"
+                parts.insert(3, '')
             wallet_data.append({
                 "xpub": parts[0],
                 "mnemonic": parts[1],
@@ -46,8 +48,8 @@ conn = psycopg2.connect(
 cur = conn.cursor()
 
 # File paths
-wallet_file_path = 'main_wallet_data.txt'
-subscription_file_path = 'subscription_plans_data.txt'
+wallet_file_path = 'data_files/main_wallet_data.txt'
+subscription_file_path = 'data_files/subscription_plans_data.txt'
 
 # Read data from files
 wallet_data = read_wallet_data(wallet_file_path)
