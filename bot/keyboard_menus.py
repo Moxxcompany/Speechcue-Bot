@@ -112,7 +112,7 @@ def get_billing_and_subscription_keyboard():
     update_subscription_btn = types.InlineKeyboardButton('Upgrade Subscription ⬆️', callback_data='update_subscription')
     wallet_btn = types.InlineKeyboardButton('Wallet 💰', callback_data='check_wallet')
     help_btn = types.InlineKeyboardButton("Help ℹ️", callback_data='help')
-    back_btn = types.InlineKeyboardButton('Back', callback_data='back_to_welcome_message')
+    back_btn = types.InlineKeyboardButton('Back ↩️', callback_data='back_to_welcome_message')
     markup.add(view_subscription_btn)
     markup.add(update_subscription_btn)
     markup.add(wallet_btn)

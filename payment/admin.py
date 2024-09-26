@@ -1,4 +1,5 @@
 from django.contrib import admin
+
 from payment.models import SubscriptionPlans, MainWalletTable, VirtualAccountsTable, UserSubscription
 
 
@@ -24,16 +25,22 @@ class SubscriptionPlansAdmin(admin.ModelAdmin):
 
 @admin.register(MainWalletTable)
 class MainWalletTableAdmin(admin.ModelAdmin):
-    list_display = ('currency', 'xpub', 'address', 'virtual_account', 'mnemonic')
+    list_display = ('currency', 'xpub', 'address', 'virtual_account', 'mnemonic', 'deposit_address', 'subscription_id')
     search_fields = ('currency', 'address')
     list_filter = ('currency',)
 
 
 @admin.register(VirtualAccountsTable)
 class VirtualAccountsTableAdmin(admin.ModelAdmin):
-    list_display = ('user', 'balance', 'currency', 'account_detail', 'account_id')
+    list_display = (
+    'get_user_id', 'balance', 'currency', 'account_detail', 'account_id', 'subscription_id', 'deposit_address')
     search_fields = ('user__username', 'account_detail', 'currency')
     list_filter = ('currency',)
+
+    def get_user_id(self, obj):
+        return obj.user.user_id
+
+    get_user_id.short_description = 'User ID'
 @admin.register(UserSubscription)
 class UserSubscriptionAdmin(admin.ModelAdmin):
     # Custom method to display the Telegram user_id

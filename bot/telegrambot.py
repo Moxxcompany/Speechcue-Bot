@@ -1,13 +1,10 @@
 import json
-import os
-from multiprocessing.managers import convert_to_error
 from uuid import UUID
 import re
 import io
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
-from telebot import types
 
 import bot.utils
 from TelegramBot.constants import BITCOIN, ACCOUNT_CREATED_SUCCESSFULLY, \
@@ -110,25 +107,25 @@ def get_user_profile(message):
         litecoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='LTC').account_id
         sum_in_usd = 0
         bitcoin_balance = check_balance(bitcoin)
-        balance_in_usd = convert_crypto_to_usd(int(bitcoin_balance), 'btc')
+        balance_in_usd = convert_crypto_to_usd(float(bitcoin_balance), 'btc')
         sum_in_usd = sum_in_usd + balance_in_usd
         bot.send_message(user_id, f"{BITCOIN} : {bitcoin_balance} {BTC} & {balance_in_usd} {USD}")
 
 
         etheruem_balance = check_balance(etheruem)
-        balance_in_usd = convert_crypto_to_usd(int(etheruem_balance), 'eth')
+        balance_in_usd = convert_crypto_to_usd(float(etheruem_balance), 'eth')
         sum_in_usd = sum_in_usd + balance_in_usd
         bot.send_message(user_id, f"{ETHEREUM} & {ERC} : {etheruem_balance} {ETH} & {balance_in_usd} {USD}")
 
 
         tron_balance = check_balance(tron)
-        balance_in_usd = convert_crypto_to_usd(int(tron_balance), 'trx')
+        balance_in_usd = convert_crypto_to_usd(float(tron_balance), 'trx')
         sum_in_usd = sum_in_usd + balance_in_usd
         bot.send_message(user_id, f"{TRC} : {tron_balance} {TRON} & {balance_in_usd} {USD}")
 
 
         litecoin_balance = check_balance(litecoin)
-        balance_in_usd = convert_crypto_to_usd(int(litecoin_balance), 'ltc')
+        balance_in_usd = convert_crypto_to_usd(float(litecoin_balance), 'ltc')
         sum_in_usd = sum_in_usd + balance_in_usd
         bot.send_message(user_id, f"{LITECOIN} : {litecoin_balance} {LTC} & {balance_in_usd} {USD}")
 
@@ -215,22 +212,22 @@ def check_wallet(call):
         litecoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='LTC').account_id
         sum_in_usd = 0
         bitcoin_balance = check_balance(bitcoin)
-        balance_in_usd = convert_crypto_to_usd(int(bitcoin_balance), 'btc')
+        balance_in_usd = convert_crypto_to_usd(float(bitcoin_balance), 'btc')
         sum_in_usd = sum_in_usd + balance_in_usd
         bot.send_message(user_id, f"{BITCOIN} : {bitcoin_balance} {BTC} & {balance_in_usd} {USD}")
 
         etheruem_balance = check_balance(etheruem)
-        balance_in_usd = convert_crypto_to_usd(int(etheruem_balance), 'eth')
+        balance_in_usd = convert_crypto_to_usd(float(etheruem_balance), 'eth')
         sum_in_usd = sum_in_usd + balance_in_usd
         bot.send_message(user_id, f"{ETHEREUM} & {ERC} : {etheruem_balance} {ETH} & {balance_in_usd} {USD}")
 
         tron_balance = check_balance(tron)
-        balance_in_usd = convert_crypto_to_usd(int(tron_balance), 'trx')
+        balance_in_usd = convert_crypto_to_usd(float(tron_balance), 'trx')
         sum_in_usd = sum_in_usd + balance_in_usd
         bot.send_message(user_id, f"{TRC} : {tron_balance} {TRON} & {balance_in_usd} {USD}")
 
         litecoin_balance = check_balance(litecoin)
-        balance_in_usd = convert_crypto_to_usd(int(litecoin_balance), 'ltc')
+        balance_in_usd = convert_crypto_to_usd(float(litecoin_balance), 'ltc')
         sum_in_usd = sum_in_usd + balance_in_usd
         bot.send_message(user_id, f"{LITECOIN} : {litecoin_balance} {LTC} & {balance_in_usd} {USD}")
 
@@ -1856,6 +1853,9 @@ def handle_language_selection(call):
     user_data[user_id] = {'language': selected_language, 'step': 'terms_and_conditions'}
     bot.send_message(user_id,
                      f"You have selected {selected_language}.")
+    user = TelegramUser.objects.get(user_id = user_id)
+    user.language = selected_language
+    user.save()
     markup = types.InlineKeyboardMarkup()
     view_terms_button = types.InlineKeyboardButton("View Terms and Conditions 📜", callback_data="view_terms")
     back_button = types.InlineKeyboardButton("Back ↩️", callback_data="back_to_language")
