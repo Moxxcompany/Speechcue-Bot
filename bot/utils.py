@@ -1,4 +1,5 @@
 import json
+import re
 from io import BytesIO
 import qrcode
 from django.core.exceptions import ObjectDoesNotExist
@@ -14,6 +15,16 @@ from bot.bot_config import *
 crypto_conversion_base_url = os.getenv('crypto_conversion_base_url')
 import random
 import string
+
+valid_phone_number_pattern = re.compile(r'^[\d\+\-\(\)\s]+$')
+
+import re
+
+def validate_transfer_number(number):
+    # Regex pattern to match a phone number with country code (e.g., +1234567890)
+    pattern = r'^\+\d{1,3}\d{7,15}$'
+    return re.match(pattern, number) is not None
+
 
 def add_node(data, new_node):
     data = json.loads(data)

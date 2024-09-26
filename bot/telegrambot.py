@@ -27,7 +27,7 @@ from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTabl
 from bot.utils import generate_random_id, create_user_virtual_account, generate_qr_code, \
     check_balance, set_user_subscription, convert_dollars_to_crypto, get_btc_price, get_eth_price, get_ltc_price, \
     get_trx_price, get_plan_price, check_validity, \
-    check_subscription_status, username_formating, convert_crypto_to_usd
+    check_subscription_status, username_formating, convert_crypto_to_usd, validate_transfer_number
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
@@ -390,7 +390,8 @@ def delete_node(call):
     }
 
     updated = handle_add_node(pathway_id, data)
-    if updated.status_code != f"{STATUS_CODE_200}":
+
+    if updated.status_code != 200:
         bot.send_message(user_id, f"{PROCESSING_ERROR}\n"
                                   f"{updated.text}")
         return
@@ -1661,7 +1662,15 @@ def handle_get_dtmf_input(message):
     prompt = text
     node_id = user_data[user_id]['add_node_id']
     message_type = user_data[user_id]['message_type']
+
+    if message_type == 'Transfer Call':
+        if not validate_transfer_number(text):
+            bot.send_message(user_id,
+                             "Invalid number! Please enter a valid phone number with country code (e.g., +1234567890).")
+            return
+
     response = handle_dtmf_input_node(pathway_id, node_id, prompt, node_name, message_type)
+
     if response.status_code == 200:
         bot.send_message(user_id, f"Node '{node_name}' with '{message_type}' added successfully! ✅",
                          reply_markup=get_node_complete_menu())
