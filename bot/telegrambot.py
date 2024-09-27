@@ -22,12 +22,12 @@ from TelegramBot.constants import BITCOIN, ACCOUNT_CREATED_SUCCESSFULLY, \
     SUBSCRIPTION_PLAN_SELECTION_PROMPT, NAME_INPUT_PROMPT, SETUP_PROMPT, EXISTING_USER_WELCOME, \
     LANGUAGE_SELECTION_PROMPT, USERNAME_PROMPT, NEW_USER_WELCOME, ACKNOWLEDGE_AND_PROCEED, NODE_TYPE_SELECTION_PROMPT, \
     TRANSCRIPT_NOT_FOUND, VIEW_TRANSCRIPT_PROMPT, CALL_LOGS_NOT_FOUND, VIEW_VARIABLES_PROMPT, EDGES_DELETED, \
-    BALANCE_IN_USD, USD
+    BALANCE_IN_USD, USD, CALL_TRANSFER_EXCLUDED, CALL_TRANSFER_INCLUDED, FULL_NODE_ACCESS, PARTIAL_NODE_ACCESS
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable
 from bot.utils import generate_random_id, create_user_virtual_account, generate_qr_code, \
     check_balance, set_user_subscription, convert_dollars_to_crypto, get_btc_price, get_eth_price, get_ltc_price, \
     get_trx_price, get_plan_price, check_validity, \
-    check_subscription_status, username_formating, convert_crypto_to_usd, validate_transfer_number
+    check_subscription_status, username_formating, convert_crypto_to_usd, validate_transfer_number, validate_edges
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
@@ -175,12 +175,19 @@ def handle_view_subscription(call):
             f"**{PRICE}** ${subscription_plan.plan_price}\n\n"
             f"**{FEATURES}**\n"
             f"- '{UNLIMITED_SINGLE_IVR}'\n"
-            f"- {subscription_plan.number_of_calls} {BULK_IVR_CALLS}\n"
-            f"- {subscription_plan.minutes_of_call_transfer} {CALL_TRANSFER_MINS}\n"
+            f"- {subscription_plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
             f"- {subscription_plan.customer_support_level} {CUSTOMER_SUPPORT_LEVEL}\n"
             f"- {subscription_plan.validity_days} {DAY_PLAN}\n"
 
         )
+        if subscription_plan.call_transfer == True:
+            plan_details+=(
+                f"**Full Node Access** : Call Transfer included"
+            )
+        else:
+            plan_details+=(
+                f"**Partial Node Access** : Call Transfer not included"
+            )
 
         bot.send_message(user_id, f"{ACTIVE_SUBSCRIPTION_PLAN_PROMPT}\n\n{plan_details}",
                          reply_markup=get_billing_and_subscription_keyboard())
@@ -426,9 +433,33 @@ def trigger_skip_node(message):
 def trigger_transfer_to_live_agent_node(message):
     transfer_to_agent(message)
 
+
 @bot.message_handler(func=lambda message: message.text == 'Done Adding Edges')
 def trigger_end_call_option(message):
-    handle_call_failure(message)
+    chat_id = message.chat.id
+    pathway_id = user_data[chat_id]['select_pathway']
+    response, status_code = handle_view_single_flow(pathway_id)
+
+    # Validate edges
+    validation_result = validate_edges(response)
+    missing_sources = validation_result['missing_sources']
+    missing_targets = validation_result['missing_targets']
+    valid = validation_result['valid']
+
+    if not valid:
+        if missing_sources:
+            bot.send_message(chat_id,
+                             f"The following nodes do not have any outgoing connections to other nodes: {', '.join(missing_sources)}")
+
+        if missing_targets:
+            bot.send_message(chat_id,
+                             f"The following nodes do not connect to any other nodes: {', '.join(missing_targets)}")
+
+        bot.send_message(chat_id, "At least, add one edge for the missing nodes!")
+        handle_add_edges(message)
+    else:
+        handle_call_failure(message)
+
 
 @bot.message_handler(func=lambda message: message.text == 'Continue to Next Node ▶️')
 def trigger_add_another_node(message):
@@ -662,10 +693,13 @@ def handle_activate_subscription(call):
     for plan in plans:
         message_text += (f"🆔 {PLAN_NAME} {plan.name} Plan 📅\n"
                          f"💲 {PRICE} ${plan.plan_price:.6f}\n"
-                         f"📞 {UNLIMITED_SINGLE_IVR} & {plan.number_of_calls} {BULK_IVR_CALLS}\n"
-                         f"🕒 {CALL_TRANSFER_MINS}: {plan.minutes_of_call_transfer}\n"
+                         f"📞 {UNLIMITED_SINGLE_IVR} & {plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
                          f"🔧 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n"
                          f"📅 {VALIDITY} {plan.validity_days} {DAYS}\n\n")
+        if plan.call_transfer:
+            message_text += f"🔧 {FULL_NODE_ACCESS}: {CALL_TRANSFER_INCLUDED}"
+        else:
+            message_text += f"🔧 {PARTIAL_NODE_ACCESS}: {CALL_TRANSFER_EXCLUDED}"
 
     plan_names = set(plan.name for plan in plans)
     plan_names_list = list(plan_names)
@@ -691,8 +725,8 @@ def view_plan_validity(call):
                          f"🆔 {PLAN_NAME} {plan.name} Plan 📅\n"
                          f"💲 {PRICE} ${plan.plan_price:.6f}\n"
                          f"💲 {PRICE} ${plan.plan_price:.6f}\n"
-                         f"📞 {UNLIMITED_SINGLE_IVR} & {plan.number_of_calls} {BULK_IVR_CALLS}\n"
-                         f"🕒 {CALL_TRANSFER_MINS}: {plan.minutes_of_call_transfer}\n"
+                         f"📞 {UNLIMITED_SINGLE_IVR} & {plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
+                         f"🕒 {CALL_TRANSFER_MINS}: {plan.call_transfer}\n"
                          f"🔧 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n")
 
     markup = types.InlineKeyboardMarkup()
@@ -728,8 +762,8 @@ def handle_plan_selection(call):
         f"**{PRICE}** ${plan.plan_price}\n\n"
         f"**{FEATURES}:**\n"
         f"- {UNLIMITED_SINGLE_IVR}\n"
-        f"- {plan.number_of_calls} {BULK_IVR_CALLS}\n"
-        f"- {plan.minutes_of_call_transfer} {CALL_TRANSFER_MINS}\n"
+        f"- {plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
+        f"- {plan.call_transfer} {CALL_TRANSFER_MINS}\n"
         f"- {plan.customer_support_level} {CUSTOMER_SUPPORT_LEVEL}\n"
         f"- {plan.validity_days} {DAY_PLAN}\n"
 
@@ -747,8 +781,8 @@ def handle_plan_selection(call):
         if user.free_plan:
             bot.send_message(user_id, invoice_message, parse_mode="Markdown")
             bot.send_message(user_id, f"You have successfully subscribed to {plan.name}. You have unlimited number "
-                                      f"of SINGLE IVR calls, {plan.number_of_calls} of BULK IVR calls, and "
-                                      f"{plan.minutes_of_call_transfer} number of transfer call minutes valid "
+                                      f"of SINGLE IVR calls, {plan.number_of_bulk_call_minutes} of BULK IVR calls, and "
+                                      f"{plan.call_transfer} number of transfer call minutes valid "
                                       f"for {plan.validity_days} days.\n", reply_markup=get_main_menu())
             set_subscription = set_user_subscription(user, plan_id)
             if set_subscription != f"{STATUS_CODE_200}":
@@ -1188,6 +1222,7 @@ def handle_pathway_details(call):
     if status_code != 200:
         bot.send_message(user_id, f"{PROCESSING_ERROR} {pathway.get('error')}")
         return
+
     pathway_info = f"Name: {pathway.get('name')}\nDescription: {pathway.get('description')}\n\nNodes:\n" + \
                    "\n".join(
                        [f"\n  Name: {node['data']['name']}\n"
@@ -1388,8 +1423,9 @@ def handle_pathway_selection(call):
         bot.send_message(user_id, "Are you sure you want to delete this flow?",
                          reply_markup=get_delete_confirmation_keyboard())
     elif step == 'phone_number_input':
-        user_data[user_id]['step'] = 'initiate_call'
+
         user_data[user_id]['call_flow'] = pathway_id
+        user_data[user_id]['step'] = 'initiate_call'
         bot.send_message(user_id, "Please enter the phone number to call (include country code).")
     elif step == 'get_batch_numbers':
         user_data[user_id]['call_flow_bulk'] = pathway_id

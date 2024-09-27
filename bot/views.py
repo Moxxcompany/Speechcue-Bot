@@ -404,8 +404,10 @@ def handle_add_node(pathway_id: int, data) -> requests.Response:
     }
     data = json.dumps(data)
     payload = json.loads(data)
+    print("Add node Payload ",payload)
 
     response = requests.request("POST", endpoint, json=payload, headers=headers)
+    print(response)
     return response
 
 

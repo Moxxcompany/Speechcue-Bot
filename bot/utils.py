@@ -15,13 +15,66 @@ from bot.bot_config import *
 crypto_conversion_base_url = os.getenv('crypto_conversion_base_url')
 import random
 import string
-
+import re
 valid_phone_number_pattern = re.compile(r'^[\d\+\-\(\)\s]+$')
 
-import re
+def validate_edges(data):
+    nodes = data['nodes']
+    edges = data['edges']
+
+    source_ids = {edge['source'] for edge in edges}
+    target_ids = {edge['target'] for edge in edges}
+    missing_sources = []
+    missing_targets = []
+
+    for node in nodes:
+        node_id = node['id']
+        node_name = node['data']['name']
+        node_type = node['type']
+        node_data = node['data']
+
+        if node_type == 'End Call':
+            if node_id not in target_ids:
+                missing_targets.append(node_name)
+
+        elif node_data.get('isStart', False):
+            if node_id not in source_ids:
+                missing_sources.append(node_name)
+
+        else:
+            if node_id not in source_ids:
+                missing_sources.append(node_name)
+
+            if node_id not in target_ids:
+                missing_targets.append(node_name)
+
+    # Handle missing sources and targets
+    if missing_sources or missing_targets:
+        if missing_sources:
+            print(
+                f"The following nodes do not have any outgoing connections to other nodes: {', '.join(missing_sources)}")
+        else:
+            print("No nodes are missing incoming connections.")
+
+        if missing_targets:
+            print(f"The following nodes do not connect to any other nodes: {', '.join(missing_targets)}")
+        else:
+            print("No nodes are missing incoming connections.")
+
+        return {
+            'missing_sources': missing_sources,
+            'missing_targets': missing_targets,
+            'valid': False
+        }
+
+    print("All nodes are properly connected.")
+    return {
+            'missing_sources': None,
+            'missing_targets': None,
+            'valid': True
+        }
 
 def validate_transfer_number(number):
-    # Regex pattern to match a phone number with country code (e.g., +1234567890)
     pattern = r'^\+\d{1,3}\d{7,15}$'
     return re.match(pattern, number) is not None
 
@@ -171,8 +224,8 @@ def set_user_subscription(user, plan_id):
         defaults={
             'subscription_status': 'active',
             'plan_id': plan,
-            'transfer_minutes_left': plan.minutes_of_call_transfer,
-            'bulk_ivr_calls_left': plan.number_of_calls,
+            'transfer_minutes_left': plan.call_transfer,
+            'bulk_ivr_calls_left': plan.number_of_bulk_call_minutes,
             'date_of_subscription': date_of_subscription,
             'date_of_expiry': date_of_expiry
         }

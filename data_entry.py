@@ -31,8 +31,8 @@ def read_subscription_plans(file_path):
             subscription_data.append({
                 "name": parts[0],
                 "plan_price": float(parts[1]),
-                "number_of_calls": int(parts[2]),
-                "minutes_of_call_transfer": int(parts[3]),
+                "number_of_bulk_call_minutes": int(parts[2]),
+                "call_transfer": int(parts[3]),
                 "customer_support_level": parts[4],
                 "validity_days": parts[5]
             })
@@ -63,9 +63,9 @@ for wallet in wallet_data:
 
 for plan in subscription_data:
     cur.execute("""
-        INSERT INTO payment_subscriptionplans (plan_id, name, plan_price, number_of_calls, minutes_of_call_transfer, customer_support_level, validity_days)
+        INSERT INTO payment_subscriptionplans (plan_id, name, plan_price, number_of_bulk_call_minutes, call_transfer, customer_support_level, validity_days)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """, (str(uuid.uuid4()), plan['name'], plan['plan_price'], plan['number_of_calls'], plan['minutes_of_call_transfer'], plan['customer_support_level'], plan['validity_days']))
+    """, (str(uuid.uuid4()), plan['name'], plan['plan_price'], plan['number_of_bulk_call_minutes'], plan['call_transfer'], plan['customer_support_level'], plan['validity_days']))
 
 conn.commit()
 
