@@ -50,24 +50,12 @@ def validate_edges(data):
 
     # Handle missing sources and targets
     if missing_sources or missing_targets:
-        if missing_sources:
-            print(
-                f"The following nodes do not have any outgoing connections to other nodes: {', '.join(missing_sources)}")
-        else:
-            print("No nodes are missing incoming connections.")
-
-        if missing_targets:
-            print(f"The following nodes do not connect to any other nodes: {', '.join(missing_targets)}")
-        else:
-            print("No nodes are missing incoming connections.")
-
         return {
             'missing_sources': missing_sources,
             'missing_targets': missing_targets,
             'valid': False
         }
 
-    print("All nodes are properly connected.")
     return {
             'missing_sources': None,
             'missing_targets': None,
