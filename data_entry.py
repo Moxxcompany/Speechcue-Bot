@@ -32,9 +32,10 @@ def read_subscription_plans(file_path):
                 "name": parts[0],
                 "plan_price": float(parts[1]),
                 "number_of_bulk_call_minutes": int(parts[2]),
-                "call_transfer": int(parts[3]),
+                "call_transfer": bool(parts[3]),
                 "customer_support_level": parts[4],
-                "validity_days": parts[5]
+                "validity_days": parts[5],
+
             })
     return subscription_data
 

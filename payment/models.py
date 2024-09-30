@@ -12,7 +12,6 @@ class SubscriptionPlans(models.Model):
     plan_price = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
     number_of_bulk_call_minutes = models.IntegerField()
     call_transfer = models.BooleanField(default=False)
-    minutes_of_call_transfer = models.IntegerField(null=True, blank=True)
     customer_support_level = models.TextField(max_length=100)
     validity_days = models.CharField(max_length=100, blank=True, null=True)
 
@@ -52,7 +51,10 @@ class UserSubscription(models.Model):
     user_id = models.ForeignKey(TelegramUser, on_delete= models.DO_NOTHING,related_name='subscription_user_id')
     subscription_status = models.CharField(max_length=50, null=True, default='inactive')
     plan_id = models.ForeignKey(SubscriptionPlans, on_delete=models.CASCADE, related_name='subscription_user_plan')
-    transfer_minutes_left = models.IntegerField(null=True, default=0)
     bulk_ivr_calls_left = models.IntegerField(null=True, default=0)
     date_of_subscription = models.DateField(auto_now_add=True, blank=True, null=True)
     date_of_expiry = models.DateField(null = True, blank=True)
+    call_transfer = models.BooleanField(default=False)
+
+
+
