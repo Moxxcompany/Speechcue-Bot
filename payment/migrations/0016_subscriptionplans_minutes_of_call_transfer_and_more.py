@@ -10,14 +10,14 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='subscriptionplans',
-            name='minutes_of_call_transfer',
-            field=models.IntegerField(blank=True, null=True),
-        ),
-        migrations.AlterField(
-            model_name='subscriptionplans',
-            name='call_transfer',
-            field=models.BooleanField(default=False),
-        ),
+#        migrations.AddField(
+#            model_name='subscriptionplans',
+#            name='minutes_of_call_transfer',
+#            field=models.IntegerField(blank=True, null=True),
+#        ),
+#        migrations.AlterField(
+#            model_name='subscriptionplans',
+#            name='call_transfer',
+#            field=models.BooleanField(default=False),
+ #       ),
     ]
