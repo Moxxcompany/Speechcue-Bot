@@ -106,25 +106,28 @@ def get_user_profile(message):
         tron = VirtualAccountsTable.objects.get(user_id=user_id, currency='TRON').account_id
         litecoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='LTC').account_id
         sum_in_usd = 0
-
         bitcoin_balance = check_balance(bitcoin)
         balance_in_usd = convert_crypto_to_usd(float(bitcoin_balance), 'btc')
         sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{BITCOIN} : {balance_in_usd} {USD}")
 
 
         etheruem_balance = check_balance(etheruem)
         balance_in_usd = convert_crypto_to_usd(float(etheruem_balance), 'eth')
         sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{ETHEREUM}: {balance_in_usd} {USD}")
 
 
         tron_balance = check_balance(tron)
         balance_in_usd = convert_crypto_to_usd(float(tron_balance), 'trx')
         sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{TRC} : {balance_in_usd} {USD}")
 
 
         litecoin_balance = check_balance(litecoin)
         balance_in_usd = convert_crypto_to_usd(float(litecoin_balance), 'ltc')
         sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{LITECOIN} : {balance_in_usd} {USD}")
 
 
         bot.send_message(user_id, f"{BALANCE_IN_USD} : {sum_in_usd}", reply_markup=get_main_menu())
@@ -218,18 +221,22 @@ def check_wallet(call):
         bitcoin_balance = check_balance(bitcoin)
         balance_in_usd = convert_crypto_to_usd(float(bitcoin_balance), 'btc')
         sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{BITCOIN} : {balance_in_usd} {USD}")
 
         etheruem_balance = check_balance(etheruem)
         balance_in_usd = convert_crypto_to_usd(float(etheruem_balance), 'eth')
         sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{ETHEREUM}: {balance_in_usd} {USD}")
 
         tron_balance = check_balance(tron)
         balance_in_usd = convert_crypto_to_usd(float(tron_balance), 'trx')
         sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{TRC} : {balance_in_usd} {USD}")
 
         litecoin_balance = check_balance(litecoin)
         balance_in_usd = convert_crypto_to_usd(float(litecoin_balance), 'ltc')
         sum_in_usd = sum_in_usd + balance_in_usd
+        bot.send_message(user_id, f"{LITECOIN} : {balance_in_usd} {USD}")
 
         markup = InlineKeyboardMarkup()
         top_up_wallet_button = types.InlineKeyboardButton("Top Up Wallet 💳", callback_data="top_up_wallet")
