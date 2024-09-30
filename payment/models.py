@@ -12,6 +12,7 @@ class SubscriptionPlans(models.Model):
     plan_price = models.DecimalField(max_digits=20, decimal_places=6, null=True, blank=True)
     number_of_bulk_call_minutes = models.IntegerField()
     call_transfer = models.BooleanField(default=False)
+    minutes_of_call_transfer = models.IntegerField(null=True, blank=True)
     customer_support_level = models.TextField(max_length=100)
     validity_days = models.CharField(max_length=100, blank=True, null=True)
 
