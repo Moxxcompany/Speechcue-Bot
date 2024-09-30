@@ -721,14 +721,15 @@ def view_plan_validity(call):
     plans = SubscriptionPlans.objects.filter(name=plan_name)
     message_text = f"{plan_name} {PLAN_VALIDITY}\n\n"
     for plan in plans:
-        message_text += (f"📅 {VALIDITY} {plan.validity_days} {DAYS}\n\n"
-                         f"🆔 {PLAN_NAME} {plan.name} Plan 📅\n"
-                         f"💲 {PRICE} ${plan.plan_price:.6f}\n"
+        message_text += (f"🆔 {PLAN_NAME} {plan.name} Plan 📅\n"
                          f"💲 {PRICE} ${plan.plan_price:.6f}\n"
                          f"📞 {UNLIMITED_SINGLE_IVR} & {plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
-                         f"🕒 {CALL_TRANSFER_MINS}: {plan.call_transfer}\n"
-                         f"🔧 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n")
-
+                         f"🔧 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n"
+                         f"📅 {VALIDITY} {plan.validity_days} {DAYS}\n\n")
+        if plan.call_transfer:
+            message_text += f"🔧 {FULL_NODE_ACCESS}: {CALL_TRANSFER_INCLUDED}"
+        else:
+            message_text += f"🔧 {PARTIAL_NODE_ACCESS}: {CALL_TRANSFER_EXCLUDED}"
     markup = types.InlineKeyboardMarkup()
     for plan in plans:
         plan_button = types.InlineKeyboardButton(f"{plan.validity_days} {DAYS}", callback_data=f"plan_{plan.plan_id}")
@@ -757,17 +758,17 @@ def handle_plan_selection(call):
         return
 
     invoice_message = (
-        f"{INVOICE_REVIEW_PROMPT}\n\n"
-        f"**{PLAN_NAME}** {plan.name}\n"
-        f"**{PRICE}** ${plan.plan_price}\n\n"
-        f"**{FEATURES}:**\n"
-        f"- {UNLIMITED_SINGLE_IVR}\n"
-        f"- {plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
-        f"- {plan.call_transfer} {CALL_TRANSFER_MINS}\n"
-        f"- {plan.customer_support_level} {CUSTOMER_SUPPORT_LEVEL}\n"
-        f"- {plan.validity_days} {DAY_PLAN}\n"
+        f"🆔 {PLAN_NAME} {plan.name} Plan 📅\n"
+                         f"💲 {PRICE} ${plan.plan_price:.6f}\n"
+                         f"📞 {UNLIMITED_SINGLE_IVR} & {plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
+                         f"🔧 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n"
+                         f"📅 {VALIDITY} {plan.validity_days} {DAYS}\n\n")
+    if plan.call_transfer:
+        invoice_message += f"🔧 {FULL_NODE_ACCESS}: {CALL_TRANSFER_INCLUDED}"
+    else:
+        invoice_message += f"🔧 {PARTIAL_NODE_ACCESS}: {CALL_TRANSFER_EXCLUDED}"
 
-    )
+
     if user_id not in user_data:
         user_data[user_id] = {}
     user_data[user_id]['subscription_price'] = plan.plan_price
@@ -1365,7 +1366,7 @@ def get_batch_call_base_prompt(message):
                          f"Please reduce the number of contacts and try again.", reply_markup=get_main_menu())
         return
     if calls_sent == 0:
-        bot.send_message(user_id,"Oops! you have run out of Bulk IVR calls.", reply_markup=get_main_menu())
+        bot.send_message(user_id,"Your subscription plan has expired!", reply_markup=get_main_menu())
         return
 
     formatted_prompts = [{"phone_number": phone} for phone in base_prompts if phone]
@@ -1943,7 +1944,6 @@ def handle_main_menu(call):
     user_id = call.from_user.id
 
     bot.send_message(user_id, "This is the main menu.", reply_markup=get_main_menu())
-
 
 
 def start_bot():
