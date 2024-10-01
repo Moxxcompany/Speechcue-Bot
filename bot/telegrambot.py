@@ -12,7 +12,7 @@ import bot.utils
 from TelegramBot.constants import BITCOIN, ACCOUNT_CREATED_SUCCESSFULLY, \
     PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH, trc20, erc20, TRON, litecoin, LTC, back, TOP_UP, \
     INSUFFICIENT_BALANCE, BACK, WALLET, DEPOSIT_ADDRESS, PAYMENT_METHOD_PROMPT, ETHEREUM, ERC, TRC, LITECOIN, \
-    AVAILABLE_COMMANDS_PROMPT, SUBSCRIPTION_PLAN, NAME, BULK_IVR_LEFT, CALL_TRANSFER_MINS_LEFT, WALLET_INFORMATION, \
+    AVAILABLE_COMMANDS_PROMPT, SUBSCRIPTION_PLAN, NAME, BULK_IVR_LEFT, WALLET_INFORMATION, \
     USERNAME, PROFILE_INFORMATION_PROMPT, NO_SUBSCRIPTION_PLAN, JOIN_CHANNEL_PROMPT, INACTIVE, \
     BULK_IVR_SUBSCRIPTION_PROMPT, ACTIVE_SUBSCRIPTION_PLAN_PROMPT, SUBSCRIPTION_PLAN_NOT_FOUND, CHECKING_WALLETS, \
     PLAN_NAME, PRICE, FEATURES, CUSTOMER_SUPPORT_LEVEL, DAY_PLAN, UNLIMITED_SINGLE_IVR, BULK_IVR_CALLS, \
@@ -24,7 +24,8 @@ from TelegramBot.constants import BITCOIN, ACCOUNT_CREATED_SUCCESSFULLY, \
     SUBSCRIPTION_PLAN_SELECTION_PROMPT, NAME_INPUT_PROMPT, SETUP_PROMPT, EXISTING_USER_WELCOME, \
     LANGUAGE_SELECTION_PROMPT, USERNAME_PROMPT, NEW_USER_WELCOME, ACKNOWLEDGE_AND_PROCEED, NODE_TYPE_SELECTION_PROMPT, \
     TRANSCRIPT_NOT_FOUND, VIEW_TRANSCRIPT_PROMPT, CALL_LOGS_NOT_FOUND, VIEW_VARIABLES_PROMPT, EDGES_DELETED, \
-    BALANCE_IN_USD, USD, CALL_TRANSFER_EXCLUDED, CALL_TRANSFER_INCLUDED, FULL_NODE_ACCESS, PARTIAL_NODE_ACCESS
+    BALANCE_IN_USD, USD, CALL_TRANSFER_EXCLUDED, CALL_TRANSFER_INCLUDED, FULL_NODE_ACCESS, PARTIAL_NODE_ACCESS, \
+    CALL_TRANSFER_NODE
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable
 from bot.utils import generate_random_id, create_user_virtual_account, generate_qr_code, \
     check_balance, set_user_subscription, convert_dollars_to_crypto, get_btc_price, get_eth_price, get_ltc_price, \
@@ -99,8 +100,7 @@ def get_user_profile(message):
         user_plan = UserSubscription.objects.get(user_id=user.user_id)
         bot.send_message(user_id, f"{SUBSCRIPTION_PLAN}: \n"
                                   f"{NAME} :{user_plan.plan_id.name}\n"
-                                  f"{BULK_IVR_LEFT} : {user_plan.bulk_ivr_calls_left}\n"
-                                  f"{CALL_TRANSFER_MINS_LEFT} : {user_plan.transfer_minutes_left}\n")
+                                  f"{BULK_IVR_LEFT} : {user_plan.bulk_ivr_calls_left}\n")
         bot.send_message(user_id, f"{WALLET_INFORMATION} \n")
 
         bitcoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='BTC').account_id
@@ -242,7 +242,7 @@ def check_wallet(call):
     except Exception as e:
         bot.send_message(user_id, f"{PROCESSING_ERROR} \n\n"
                                   f"{str(e)}")
-
+    return
 
 @bot.callback_query_handler(func=lambda call : call.data == 'back_to_billing')
 def back_to_billing(call):
@@ -718,6 +718,7 @@ def handle_activate_subscription(call):
             unique_plan_names.add(plan.name)
             plan_button = types.InlineKeyboardButton(plan.name, callback_data=f"plan_name_{plan.name}")
             markup.add(plan_button)
+
 
     # Add a prompt at the end of the message
     message_text += f"{SUBSCRIPTION_PLAN_SELECTION_PROMPT}"
