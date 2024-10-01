@@ -189,6 +189,11 @@ def check_balance(account_id):
     return f"{available_balance}"
 
 
+from datetime import timedelta
+from django.utils import timezone
+from django.core.exceptions import ObjectDoesNotExist
+from payment.models import UserSubscription, SubscriptionPlans
+
 def set_user_subscription(user, plan_id):
     try:
         # Fetch the subscription plan based on the plan_id
@@ -212,7 +217,7 @@ def set_user_subscription(user, plan_id):
         defaults={
             'subscription_status': 'active',
             'plan_id': plan,
-            'transfer_minutes_left': plan.call_transfer,
+            'call_transfer': plan.call_transfer,
             'bulk_ivr_calls_left': plan.number_of_bulk_call_minutes,
             'date_of_subscription': date_of_subscription,
             'date_of_expiry': date_of_expiry
@@ -220,7 +225,6 @@ def set_user_subscription(user, plan_id):
     )
 
     return '200'
-
 
 def get_btc_price():
     url = f"{crypto_conversion_base_url}"

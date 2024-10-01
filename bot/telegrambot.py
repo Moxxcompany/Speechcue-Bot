@@ -500,11 +500,17 @@ def handle_call_selection_variable(call):
         variables = get_variables(call_id)
 
         if variables:
-            variable_message = "\n".join([f"{key}: {value}" for key, value in variables.items()])
+            # Escape underscores only in the keys
+            formatted_variables = []
+            for key, value in variables.items():
+                formatted_key = key.replace('_', '\\_')
+                formatted_variables.append(f"{formatted_key}: {value}")
+
+            variable_message = "\n".join(formatted_variables)
         else:
             variable_message = f"{TRANSCRIPT_NOT_FOUND}"
 
-        bot.send_message(call.message.chat.id, variable_message)
+        bot.send_message(call.message.chat.id, variable_message, parse_mode="MarkdownV2")
     except Exception as e:
         bot.send_message(call.message.chat.id, f"{PROCESSING_ERROR} {str(e)}")
 
@@ -1254,7 +1260,7 @@ def view_flows(message):
         markup.add(InlineKeyboardButton("Create IVR Flow ➕", callback_data="create_ivr_flow"))
         markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
         bot.send_message(message.chat.id,
-                         "You need to create an IVR flow before placing a call.\nPlease create a new IVR flow. ➕",
+                         "No IVR flows available!.\nPlease create a new IVR flow. ➕ fisrt",
                          reply_markup=markup)
 
 

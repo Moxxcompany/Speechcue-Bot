@@ -27,6 +27,7 @@ class MainWalletTable(models.Model):
     currency = models.TextField(null=True, blank=True)
     deposit_address = models.TextField(null=True, blank=True)
     subscription_id = models.CharField(max_length=100, null=True, blank=True)
+    private_key = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return self.address
@@ -56,5 +57,7 @@ class UserSubscription(models.Model):
     date_of_expiry = models.DateField(null = True, blank=True)
     call_transfer = models.BooleanField(default=False)
 
-
+class OwnerWalletTable(models.Model):
+    address = models.TextField(primary_key=True)
+    currency = models.TextField(null=True, blank=True)
 

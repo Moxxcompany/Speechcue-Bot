@@ -25,7 +25,7 @@ class SubscriptionPlansAdmin(admin.ModelAdmin):
 
 @admin.register(MainWalletTable)
 class MainWalletTableAdmin(admin.ModelAdmin):
-    list_display = ('currency', 'xpub', 'address', 'virtual_account', 'mnemonic', 'deposit_address', 'subscription_id')
+    list_display = ('currency', 'xpub', 'address', 'virtual_account', 'mnemonic', 'deposit_address', 'private_key' ,'subscription_id')
     search_fields = ('currency', 'address')
     list_filter = ('currency',)
 
