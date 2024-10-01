@@ -1,4 +1,6 @@
 import json
+from locale import currency
+from traceback import print_exc
 from uuid import UUID
 import re
 import io
@@ -686,31 +688,47 @@ def signup(message):
 def handle_activate_subscription(call):
     user_id = call.message.chat.id
 
-    plans = SubscriptionPlans.objects.all()
+    # Retrieve the plans and order by plan_price (ascending order)
+    plans = SubscriptionPlans.objects.all().order_by('plan_price')
+
     message_text = "Available subscription plans:\n\n"
+
+    # Create InlineKeyboardMarkup object to store the buttons
+    markup = types.InlineKeyboardMarkup()
+
+    # Create a set to track unique plan names for buttons
+    unique_plan_names = set()
+
+    # Iterate through the sorted plans and build the message
     for plan in plans:
+        # Add all plan details to the message text, regardless of duplicate names
         message_text += (f"🆔 {PLAN_NAME} {plan.name} Plan 📅\n"
                          f"💲 {PRICE} ${plan.plan_price:.6f}\n"
                          f"📞 {UNLIMITED_SINGLE_IVR} & {plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
                          f"🔧 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n"
                          f"📅 {VALIDITY} {plan.validity_days} {DAYS}\n\n")
+
         if plan.call_transfer:
-            message_text += f"🔧 {FULL_NODE_ACCESS}: {CALL_TRANSFER_INCLUDED}"
+            message_text += f"🔧 {FULL_NODE_ACCESS}: {CALL_TRANSFER_INCLUDED}\n\n"
         else:
-            message_text += f"🔧 {PARTIAL_NODE_ACCESS}: {CALL_TRANSFER_EXCLUDED}"
+            message_text += f"🔧 {PARTIAL_NODE_ACCESS}: {CALL_TRANSFER_EXCLUDED}\n\n"
 
-    plan_names = set(plan.name for plan in plans)
-    plan_names_list = list(plan_names)
+        # Create a button for each unique plan name
+        if plan.name not in unique_plan_names:
+            unique_plan_names.add(plan.name)
+            plan_button = types.InlineKeyboardButton(plan.name, callback_data=f"plan_name_{plan.name}")
+            markup.add(plan_button)
 
+    # Add a prompt at the end of the message
     message_text += f"{SUBSCRIPTION_PLAN_SELECTION_PROMPT}"
 
-    markup = types.InlineKeyboardMarkup()
-    for plan_name in plan_names_list:
-        plan_button = types.InlineKeyboardButton(plan_name, callback_data=f"plan_name_{plan_name}")
-        markup.add(plan_button)
+    # Add a back button to go back to the welcome message
     back_button = types.InlineKeyboardButton(f"{BACK} ↩️", callback_data="back_to_welcome_message")
     markup.add(back_button)
+
+    # Send the message to the user with the markup (buttons)
     bot.send_message(user_id, message_text, reply_markup=markup)
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("plan_name_"))
 def view_plan_validity(call):
@@ -725,9 +743,9 @@ def view_plan_validity(call):
                          f"🔧 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n"
                          f"📅 {VALIDITY} {plan.validity_days} {DAYS}\n\n")
         if plan.call_transfer:
-            message_text += f"🔧 {FULL_NODE_ACCESS}: {CALL_TRANSFER_INCLUDED}"
+            message_text += f"🔧 {FULL_NODE_ACCESS}: {CALL_TRANSFER_INCLUDED}\n\n"
         else:
-            message_text += f"🔧 {PARTIAL_NODE_ACCESS}: {CALL_TRANSFER_EXCLUDED}"
+            message_text += f"🔧 {PARTIAL_NODE_ACCESS}: {CALL_TRANSFER_EXCLUDED}\n\n"
     markup = types.InlineKeyboardMarkup()
     for plan in plans:
         plan_button = types.InlineKeyboardButton(f"{plan.validity_days} {DAYS}", callback_data=f"plan_{plan.plan_id}")
@@ -762,9 +780,9 @@ def handle_plan_selection(call):
                          f"🔧 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n"
                          f"📅 {VALIDITY} {plan.validity_days} {DAYS}\n\n")
     if plan.call_transfer:
-        invoice_message += f"🔧 {FULL_NODE_ACCESS}: {CALL_TRANSFER_INCLUDED}"
+        invoice_message += f"🔧 {FULL_NODE_ACCESS}: {CALL_TRANSFER_INCLUDED}\n\n"
     else:
-        invoice_message += f"🔧 {PARTIAL_NODE_ACCESS}: {CALL_TRANSFER_EXCLUDED}"
+        invoice_message += f"🔧 {PARTIAL_NODE_ACCESS}: CALL_TRANSFER_EXCLUDED\n\n"
 
 
     if user_id not in user_data:
@@ -832,6 +850,7 @@ def handle_payment_method(call):
         user_data[user_id] = {}
 
     user_data[user_id]['payment_currency'] = payment_currency
+    print(payment_currency,  "currency ")
 
     markup = types.InlineKeyboardMarkup()
     wallet_button = types.InlineKeyboardButton(f"{WALLET}", callback_data="wallet_payment")
@@ -973,43 +992,51 @@ def handle_top_up_wallet(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("topup_"))
 def handle_account_topup(call):
+    currency_price = 0
     user_id = call.message.chat.id
     payment_method = call.data.split("_")[1]
     payment_currency = ''
-    plan_price = float(user_data[user_id]['subscription_price'])  # Convert to float
 
     if payment_method == f'{bitcoin}':
         payment_currency = f'{BTC}'
         btc_price = get_btc_price()
-        plan_price = convert_dollars_to_crypto(plan_price, btc_price)
+        currency_price = btc_price
+
 
     elif payment_method == f'{ethereum}' or payment_method == f'{erc20}':
         payment_currency = f'{ETH}'
         eth_price = get_eth_price()
-        plan_price = convert_dollars_to_crypto(plan_price, eth_price)
+        currency_price = eth_price
 
     elif payment_method == f'{trc20}':
         payment_currency = f'{TRON}'
         tron_price = get_trx_price()
-        plan_price = convert_dollars_to_crypto(plan_price, tron_price)
+        currency_price = tron_price
 
     elif payment_method == f'{litecoin}':
         payment_currency = f'{LTC}'
         ltc_price = get_ltc_price()
-        plan_price = convert_dollars_to_crypto(plan_price, ltc_price)
+        currency_price = ltc_price
 
     elif payment_method == f'{back}':
         handle_wallet_method(call)
         return
-
+    # Convert to float
     deposit_wallet = VirtualAccountsTable.objects.get(currency=payment_currency, user=user_id)
     address = deposit_wallet.deposit_address
 
     img_byte_arr = generate_qr_code(address)
 
-    bot.send_photo(user_id, img_byte_arr,
+    if 'subscription_price' in user_data.get(user_id, {}):
+        plan_price = float(user_data[user_id]['subscription_price'])
+        plan_price = convert_dollars_to_crypto(plan_price, currency_price)
+
+        bot.send_photo(user_id, img_byte_arr,
                    caption=f'Price for your subscription plan is {plan_price:.6f} in {payment_currency}.\n'
                            f'Please use the following address or scan the QR code to top up your balance! \n{address}')
+    else:
+        bot.send_photo(user_id, img_byte_arr,
+                      caption=f'Please use the following address or scan the QR code to top up your balance! \n{address}')
 
     if deposit_wallet.subscription_id is None:
         subscription = create_subscription_v3(deposit_wallet.account_id, f'{os.getenv("webhook_url")}/{WEBHOOK}')
