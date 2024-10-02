@@ -1,4 +1,5 @@
 import json
+import os
 from locale import currency
 from traceback import print_exc
 from uuid import UUID
@@ -57,11 +58,14 @@ available_commands = {
 user_data = {}
 
 call_data = []
-TERMS_AND_CONDITIONS_URL = 'https://app.bland.ai/enterprise'
 
-CHANNEL_LINK = "www.google.com"
+
+TERMS_AND_CONDITIONS_URL = os.getenv('TERMS_AND_CONDITIONS_URL')
+CHANNEL_LINK = os.getenv('CHANNEL_LINK')
 
 # :: TRIGGERS ------------------------------------#
+
+
 @bot.message_handler(func=lambda message: message.text == 'Join Channel 🔗')
 def handle_join_channel(message):
 

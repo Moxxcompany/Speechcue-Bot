@@ -265,7 +265,7 @@ def get_cached_price(crypto_type, fetch_price_function):
     return price
 
 def get_btc_price():
-    url = f"https://api.coingecko.com/api/v3/simple/price"
+    url = f"{crypto_conversion_base_url}"
     params = {'ids': 'bitcoin', 'vs_currencies': 'usd'}
     response = requests.get(url, params=params)
     response.raise_for_status()
@@ -273,7 +273,7 @@ def get_btc_price():
     return float(data['bitcoin']['usd'])
 
 def get_eth_price():
-    url = f"https://api.coingecko.com/api/v3/simple/price"
+    url = f"{crypto_conversion_base_url}"
     params = {'ids': 'ethereum', 'vs_currencies': 'usd'}
     response = requests.get(url, params=params)
     response.raise_for_status()
@@ -281,7 +281,7 @@ def get_eth_price():
     return float(data['ethereum']['usd'])
 
 def get_trx_price():
-    url = f"https://api.coingecko.com/api/v3/simple/price"
+    url = f"{crypto_conversion_base_url}"
     params = {'ids': 'tron', 'vs_currencies': 'usd'}
     response = requests.get(url, params=params)
     response.raise_for_status()
@@ -289,7 +289,7 @@ def get_trx_price():
     return float(data['tron']['usd'])
 
 def get_ltc_price():
-    url = f"https://api.coingecko.com/api/v3/simple/price"
+    url = f"{crypto_conversion_base_url}"
     params = {'ids': 'litecoin', 'vs_currencies': 'usd'}
     response = requests.get(url, params=params)
     response.raise_for_status()
