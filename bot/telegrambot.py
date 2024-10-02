@@ -1217,8 +1217,6 @@ def delete_flow(message):
     user_data[user_id] = {'step': 'get_pathway'}
     view_flows(message)
 
-    bot.send_message(user_id, "Please select the flow you want to delete.")
-
 
 @bot.message_handler(commands=['add_node'])
 def add_node(message):
@@ -1331,8 +1329,9 @@ def view_flows(message):
         markup.add(InlineKeyboardButton("Create IVR Flow ➕", callback_data="create_ivr_flow"))
         markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
         bot.send_message(message.chat.id,
-                         "No IVR flows available!.\nPlease create a new IVR flow. ➕ fisrt",
+                         "No IVR flows available!.\nPlease create an IVR flow first",
                          reply_markup=markup)
+
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'ask_name')
