@@ -16,6 +16,7 @@ crypto_conversion_base_url = os.getenv('crypto_conversion_base_url')
 import random
 import string
 import re
+import time
 valid_phone_number_pattern = re.compile(r'^[\d\+\-\(\)\s]+$')
 
 def validate_edges(data):
@@ -180,13 +181,26 @@ def create_user_virtual_account(currency, existing_user):
     except Exception as e:
         return "Error Creating virtual account entry in database!"
 
+
 def check_balance(account_id):
-    balance = get_account_balance(account_id)
-    if balance.status_code != 200:
-        return f"{balance.json()}"
-    balance_data = balance.json()
-    available_balance = balance_data["availableBalance"]
-    return f"{available_balance}"
+    try:
+        balance = get_account_balance(account_id)
+        if balance.status_code != 200:
+            # Log or display the full response if the status code is not 200
+            raise ValueError(f"Failed to fetch balance. Status Code: {balance.status_code}, Response: {balance.json()}")
+
+        balance_data = balance.json()
+
+        # Ensure 'availableBalance' exists in the response
+        if "availableBalance" not in balance_data:
+            raise KeyError(f"'availableBalance' key not found in balance response: {balance_data}")
+
+        available_balance = balance_data["availableBalance"]
+        return f"{available_balance}"
+
+    except Exception as e:
+        # If any exception occurs, log or display the error for debugging
+        return f"Error fetching balance: {str(e)}"
 
 
 from datetime import timedelta
@@ -226,64 +240,86 @@ def set_user_subscription(user, plan_id):
 
     return '200'
 
+# Store cached prices and timestamps
+price_cache = {
+    'btc': {'price': None, 'timestamp': 0},
+    'eth': {'price': None, 'timestamp': 0},
+    'trx': {'price': None, 'timestamp': 0},
+    'ltc': {'price': None, 'timestamp': 0}
+}
+
+CACHE_DURATION = 60  # Cache duration in seconds (e.g., 1 minute)
+
+def get_cached_price(crypto_type, fetch_price_function):
+    current_time = time.time()
+
+    # Check if the price is already cached and the cache is still valid
+    if current_time - price_cache[crypto_type]['timestamp'] < CACHE_DURATION:
+        return price_cache[crypto_type]['price']
+
+    # Otherwise, fetch the new price and update the cache
+    price = fetch_price_function()
+    price_cache[crypto_type]['price'] = price
+    price_cache[crypto_type]['timestamp'] = current_time
+
+    return price
+
 def get_btc_price():
-    url = f"{crypto_conversion_base_url}"
-    params = {
-        'ids': 'bitcoin',
-        'vs_currencies': 'usd'
-    }
+    url = f"https://api.coingecko.com/api/v3/simple/price"
+    params = {'ids': 'bitcoin', 'vs_currencies': 'usd'}
     response = requests.get(url, params=params)
+    response.raise_for_status()
     data = response.json()
     return float(data['bitcoin']['usd'])
 
 def get_eth_price():
-    url = f"{crypto_conversion_base_url}"
-    params = {
-        'ids': 'ethereum',
-        'vs_currencies': 'usd'
-    }
+    url = f"https://api.coingecko.com/api/v3/simple/price"
+    params = {'ids': 'ethereum', 'vs_currencies': 'usd'}
     response = requests.get(url, params=params)
+    response.raise_for_status()
     data = response.json()
     return float(data['ethereum']['usd'])
 
 def get_trx_price():
-    url = f"{crypto_conversion_base_url}"
-    params = {
-        'ids': 'tron',
-        'vs_currencies': 'usd'
-    }
+    url = f"https://api.coingecko.com/api/v3/simple/price"
+    params = {'ids': 'tron', 'vs_currencies': 'usd'}
     response = requests.get(url, params=params)
+    response.raise_for_status()
     data = response.json()
     return float(data['tron']['usd'])
 
 def get_ltc_price():
-    url = f"{crypto_conversion_base_url}"
-    params = {
-        'ids': 'litecoin',
-        'vs_currencies': 'usd'
-    }
+    url = f"https://api.coingecko.com/api/v3/simple/price"
+    params = {'ids': 'litecoin', 'vs_currencies': 'usd'}
     response = requests.get(url, params=params)
+    response.raise_for_status()
     data = response.json()
-    print("Response data litecoin: ", data)
     return float(data['litecoin']['usd'])
+
+# Modify the convert_crypto_to_usd function to use cached prices
+def convert_crypto_to_usd(crypto_amount, crypto_type):
+    try:
+        if crypto_type.lower() == 'btc':
+            price_in_usd = get_cached_price('btc', get_btc_price)
+        elif crypto_type.lower() == 'eth':
+            price_in_usd = get_cached_price('eth', get_eth_price)
+        elif crypto_type.lower() == 'trx':
+            price_in_usd = get_cached_price('trx', get_trx_price)
+        elif crypto_type.lower() == 'ltc':
+            price_in_usd = get_cached_price('ltc', get_ltc_price)
+        else:
+            raise ValueError(f"Unsupported cryptocurrency type: {crypto_type}")
+
+        if price_in_usd <= 0:
+            raise ValueError(f"Invalid price for {crypto_type}: {price_in_usd}")
+
+        return crypto_amount * price_in_usd
+
+    except requests.exceptions.RequestException as e:
+        raise ValueError(f"Error converting {crypto_type} to USD: {str(e)}")
 
 def convert_dollars_to_crypto(amount_in_usd, price_in_usd):
     return float(amount_in_usd) / float(price_in_usd)
-
-
-def convert_crypto_to_usd(crypto_amount, crypto_type):
-    if crypto_type.lower() == 'btc':
-        price_in_usd = get_btc_price()
-    elif crypto_type.lower() == 'eth':
-        price_in_usd = get_eth_price()
-    elif crypto_type.lower() == 'trx':
-        price_in_usd = get_trx_price()
-    elif crypto_type.lower() == 'ltc':
-        price_in_usd = get_ltc_price()
-    else:
-        raise ValueError(f"Unsupported cryptocurrency type: {crypto_type}")
-
-    return crypto_amount * price_in_usd
 
 def get_plan_price(payment_currency, plan_price):
     if payment_currency == 'BTC':

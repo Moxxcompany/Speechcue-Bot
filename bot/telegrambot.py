@@ -204,46 +204,89 @@ def update_subscription(call):
     user_id = call.message.chat.id
     handle_activate_subscription(call)
 
-@bot.callback_query_handler(func=lambda call : call.data == 'check_wallet')
+
+def escape_markdown(text):
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    return ''.join(f'\\{char}' if char in escape_chars else char for char in text)
+
+@bot.callback_query_handler(func=lambda call: call.data == 'check_wallet')
 def check_wallet(call):
 
     user_id = call.message.chat.id
 
-    bot.send_message(user_id, f"{CHECKING_WALLETS}")
+    # Notify user that the process is being started
+    bot.send_message(user_id, escape_markdown(f"{CHECKING_WALLETS}"), parse_mode='MarkdownV2')
+
     try:
-        bitcoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='BTC').account_id
-        etheruem = VirtualAccountsTable.objects.get(user_id=user_id, currency='ETH').account_id
-        tron = VirtualAccountsTable.objects.get(user_id=user_id, currency='TRON').account_id
-        litecoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='LTC').account_id
+        # Try to retrieve all virtual account information
+        try:
+            bitcoin_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='BTC').first()
+            etheruem_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='ETH').first()
+            tron_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='TRON').first()
+            litecoin_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='LTC').first()
+
+            if not bitcoin_account:
+                raise ValueError("Bitcoin account not found.")
+            if not etheruem_account:
+                raise ValueError("Ethereum account not found.")
+            if not tron_account:
+                raise ValueError("Tron account not found.")
+            if not litecoin_account:
+                raise ValueError("Litecoin account not found.")
+
+        except VirtualAccountsTable.DoesNotExist:
+            bot.send_message(user_id, escape_markdown(f"{PROCESSING_ERROR}\n\nAccount details not found for one or more cryptocurrencies."), parse_mode='MarkdownV2')
+            return
+
         sum_in_usd = 0
-        bitcoin_balance = check_balance(bitcoin)
-        balance_in_usd = convert_crypto_to_usd(float(bitcoin_balance), 'btc')
-        sum_in_usd = sum_in_usd + balance_in_usd
 
-        etheruem_balance = check_balance(etheruem)
-        balance_in_usd = convert_crypto_to_usd(float(etheruem_balance), 'eth')
-        sum_in_usd = sum_in_usd + balance_in_usd
+        # Fetch and convert balances for each cryptocurrency, ensuring errors are caught individually
+        try:
+            bitcoin_balance = check_balance(bitcoin_account.account_id)
+            balance_in_usd = convert_crypto_to_usd(float(bitcoin_balance), 'btc')
+            sum_in_usd += balance_in_usd
+        except Exception as e:
+            bot.send_message(user_id, escape_markdown(f"Error fetching or converting Bitcoin balance: {str(e)}"), parse_mode='MarkdownV2')
+            return
 
-        tron_balance = check_balance(tron)
-        balance_in_usd = convert_crypto_to_usd(float(tron_balance), 'trx')
-        sum_in_usd = sum_in_usd + balance_in_usd
+        try:
+            etheruem_balance = check_balance(etheruem_account.account_id)
+            balance_in_usd = convert_crypto_to_usd(float(etheruem_balance), 'eth')
+            sum_in_usd += balance_in_usd
+        except Exception as e:
+            bot.send_message(user_id, escape_markdown(f"Error fetching or converting Ethereum balance: {str(e)}"), parse_mode='MarkdownV2')
+            return
 
-        litecoin_balance = check_balance(litecoin)
-        balance_in_usd = convert_crypto_to_usd(float(litecoin_balance), 'ltc')
-        sum_in_usd = sum_in_usd + balance_in_usd
+        try:
+            tron_balance = check_balance(tron_account.account_id)
+            balance_in_usd = convert_crypto_to_usd(float(tron_balance), 'trx')
+            sum_in_usd += balance_in_usd
+        except Exception as e:
+            bot.send_message(user_id, escape_markdown(f"Error fetching or converting Tron balance: {str(e)}"), parse_mode='MarkdownV2')
+            return
 
+        try:
+            litecoin_balance = check_balance(litecoin_account.account_id)
+            balance_in_usd = convert_crypto_to_usd(float(litecoin_balance), 'ltc')
+            sum_in_usd += balance_in_usd
+        except Exception as e:
+            bot.send_message(user_id, escape_markdown(f"Error fetching or converting Litecoin balance: {str(e)}"), parse_mode='MarkdownV2')
+            return
+
+        # Create inline keyboard markup
         markup = InlineKeyboardMarkup()
         top_up_wallet_button = types.InlineKeyboardButton("Top Up Wallet 💳", callback_data="top_up_wallet")
         back_button = types.InlineKeyboardButton("Back", callback_data='back_to_billing')
         markup.add(top_up_wallet_button)
         markup.add(back_button)
-        bot.send_message(user_id, f"{BALANCE_IN_USD} : {sum_in_usd}", reply_markup=markup)
+
+        # Safely format and send the balance message using MarkdownV2 escaping
+        bot.send_message(user_id, escape_markdown(f"{BALANCE_IN_USD}: {sum_in_usd:.2f} USD"), reply_markup=markup, parse_mode='MarkdownV2')
 
     except Exception as e:
-        bot.send_message(user_id, f"{PROCESSING_ERROR} \n\n"
-                                  f"{str(e)}")
-    return
+        bot.send_message(user_id, escape_markdown(f"{PROCESSING_ERROR}\n\nUnexpected error: {str(e)}"), parse_mode='MarkdownV2')
 
+    return
 @bot.callback_query_handler(func=lambda call : call.data == 'back_to_billing')
 def back_to_billing(call):
     user_id = call.message.chat.id
