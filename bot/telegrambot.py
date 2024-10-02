@@ -1406,8 +1406,8 @@ def get_batch_call_base_prompt(message):
 
     subscription_details = UserSubscription.objects.get(user_id=user_id)
     max_contacts = subscription_details.bulk_ivr_calls_left
-    if max_contacts > 1000:
-        max_contacts = 1000
+    if max_contacts > 50:
+        max_contacts = 50
     valid_phone_number_pattern = re.compile(r'^[\d\+\-\(\)\s]+$')
     base_prompts = []
 
@@ -1500,7 +1500,7 @@ def handle_pathway_selection(call):
     elif step == 'get_batch_numbers':
         user_data[user_id]['call_flow_bulk'] = pathway_id
         bot.send_message(user_id, "Please paste phone numbers (with country codes) or upload a file (TXT or CSV "
-                                  "format) with up to 500 phone numbers.")
+                                  "format) with up to 50 phone numbers.")
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_edges')
