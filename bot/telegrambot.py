@@ -1625,7 +1625,7 @@ def handle_target_node(call):
                      reply_markup=get_force_reply())
 
 
-@bot.message_handler(func=lambda message: user_data[message.chat.id]['step'] == 'add_label')
+@bot.message_handler(func=lambda message: 'step' in user_data.get(message.chat.id, {}) and user_data[message.chat.id]['step'] == 'add_label')
 def add_label(message):
     chat_id = message.chat.id
     label = message.text
@@ -1658,9 +1658,10 @@ def add_label(message):
         pathway.pathway_description = data.get("description")
         pathway.pathway_payload = response.text
         pathway.save()
+
+        # Reset user state
         if message.text not in edges_complete:
             user_data[chat_id]['step'] = 'error_edges_complete'
-
     else:
         bot.send_message(chat_id, f"{PROCESSING_ERROR} {response}")
 
