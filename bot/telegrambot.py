@@ -31,7 +31,8 @@ from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTabl
 from bot.utils import generate_random_id, create_user_virtual_account, generate_qr_code, \
     check_balance, set_user_subscription, convert_dollars_to_crypto, get_btc_price, get_eth_price, get_ltc_price, \
     get_trx_price, get_plan_price, check_validity, \
-    check_subscription_status, username_formating, convert_crypto_to_usd, validate_transfer_number, validate_edges
+    check_subscription_status, username_formating, convert_crypto_to_usd, validate_transfer_number, validate_edges, \
+    get_currency_symbol
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
@@ -682,6 +683,13 @@ def get_profile_language(message):
     user.user_name = username
     user.save()
     bot.send_message(user_id, f"{LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('language'))
+@bot.message_handler(commands=['cancel'])
+def cancel_actions(message):
+    user_id = message.chat.id
+    bot.send_message(user_id, "You have cancelled the current action.\n"
+                              "Redirecting you to the main menu!",
+                     reply_markup = get_main_menu())
+
 
 @bot.message_handler(commands=['sign_up', 'start'])
 def signup(message):
@@ -735,9 +743,23 @@ def signup(message):
 def handle_activate_subscription(call):
     user_id = call.message.chat.id
 
-    # Retrieve the plans and order by plan_price (ascending order)
-    plans = SubscriptionPlans.objects.all().order_by('plan_price')
+    # Retrieve all plans from the database
+    plans = SubscriptionPlans.objects.all()
 
+    # Separate the free plan and other plans
+    free_plan = None
+    other_plans = []
+
+    for plan in plans:
+        if plan.plan_price == 0:  # Assuming the free plan has a price of 0
+            free_plan = plan
+        else:
+            other_plans.append(plan)
+
+    # Sort the other plans by validity_days (ensure they are integers)
+    other_plans.sort(key=lambda p: (int(p.validity_days), p.plan_price))
+
+    # Build the message text
     message_text = "Available subscription plans:\n\n"
 
     # Create InlineKeyboardMarkup object to store the buttons
@@ -746,19 +768,36 @@ def handle_activate_subscription(call):
     # Create a set to track unique plan names for buttons
     unique_plan_names = set()
 
-    # Iterate through the sorted plans and build the message
-    for plan in plans:
-        # Add all plan details to the message text, regardless of duplicate names
-        message_text += (f"🆔 {PLAN_NAME} {plan.name} Plan 📅\n"
-                         f"💲 {PRICE} ${plan.plan_price:.6f}\n"
-                         f"📞 {UNLIMITED_SINGLE_IVR} & {plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
-                         f"🔧 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n"
-                         f"📅 {VALIDITY} {plan.validity_days} {DAYS}\n\n")
+    # Display the free plan at the top if it exists
+    if free_plan:
+        message_text += (f"🆔 {free_plan.name} Plan 📅\n"
+                         f"💲 Free\n"
+                         f"📞 {free_plan.number_of_bulk_call_minutes} Bulk IVR call minutes\n"
+                         f"🔧 Customer Support Level: {free_plan.customer_support_level}\n"
+                         f"📅 Validity: {free_plan.validity_days} Days\n\n")
+
+        if free_plan.call_transfer:
+            message_text += f"🔧 Full Node Access: Call Transfer Included\n\n"
+        else:
+            message_text += f"🔧 Partial Node Access: Call Transfer Excluded\n\n"
+
+        # Create a button for the free plan
+        plan_button = types.InlineKeyboardButton(free_plan.name, callback_data=f"plan_name_{free_plan.name}")
+        markup.add(plan_button)
+
+    # Iterate through the sorted other plans and build the message
+    for plan in other_plans:
+        # Add plan details to the message text
+        message_text += (f"🆔 {plan.name} Plan 📅\n"
+                         f"💲 ${plan.plan_price:.6f}\n"
+                         f"📞 {plan.number_of_bulk_call_minutes} Bulk IVR call minutes\n"
+                         f"🔧 Customer Support Level: {plan.customer_support_level}\n"
+                         f"📅 Validity: {plan.validity_days} Days\n\n")
 
         if plan.call_transfer:
-            message_text += f"🔧 {FULL_NODE_ACCESS}: {CALL_TRANSFER_INCLUDED}\n\n"
+            message_text += f"🔧 Full Node Access: Call Transfer Included\n\n"
         else:
-            message_text += f"🔧 {PARTIAL_NODE_ACCESS}: {CALL_TRANSFER_EXCLUDED}\n\n"
+            message_text += f"🔧 Partial Node Access: Call Transfer Excluded\n\n"
 
         # Create a button for each unique plan name
         if plan.name not in unique_plan_names:
@@ -766,12 +805,11 @@ def handle_activate_subscription(call):
             plan_button = types.InlineKeyboardButton(plan.name, callback_data=f"plan_name_{plan.name}")
             markup.add(plan_button)
 
-
     # Add a prompt at the end of the message
-    message_text += f"{SUBSCRIPTION_PLAN_SELECTION_PROMPT}"
+    message_text += "Please select a subscription plan below:"
 
     # Add a back button to go back to the welcome message
-    back_button = types.InlineKeyboardButton(f"{BACK} ↩️", callback_data="back_to_welcome_message")
+    back_button = types.InlineKeyboardButton(f"Back ↩️", callback_data="back_to_welcome_message")
     markup.add(back_button)
 
     # Send the message to the user with the markup (buttons)
@@ -930,8 +968,9 @@ def handle_wallet_method(call):
             return
 
         balance_data = balance.json()
-        available_balance = balance_data["availableBalance"]
-        bot.send_message(user_id, f"{CURRENT_BALANCE} {available_balance}.")
+        available_balance = int(balance_data["availableBalance"])
+        symbol = get_currency_symbol(user_data[user_id]['payment_currency'])
+        bot.send_message(user_id, f"{CURRENT_BALANCE} {available_balance:.6f} {symbol}.")
     except Exception as e:
         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
         return
@@ -1333,7 +1372,7 @@ def view_flows(message):
         markup.add(InlineKeyboardButton("Create IVR Flow ➕", callback_data="create_ivr_flow"))
         markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
         bot.send_message(message.chat.id,
-                         "No IVR flows available!.\nPlease create an IVR flow first",
+                         "No IVR flows available!.\nPlease create a new IVR flow.",
                          reply_markup=markup)
 
 

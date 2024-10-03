@@ -5,6 +5,8 @@ import qrcode
 from django.core.exceptions import ObjectDoesNotExist
 import os
 import requests
+
+from TelegramBot.constants import BTC, ETH, LTC, TRON
 from payment.models import MainWalletTable, VirtualAccountsTable, SubscriptionPlans, UserSubscription
 from payment.views import create_virtual_account, create_deposit_address, get_account_balance
 from user.models import TelegramUser
@@ -181,7 +183,6 @@ def create_user_virtual_account(currency, existing_user):
     except Exception as e:
         return "Error Creating virtual account entry in database!"
 
-
 def check_balance(account_id):
     try:
         balance = get_account_balance(account_id)
@@ -348,6 +349,17 @@ def username_formating(username):
     username = username.replace(" ", "_")
     print("After replacing spaces ",username)
     return username
+
+def get_currency_symbol(currency):
+
+    if currency == f"{BTC}":
+        return '₿'
+    if currency == f"{ETH}":
+        return 'Ξ'
+    if currency == f"{LTC}":
+        return '💵'
+    if currency == f"{TRON}":
+        return 'Ł'
 
 
 #-------------- Decorator Functions ---------------#
