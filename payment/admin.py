@@ -60,6 +60,6 @@ class UserSubscriptionAdmin(admin.ModelAdmin):
             'fields': ('user_id', 'subscription_status')
         }),
         ('Plan Details', {
-            'fields': ('plan_id', 'transfer_minutes_left', 'bulk_ivr_calls_left', 'date_of_expiry')
+            'fields': ('plan_id', 'call_transfer', 'bulk_ivr_calls_left', 'date_of_expiry')
         }),
     )

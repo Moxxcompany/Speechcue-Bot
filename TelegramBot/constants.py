@@ -1,6 +1,13 @@
 from lib2to3.fixes.fix_asserts import NAMES
 from multiprocessing.reduction import ACKNOWLEDGE
 
+NICE_TO_MEET_YOU = "Nice to meet you,"
+PROFILE_SETTING_PROMPT = ("We’re setting up your account now. "
+                          "Please hold on for just a moment while we finalize the details. ⏳")
+FREE_TRIAL_TOOLTIP = "Enjoy premium features during your free trial period!"
+SETUP_COMPLETION_FIRST_HALF = "✨ Great news! Your account is ready! 🎉 Your username is "
+SETUP_COMPLETION_SECOND_HALF = " and even better, you’re eligible for a free trial! 💃🎉"
+ACCOUNT_SETUP_TOOLTIP = "We’re doing the work behind the scenes. Just follow the steps!"
 base_url = 'https://api.bland.ai'
 invalid_data = 'Invalid Data!'
 error = 'Error! '
@@ -78,12 +85,16 @@ VALIDITY_PROMPT = 'Select validity for your plan:'
 PLAN_VALIDITY = 'subscription plans with different validity:'
 VALIDITY = 'Validity:S'
 SUBSCRIPTION_PLAN_SELECTION_PROMPT = 'Please select a subscription plan below:'
-NAME_INPUT_PROMPT = 'Enter Your name: '
-SETUP_PROMPT = "Let's get you setup! It will take a few seconds!"
+NAME_INPUT_PROMPT = 'What’s your name? Let’s personalize your experience! (e.g., Ren)'
+SETUP_PROMPT = ("👋 Welcome to Speechcad IVR Bot! We’re thrilled to have you here! 🎉 "
+                "Let’s get you started so you can explore all the exciting features we offer. 🌟 "
+                "This setup is quick and easy—let's dive in! 🚀")
 EXISTING_USER_WELCOME = "Welcome! 🎉 We are glad to have you again. 🎉 Here is the main menu!"
 NEW_USER_WELCOME = "Welcome! As a new user, you can make one free single IVR call. 🎉"
+PROFILE_LANGUAGE_SELECTION_PROMPT = "🌍 To ensure everything is in your preferred language, please select one below:"
 LANGUAGE_SELECTION_PROMPT = "Select your preferred language:"
 USERNAME_PROMPT = "Your username is"
+SETUP_TOOLTIP = 'The setup is fast and easy. You’ll be ready in just a few steps!'
 ACKNOWLEDGE_AND_PROCEED = 'Acknowledge and Proceed ✅'
 NODE_TYPE_SELECTION_PROMPT = 'Select the type of node:'
 TRANSCRIPT_NOT_FOUND = 'No transcript found for this call.'

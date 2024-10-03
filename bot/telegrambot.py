@@ -1,6 +1,7 @@
 import json
 import os
 from locale import currency
+from pyexpat import expat_CAPI
 from traceback import print_exc
 from uuid import UUID
 import re
@@ -9,7 +10,6 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 
-import bot.utils
 from TelegramBot.constants import BITCOIN, ACCOUNT_CREATED_SUCCESSFULLY, \
     PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH, trc20, erc20, TRON, litecoin, LTC, back, TOP_UP, \
     INSUFFICIENT_BALANCE, BACK, WALLET, DEPOSIT_ADDRESS, PAYMENT_METHOD_PROMPT, ETHEREUM, ERC, TRC, LITECOIN, \
@@ -26,7 +26,8 @@ from TelegramBot.constants import BITCOIN, ACCOUNT_CREATED_SUCCESSFULLY, \
     LANGUAGE_SELECTION_PROMPT, USERNAME_PROMPT, NEW_USER_WELCOME, ACKNOWLEDGE_AND_PROCEED, NODE_TYPE_SELECTION_PROMPT, \
     TRANSCRIPT_NOT_FOUND, VIEW_TRANSCRIPT_PROMPT, CALL_LOGS_NOT_FOUND, VIEW_VARIABLES_PROMPT, EDGES_DELETED, \
     BALANCE_IN_USD, USD, CALL_TRANSFER_EXCLUDED, CALL_TRANSFER_INCLUDED, FULL_NODE_ACCESS, PARTIAL_NODE_ACCESS, \
-    CALL_TRANSFER_NODE
+    CALL_TRANSFER_NODE, SETUP_TOOLTIP, NICE_TO_MEET_YOU, PROFILE_SETTING_PROMPT, SETUP_COMPLETION_FIRST_HALF, \
+    SETUP_COMPLETION_SECOND_HALF, ACCOUNT_SETUP_TOOLTIP, FREE_TRIAL_TOOLTIP, PROFILE_LANGUAGE_SELECTION_PROMPT
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable
 from bot.utils import generate_random_id, create_user_virtual_account, generate_qr_code, \
     check_balance, set_user_subscription, convert_dollars_to_crypto, get_btc_price, get_eth_price, get_ltc_price, \
@@ -505,7 +506,9 @@ def trigger_end_call_option(message):
 
 @bot.message_handler(func=lambda message: message.text == 'Continue to Next Node ▶️')
 def trigger_add_another_node(message):
-    bot.send_message(message.chat.id, f"{NODE_TYPE_SELECTION_PROMPT}", reply_markup=get_node_menu())
+    user_id = message.chat.id
+    keyboard = check_user_has_active_free_plan(user_id)
+    bot.send_message(message.chat.id, f"{NODE_TYPE_SELECTION_PROMPT}", reply_markup=keyboard)
 
 @bot.message_handler(func=lambda message: message.text == 'Repeat Message 🔁')
 def trigger_repeat_message(message):
@@ -642,7 +645,8 @@ def view_main_menu(message):
 def select_node(message):
     user_id = message.chat.id
     user_data[user_id]['select_language'] = message.text
-    bot.send_message(user_id, f"{NODE_TYPE_SELECTION_PROMPT}", reply_markup=get_node_menu())
+    keyboard = check_user_has_active_free_plan(user_id)
+    bot.send_message(user_id, f"{NODE_TYPE_SELECTION_PROMPT}", reply_markup=keyboard)
 
 
 # :: BOT MESSAGE HANDLERS FOR FUNCTIONS ------------------------------------#
@@ -671,18 +675,67 @@ def get_user_name(message):
     user_id = message.chat.id
 
 
+import time
+
+
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'profile_language')
 def get_profile_language(message):
     user_id = message.chat.id
     text = message.text
+    bot.send_message(user_id, f"{NICE_TO_MEET_YOU} {text}, {PROFILE_SETTING_PROMPT}")
+
+    # Format username
     username = username_formating(text)
     username = f"{username}_{user_id}"
     username_formatting = username.replace('_', '\\_')
-    bot.send_message(user_id, f"{USERNAME_PROMPT} {username_formatting}", parse_mode="MarkdownV2")
+
+    # Update the user's profile in the database
     user = TelegramUser.objects.get(user_id=user_id)
     user.user_name = username
     user.save()
-    bot.send_message(user_id, f"{LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('language'))
+
+    account_setup_tooltip = escape_markdown(ACCOUNT_SETUP_TOOLTIP)
+    bot.send_message(user_id, f"_{account_setup_tooltip}_", parse_mode = "MarkdownV2")
+    progress_message = bot.send_message(user_id, "Progress: [          ] 0%")
+
+    # Create virtual accounts one by one and update progress
+    progress_steps = [
+        ('BTC', 'Bitcoin'),
+        ('ETH', 'Ethereum'),
+        ('LTC', 'Litecoin'),
+        ('TRON', 'TRON')
+    ]
+    progress_bar = ""
+    for i, (currency_code, currency_name) in enumerate(progress_steps, start=1):
+        # Create virtual account for each cryptocurrency
+        result = create_user_virtual_account(currency_code, user)
+
+        # Update progress bar and percentage
+        progress_bar = '▮' * i + ' ' * (10 - i)  # Adjust the progress bar
+        percentage = i * 25  # Since there are 4 steps, each step is 25%
+        bot.edit_message_text(f"Progress: [{progress_bar}] {percentage}%",
+                              chat_id=user_id, message_id=progress_message.message_id)
+
+        # Simulate delay (replace with actual delay if the account creation takes time)
+        time.sleep(1)
+
+        # Check for errors
+        if result != f"{STATUS_CODE_200}":
+            bot.send_message(user_id, f"{PROCESSING_ERROR} {result.text()}")
+
+    # Once account creation is complete, update the user with final success messages
+    setup_completion_first_half = escape_markdown(SETUP_COMPLETION_FIRST_HALF)
+    setup_completion_second_half = escape_markdown(SETUP_COMPLETION_SECOND_HALF)
+
+    bot.edit_message_text(f"{setup_completion_first_half} {username_formatting} {setup_completion_second_half}",
+                          chat_id=user_id, message_id=progress_message.message_id, parse_mode="MarkdownV2")
+    free_trial_tooltip = escape_markdown(FREE_TRIAL_TOOLTIP)
+    bot.send_message(user_id, f"_{free_trial_tooltip}_", parse_mode = "MarkdownV2")
+    # Prompt for language selection
+    bot.send_message(user_id, f"{PROFILE_LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('language'))
+
+
+
 @bot.message_handler(commands=['cancel'])
 def cancel_actions(message):
     user_id = message.chat.id
@@ -696,48 +749,33 @@ def signup(message):
     user_id = message.chat.id
     text = message.text if message.content_type == 'text' else None
     try:
-
-        existing_user, created = TelegramUser.objects.get_or_create(user_id=user_id, defaults={'user_name': f'{user_id}'})
+        existing_user, created = TelegramUser.objects.get_or_create(user_id=user_id,
+                                                                    defaults={'user_name': f'{user_id}'})
 
         if not created:
             bot.send_message(user_id, f"{EXISTING_USER_WELCOME}", reply_markup=get_main_menu())
             return
+
+        # Send the setup prompt message
         bot.send_message(user_id, f"{SETUP_PROMPT}")
-        bitcoin = create_user_virtual_account('BTC', existing_user)
-        if bitcoin == f"{STATUS_CODE_200}":
-            bot.send_message(user_id, f"{BITCOIN} {ACCOUNT_CREATED_SUCCESSFULLY}")
-        else:
-            bot.send_message(user_id, f"{PROCESSING_ERROR} {bitcoin.text()}")
 
-        ethereum = create_user_virtual_account('ETH', existing_user)
-        if ethereum == f"{STATUS_CODE_200}":
-            bot.send_message(user_id, f"{ETHEREUM} & {ERC} {ACCOUNT_CREATED_SUCCESSFULLY}")
-        else:
-            bot.send_message(user_id, f"{PROCESSING_ERROR} {ethereum.text()}" )
-
-        litecoin = create_user_virtual_account('LTC', existing_user)
-        if litecoin == f"{STATUS_CODE_200}":
-            bot.send_message(user_id, f"{LITECOIN} {ACCOUNT_CREATED_SUCCESSFULLY}")
-        else:
-            bot.send_message(user_id, f"{PROCESSING_ERROR} {litecoin.text()}")
-
-        trc_20 = create_user_virtual_account('TRON', existing_user)
-        if trc_20 == f"{STATUS_CODE_200}":
-            bot.send_message(user_id, f"{TRC} {ACCOUNT_CREATED_SUCCESSFULLY}")
-        else:
-            bot.send_message(user_id, f"{PROCESSING_ERROR} {trc_20.text()}")
+        # Escape special characters for MarkdownV2
+        setup_tooltip = escape_markdown(SETUP_TOOLTIP)
+        bot.send_message(user_id, f"_{setup_tooltip}_", parse_mode="MarkdownV2")
 
         if user_id not in user_data:
             user_data[user_id] = {}
         user_data[user_id]['step'] = 'profile_language'
-        bot.send_message(user_id, f"{NAME_INPUT_PROMPT}")
 
+        # Escape special characters for name input prompt
+        name_input_prompt = escape_markdown(NAME_INPUT_PROMPT)
+        bot.send_message(user_id, f"{name_input_prompt}", parse_mode="MarkdownV2")
         return
 
     except Exception as e:
         bot.reply_to(message, f"{PROCESSING_ERROR} {str(e)}", reply_markup=get_force_reply())
-    get_profile_language(message)
 
+    get_profile_language(message)
 
 @bot.callback_query_handler(func=lambda call: call.data == "activate_subscription")
 def handle_activate_subscription(call):
@@ -1407,7 +1445,8 @@ def handle_ask_description(message):
         bot.send_message(user_id, f"Now, please select the language for this flow:", reply_markup=get_language_markup('flowlanguage'))
 
     else:
-        bot.send_message(user_id, f"{PROCESSING_ERROR} {response}!", reply_markup=get_node_menu())
+        keyboard = check_user_has_active_free_plan(user_id)
+        bot.send_message(user_id, f"{PROCESSING_ERROR} {response}!", reply_markup=keyboard)
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_start_node')
@@ -1432,12 +1471,14 @@ def handle_add_flow_language(call):
         add_node(call.message)
 
     else:
-        bot.send_message(user_id, "Select the type of node that you want to add: ", reply_markup=get_node_menu())
+        keyboard = check_user_has_active_free_plan(user_id)
+        bot.send_message(user_id, "Select the type of node that you want to add: ", reply_markup=keyboard)
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'show_error_node_type')
 def handle_show_error_node_type(message):
     user_id = message.chat.id
-    bot.send_message(user_id, "Select from the menu provided below:", reply_markup=get_node_menu())
+    keyboard = check_user_has_active_free_plan(user_id)
+    bot.send_message(user_id, "Select from the menu provided below:", reply_markup=keyboard)
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_batch_numbers',
@@ -1967,7 +2008,8 @@ def handle_add_or_done(message):
     text = message.text
     if text == 'Add Another Node':
         user_data[user_id]['step'] = 'add_another_node'
-        bot.send_message(user_id, "Please Select the type of node:", reply_markup=get_node_menu())
+        keyboard = check_user_has_active_free_plan(user_id)
+        bot.send_message(user_id, "Please Select the type of node:", reply_markup=keyboard)
 
     elif text == 'Done':
         bot.send_message(user_id, "You have finished adding nodes.", reply_markup=get_main_menu())

@@ -1,12 +1,31 @@
 # :: MENUS ------------------------------------#
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ForceReply, \
-    ReplyKeyboardRemove
+from django.core.exceptions import ObjectDoesNotExist
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ForceReply
 
 from bot.views import get_voices
 from telebot import types
 
+from payment.models import UserSubscription
+
 voice_data = get_voices()
 
+
+def check_user_has_active_free_plan(user_id):
+    try:
+        active_subscription = UserSubscription.objects.get(
+            user_id=user_id,
+            subscription_status='active'
+        )
+
+        free_plan = active_subscription.plan_id.plan_price == 0
+
+        if free_plan:
+            return get_node_menu_free()
+        else:
+            return get_node_menu()
+
+    except ObjectDoesNotExist:
+        return get_node_menu()
 
 def get_reply_keyboard(options):
     markup = ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
@@ -103,7 +122,17 @@ def get_node_menu():
     ]
 
     return get_reply_keyboard(options)
-
+def get_node_menu_free():
+    options =[
+        "Play Message ▶️",
+        "Get DTMF Input 📞",
+        "End Call 🛑",
+        "Menu 📋",
+        "Feedback Node",
+        "Question",
+        "Back to Main Menu ↩️"
+    ]
+    return get_reply_keyboard(options)
 
 def get_billing_and_subscription_keyboard():
 
