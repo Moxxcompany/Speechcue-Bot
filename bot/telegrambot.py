@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 
-from TelegramBot.constants import PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH,\
+from TelegramBot.constants import PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH, \
     trc20, erc20, TRON, litecoin, LTC, back, TOP_UP, \
     INSUFFICIENT_BALANCE, BACK, WALLET, DEPOSIT_ADDRESS, PAYMENT_METHOD_PROMPT, ETHEREUM, ERC, TRC, LITECOIN, \
     AVAILABLE_COMMANDS_PROMPT, SUBSCRIPTION_PLAN, NAME, BULK_IVR_LEFT, WALLET_INFORMATION, \
@@ -24,7 +24,8 @@ from TelegramBot.constants import PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH,
     TRANSCRIPT_NOT_FOUND, VIEW_TRANSCRIPT_PROMPT, CALL_LOGS_NOT_FOUND, VIEW_VARIABLES_PROMPT, EDGES_DELETED, \
     BALANCE_IN_USD, USD, CALL_TRANSFER_EXCLUDED, CALL_TRANSFER_INCLUDED, FULL_NODE_ACCESS, PARTIAL_NODE_ACCESS, \
     CALL_TRANSFER_NODE, SETUP_TOOLTIP, NICE_TO_MEET_YOU, PROFILE_SETTING_PROMPT, SETUP_COMPLETION_FIRST_HALF, \
-    SETUP_COMPLETION_SECOND_HALF, ACCOUNT_SETUP_TOOLTIP, FREE_TRIAL_TOOLTIP, PROFILE_LANGUAGE_SELECTION_PROMPT
+    SETUP_COMPLETION_SECOND_HALF, ACCOUNT_SETUP_TOOLTIP, FREE_TRIAL_TOOLTIP, PROFILE_LANGUAGE_SELECTION_PROMPT, \
+    PROCESSING_PAYMENT
 
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable
 
@@ -1005,9 +1006,9 @@ def handle_wallet_method(call):
             return
 
         balance_data = balance.json()
-        available_balance = int(balance_data["availableBalance"])
+        available_balance = float(balance_data["availableBalance"])
         symbol = get_currency_symbol(user_data[user_id]['payment_currency'])
-        bot.send_message(user_id, f"{CURRENT_BALANCE} {available_balance:.6f} {symbol}.")
+        bot.send_message(user_id, f"{PROCESSING_PAYMENT}")
     except Exception as e:
         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
         return
@@ -1031,7 +1032,6 @@ def handle_wallet_method(call):
         return
 
     try:
-        # Get the receiver's virtual account
         receiver = MainWalletTable.objects.get(currency=user_data[user_id]['payment_currency'])
         receiver_account = receiver.virtual_account
 
