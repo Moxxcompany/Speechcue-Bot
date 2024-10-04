@@ -1,17 +1,14 @@
 import json
-import os
-from locale import currency
-from pyexpat import expat_CAPI
-from traceback import print_exc
 from uuid import UUID
+import time
 import re
 import io
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 
-from TelegramBot.constants import BITCOIN, ACCOUNT_CREATED_SUCCESSFULLY, \
-    PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH, trc20, erc20, TRON, litecoin, LTC, back, TOP_UP, \
+from TelegramBot.constants import PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH,\
+    trc20, erc20, TRON, litecoin, LTC, back, TOP_UP, \
     INSUFFICIENT_BALANCE, BACK, WALLET, DEPOSIT_ADDRESS, PAYMENT_METHOD_PROMPT, ETHEREUM, ERC, TRC, LITECOIN, \
     AVAILABLE_COMMANDS_PROMPT, SUBSCRIPTION_PLAN, NAME, BULK_IVR_LEFT, WALLET_INFORMATION, \
     USERNAME, PROFILE_INFORMATION_PROMPT, NO_SUBSCRIPTION_PLAN, JOIN_CHANNEL_PROMPT, INACTIVE, \
@@ -28,7 +25,9 @@ from TelegramBot.constants import BITCOIN, ACCOUNT_CREATED_SUCCESSFULLY, \
     BALANCE_IN_USD, USD, CALL_TRANSFER_EXCLUDED, CALL_TRANSFER_INCLUDED, FULL_NODE_ACCESS, PARTIAL_NODE_ACCESS, \
     CALL_TRANSFER_NODE, SETUP_TOOLTIP, NICE_TO_MEET_YOU, PROFILE_SETTING_PROMPT, SETUP_COMPLETION_FIRST_HALF, \
     SETUP_COMPLETION_SECOND_HALF, ACCOUNT_SETUP_TOOLTIP, FREE_TRIAL_TOOLTIP, PROFILE_LANGUAGE_SELECTION_PROMPT
+
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable
+
 from bot.utils import generate_random_id, create_user_virtual_account, generate_qr_code, \
     check_balance, set_user_subscription, convert_dollars_to_crypto, get_btc_price, get_eth_price, get_ltc_price, \
     get_trx_price, get_plan_price, check_validity, \
@@ -38,6 +37,7 @@ from bot.utils import generate_random_id, create_user_virtual_account, generate_
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
     get_voices, empty_nodes, bulk_ivr_flow, get_transcript, question_type, get_variables
+
 from payment.models import SubscriptionPlans, MainWalletTable, VirtualAccountsTable, UserSubscription
 from payment.views import  get_account_balance, \
     create_subscription_v3, send_payment
@@ -675,7 +675,6 @@ def get_user_name(message):
     user_id = message.chat.id
 
 
-import time
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'profile_language')
@@ -1994,12 +1993,18 @@ def handle_select_phone_number(call):
 def handle_enter_new_number(message):
     user_id = message.chat.id
     phone_number = message.text
-    TransferCallNumbers.objects.create(user_id=user_id, phone_number=phone_number)
-    user_data[user_id]['selected_phone_number'] = phone_number
-    bot.send_message(user_id, "Settings saved.")
-    bot.send_message(user_id, "Add another node or select 'Done' if you are finished.",
-                     reply_markup=get_reply_keyboard(['Add Another Node', 'Done']))
-    user_data[user_id]['step'] = 'add_or_done'
+
+    if validate_transfer_number(phone_number):
+        TransferCallNumbers.objects.create(user_id=user_id, phone_number=phone_number)
+        user_data[user_id]['selected_phone_number'] = phone_number
+        bot.send_message(user_id, "Settings saved.")
+        bot.send_message(user_id, "Add another node or select 'Done' if you are finished.",
+                         reply_markup=get_reply_keyboard(['Add Another Node', 'Done']))
+        user_data[user_id]['step'] = 'add_or_done'
+    else:
+        bot.send_message(user_id,
+                         "Invalid phone number. Please enter a valid number with a country code (e.g., +123456789).",
+                         reply_markup=get_force_reply())
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_or_done')
@@ -2013,7 +2018,6 @@ def handle_add_or_done(message):
 
     elif text == 'Done':
         bot.send_message(user_id, "You have finished adding nodes.", reply_markup=get_main_menu())
-        del user_data[user_id]
     else:
         bot.send_message(user_id, "Please choose 'Add Another Node' or 'Done'.",
                          reply_markup=get_reply_keyboard(['Add Another Node', 'Done']))
