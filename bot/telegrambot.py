@@ -135,7 +135,7 @@ def get_user_profile(message):
         sum_in_usd = sum_in_usd + balance_in_usd
 
 
-        bot.send_message(user_id, f"{BALANCE_IN_USD} : {sum_in_usd}", reply_markup=get_main_menu())
+        bot.send_message(user_id, f"{BALANCE_IN_USD} : {sum_in_usd:.2f}", reply_markup=get_main_menu())
 
 @bot.message_handler(func=lambda message: message.text == 'Help ℹ️')
 def handle_help(message):
@@ -547,26 +547,33 @@ def view_variables(message):
 
     bot.send_message(user_id, f"{VIEW_VARIABLES_PROMPT}", reply_markup=markup)
 
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("variables_"))
 def handle_call_selection_variable(call):
     try:
         call_id = call.data[len("variables_"):]
+
+        # Fetch variables
         variables = get_variables(call_id)
 
-        if variables:
-            # Escape underscores only in the keys
-            formatted_variables = []
-            for key, value in variables.items():
-                formatted_key = key.replace('_', '\\_')
-                formatted_variables.append(f"{formatted_key}: {value}")
+        if variables is None:
+            # Handle the case where get_variables returns None
+            bot.send_message(call.message.chat.id, f"No variables found for call ID: {call_id}",
+                             parse_mode="MarkdownV2")
+            return
 
-            variable_message = "\n".join(formatted_variables)
-        else:
-            variable_message = f"{TRANSCRIPT_NOT_FOUND}"
+        formatted_variables = []
+        for key, value in variables.items():
+            formatted_key = key.replace('_', '\\_')
+            formatted_variables.append(f"{formatted_key}: {value}")
 
+        variable_message = "\n".join(formatted_variables)
         bot.send_message(call.message.chat.id, variable_message, parse_mode="MarkdownV2")
+
     except Exception as e:
-        bot.send_message(call.message.chat.id, f"{PROCESSING_ERROR} {str(e)}")
+        error_message = f"An error occurred: {str(e)}"
+        bot.send_message(call.message.chat.id, f"{PROCESSING_ERROR} {error_message}")
+
 
 @bot.message_handler(func=lambda message: message.text == "View Feedback")
 def view_feedback(message):
@@ -906,7 +913,7 @@ def handle_plan_selection(call):
     if plan.call_transfer:
         invoice_message += f"🔧 {FULL_NODE_ACCESS}: {CALL_TRANSFER_INCLUDED}\n\n"
     else:
-        invoice_message += f"🔧 {PARTIAL_NODE_ACCESS}: CALL_TRANSFER_EXCLUDED\n\n"
+        invoice_message += f"🔧 {PARTIAL_NODE_ACCESS}: {CALL_TRANSFER_EXCLUDED}\n\n"
 
 
     if user_id not in user_data:
@@ -2102,6 +2109,8 @@ def handle_main_menu(call):
     user_id = call.from_user.id
 
     bot.send_message(user_id, "This is the main menu.", reply_markup=get_main_menu())
+
+
 
 
 def start_bot():
