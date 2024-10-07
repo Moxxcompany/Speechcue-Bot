@@ -321,24 +321,15 @@ def trigger_single_ivr_call(message):
     """
     user_id = message.from_user.id
     user = TelegramUser.objects.get(user_id=user_id)
-    if user.free_gift_single_ivr:
-        markup = types.InlineKeyboardMarkup()
-        main_menu_button = types.InlineKeyboardButton(f"{ACKNOWLEDGE_AND_PROCEED}",
-                                                      callback_data='trigger_single_flow')
-        back_button = types.InlineKeyboardButton(f"{BACK} ↩️", callback_data="back_to_language")
-        markup.add(main_menu_button)
-        markup.add(back_button)
-        bot.send_message(user_id, f"{NEW_USER_WELCOME}",reply_markup=markup )
+
+    if user.subscription_status == 'active':
+        bot.send_message(user_id, "Subscription verified. 📞")
+        user_data[user_id] = {'step': 'phone_number_input'}
+        view_flows(message)
 
     else:
-        if user.subscription_status == 'active':
-            bot.send_message(user_id, "Subscription verified. 📞")
-            user_data[user_id] = {'step': 'phone_number_input'}
-            view_flows(message)
-
-        else:
-            bot.send_message(user_id, "A single IVR call requires an active subscription. Please activate your "
-                                      "subscription to proceed.", reply_markup=get_subscription_activation_markup())
+        bot.send_message(user_id, "A single IVR call requires an active subscription. Please activate your "
+                                  "subscription to proceed.", reply_markup=get_subscription_activation_markup())
 
 @bot.callback_query_handler(func=lambda call: call.data == 'trigger_single_flow')
 def trigger_flow_single(call):
@@ -831,11 +822,15 @@ def handle_activate_subscription(call):
 def back_to_view_terms(call):
     view_terms_menu(call)
 
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("plan_name_"))
 def view_plan_validity(call):
     user_id = call.message.chat.id
     plan_name = call.data.split("_")[2]
-    plans = SubscriptionPlans.objects.filter(name=plan_name)
+
+    # Fetch the plans and order by validity_days in ascending order
+    plans = SubscriptionPlans.objects.filter(name=plan_name).order_by('validity_days')
+
     plan_validity = {
         "1": "⃣",
         "7": "⃣",
@@ -844,25 +839,26 @@ def view_plan_validity(call):
 
     message_text = f"🕒 How long would you like to subscribe? Select your preferred duration:"
     markup = types.InlineKeyboardMarkup()
+
+    # Loop through the sorted plans and add buttons
     for plan in plans:
         plan_icon = plan_validity.get(str(plan.validity_days), '')
-        if str(plan.validity_days) == '1':
-            day = f"{DAY}"
-        else:
-            day = f"{DAYS}"
-        plan_button = types.InlineKeyboardButton(f"{plan_icon} {plan.validity_days} {day}", callback_data=f"plan_{plan.plan_id}")
+        # Create a button for each plan validity option
+        plan_button = types.InlineKeyboardButton(f"{plan_icon} {plan.validity_days} {DAYS}",
+                                                 callback_data=f"plan_{plan.plan_id}")
         markup.add(plan_button)
 
+    # Add a back button to return to the plan selection
     back_button = types.InlineKeyboardButton(f"Back ↩️", callback_data="back_to_plan_names")
     markup.add(back_button)
 
+    # Send the message with plan options in ascending order
     bot.send_message(user_id, f"{message_text}\n\n", reply_markup=markup)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'back_to_plan_names')
 def back_to_plan_names(call):
     handle_activate_subscription(call)
-
 @bot.callback_query_handler(func=lambda call: call.data == 'back_to_welcome_message')
 def handle_back_message(call):
     user_id = call.message.chat.id
@@ -880,14 +876,16 @@ def handle_plan_selection(call):
         bot.send_message(user_id, f"{PLAN_DOESNT_EXIST}")
         return
 
+    # Ensure that the user_data dictionary has an entry for the current user_id
+    if user_id not in user_data:
+        user_data[user_id] = {}  # Initialize the dictionary for this user_id
+
     # Determine node access and call transfer options
     node_access = "Full Node Access" if plan.call_transfer else "Partial Node Access"
     call_transfer_node = '✅' if plan.call_transfer else '❌'
 
-    # Save the selected plan in user_data
+    # Save selected plan details in user_data for the session
     user_data[user_id]['selected_plan'] = plan
-    if user_id not in user_data:
-        user_data[user_id] = {}
     user_data[user_id]['subscription_price'] = plan.plan_price
     user_data[user_id]['subscription_name'] = plan.name
     user_data[user_id]['subscription_id'] = plan.plan_id
@@ -901,10 +899,9 @@ def handle_plan_selection(call):
         f"🔗 {node_access}\n"
         f"📞 Call Transfer Node {call_transfer_node}\n"
         f"📞 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n\n"
-
     )
-    if plan.plan_price == 0:
 
+    if plan.plan_price == 0:
         bot.send_message(user_id, escape_markdown(invoice_message), parse_mode="MarkdownV2")
         user = TelegramUser.objects.get(user_id=user_id)
         user.subscription_status = 'active'
@@ -914,9 +911,13 @@ def handle_plan_selection(call):
         if set_subscription != f"{STATUS_CODE_200}":
             bot.send_message(user_id, set_subscription)
             return
-        bot.send_message(user_id , "You have successfully activated your free trial!", reply_markup=get_main_menu())
+        bot.send_message(user_id, "You have successfully activated your free trial!", reply_markup=get_main_menu())
         return
-    bot.send_message(user_id, f"Would you like to enable auto-renewal from your wallet balance?")
+
+    # Ask if the user wants auto-renewal
+    bot.send_message(user_id, "Would you like to enable auto-renewal from your wallet balance?")
+
+    # Inline keyboard for auto-renewal options
     markup = types.InlineKeyboardMarkup()
     yes_button = types.InlineKeyboardButton('✅ Yes', callback_data="enable_auto_renewal_yes")
     no_button = types.InlineKeyboardButton('❌ No', callback_data="enable_auto_renewal_no")
@@ -1116,8 +1117,10 @@ def handle_wallet_method(call):
         if set_subscription != f"{STATUS_CODE_200}":
             bot.send_message(user_id, set_subscription)
             return
+        user_subscription = UserSubscription.objects.get(user_id= current_user)
+        user_subscription.auto_renewal = user_data[user_id]['auto_renewal']
+        user_subscription.save()
 
-        send_confirmation_menu(user_id)
         bot.send_message(user_id, f"{PAYMENT_SUCCESSFUL} {SUBSCRIPTION_ACTIVATED} {MAIN_MENU_PROMPT}", reply_markup=get_main_menu())
 
     except TelegramUser.DoesNotExist:
@@ -2073,9 +2076,6 @@ def handle_single_ivr_call_flow(message):
     response, status = send_call_through_pathway(pathway_id, phone_number, user_id)
     if status == 200:
         bot.send_message(user_id, "Call successfully queued.")
-        user = TelegramUser.objects.get(user_id=user_id)
-        user.free_gift_single_ivr = False
-        user.save()
         return
     bot.send_message(user_id, f"{PROCESSING_ERROR} {response}")
 

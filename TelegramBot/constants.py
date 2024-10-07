@@ -92,7 +92,7 @@ SETUP_PROMPT = ("👋 Welcome to Speechcad IVR Bot! We’re thrilled to have you
                 "Let’s get you started so you can explore all the exciting features we offer. 🌟 "
                 "This setup is quick and easy—let's dive in! 🚀")
 EXISTING_USER_WELCOME = "Welcome! 🎉 We are glad to have you again. 🎉 Here is the main menu!"
-NEW_USER_WELCOME = "Welcome! As a new user, you can make one free single IVR call. 🎉"
+NEW_USER_WELCOME = "Welcome! As a new user! 🎉"
 PROFILE_LANGUAGE_SELECTION_PROMPT = "🌍 To ensure everything is in your preferred language, please select one below:"
 LANGUAGE_SELECTION_PROMPT = "Select your preferred language:"
 USERNAME_PROMPT = "Your username is"

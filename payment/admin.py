@@ -50,7 +50,7 @@ class UserSubscriptionAdmin(admin.ModelAdmin):
     get_user_id.short_description = 'User ID'  # This will change the column name in the admin interface
 
     list_display = ('get_user_id', 'subscription_status', 'plan_id', 'bulk_ivr_calls_left',
-                    'date_of_subscription', 'date_of_expiry', 'call_transfer')
+                    'date_of_subscription', 'date_of_expiry', 'call_transfer', 'auto_renewal')
     list_filter = ('subscription_status', 'plan_id')
     search_fields = ('user_id__user_id', 'subscription_status', 'plan_id__name')  # Search by the user_id directly
     ordering = ('subscription_status', 'plan_id')

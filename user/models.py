@@ -8,6 +8,5 @@ class TelegramUser(models.Model):
     language = models.CharField(max_length=50, null=True, default='English')
     plan = models.CharField(max_length=50, null=True)
     subscription_status = models.CharField(max_length=50, null=True, default='inactive')
-    free_gift_single_ivr = models.BooleanField(default=True)
     free_plan = models.BooleanField(default=True)
 

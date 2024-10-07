@@ -5,7 +5,10 @@ import qrcode
 from django.core.exceptions import ObjectDoesNotExist
 import os
 import requests
-
+from datetime import timedelta
+from django.utils import timezone
+from django.core.exceptions import ObjectDoesNotExist
+from payment.models import UserSubscription, SubscriptionPlans
 from TelegramBot.constants import BTC, ETH, LTC, TRON
 
 from payment.models import MainWalletTable, VirtualAccountsTable, SubscriptionPlans, UserSubscription
@@ -205,10 +208,7 @@ def check_balance(account_id):
         return f"Error fetching balance: {str(e)}"
 
 
-from datetime import timedelta
-from django.utils import timezone
-from django.core.exceptions import ObjectDoesNotExist
-from payment.models import UserSubscription, SubscriptionPlans
+
 
 def set_user_subscription(user, plan_id):
     try:
@@ -226,7 +226,6 @@ def set_user_subscription(user, plan_id):
 
     # Calculate the date_of_expiry by adding the validity_days to the subscription date
     date_of_expiry = date_of_subscription + timedelta(days=validity_days)
-
     # Update or create the user's subscription
     user_subscription, created = UserSubscription.objects.update_or_create(
         user_id=user,

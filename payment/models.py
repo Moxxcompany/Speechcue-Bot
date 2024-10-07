@@ -56,6 +56,7 @@ class UserSubscription(models.Model):
     date_of_subscription = models.DateField(auto_now_add=True, blank=True, null=True)
     date_of_expiry = models.DateField(null = True, blank=True)
     call_transfer = models.BooleanField(default=False)
+    auto_renewal = models.BooleanField(default=False)
 
 
 class OwnerWalletTable(models.Model):
