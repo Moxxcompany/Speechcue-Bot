@@ -57,6 +57,7 @@ class UserSubscription(models.Model):
     date_of_expiry = models.DateField(null = True, blank=True)
     call_transfer = models.BooleanField(default=False)
 
+
 class OwnerWalletTable(models.Model):
     address = models.TextField(primary_key=True)
     currency = models.TextField(null=True, blank=True)

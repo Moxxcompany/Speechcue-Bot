@@ -25,7 +25,7 @@ from TelegramBot.constants import PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH,
     BALANCE_IN_USD, USD, CALL_TRANSFER_EXCLUDED, CALL_TRANSFER_INCLUDED, FULL_NODE_ACCESS, PARTIAL_NODE_ACCESS, \
     CALL_TRANSFER_NODE, SETUP_TOOLTIP, NICE_TO_MEET_YOU, PROFILE_SETTING_PROMPT, SETUP_COMPLETION_FIRST_HALF, \
     SETUP_COMPLETION_SECOND_HALF, ACCOUNT_SETUP_TOOLTIP, FREE_TRIAL_TOOLTIP, PROFILE_LANGUAGE_SELECTION_PROMPT, \
-    PROCESSING_PAYMENT
+    PROCESSING_PAYMENT, DAY
 
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable
 
@@ -791,21 +791,13 @@ def handle_activate_subscription(call):
     # Retrieve all plans from the database
     plans = SubscriptionPlans.objects.all()
 
-    # Separate the free plan and other plans
-    free_plan = None
-    other_plans = []
-
-    for plan in plans:
-        if plan.plan_price == 0:  # Assuming the free plan has a price of 0
-            free_plan = plan
-        else:
-            other_plans.append(plan)
-
-    # Sort the other plans by validity_days (ensure they are integers)
-    other_plans.sort(key=lambda p: (int(p.validity_days), p.plan_price))
-
-    # Build the message text
-    message_text = "Available subscription plans:\n\n"
+    # Icon mapping for specific plan names
+    plan_icons = {
+        'Free': '🎉',    # Free plan
+        'Prime': '🌟',   # Prime plan
+        'Elite': '💎',   # Elite plan
+        'Ultra': '🚀'    # Ultra plan
+    }
 
     # Create InlineKeyboardMarkup object to store the buttons
     markup = types.InlineKeyboardMarkup()
@@ -813,84 +805,68 @@ def handle_activate_subscription(call):
     # Create a set to track unique plan names for buttons
     unique_plan_names = set()
 
-    # Display the free plan at the top if it exists
-    if free_plan:
-        message_text += (f"🆔 {free_plan.name} Plan 📅\n"
-                         f"💲 Free\n"
-                         f"📞 {free_plan.number_of_bulk_call_minutes} Bulk IVR call minutes\n"
-                         f"🔧 Customer Support Level: {free_plan.customer_support_level}\n"
-                         f"📅 Validity: {free_plan.validity_days} Days\n\n")
-
-        if free_plan.call_transfer:
-            message_text += f"🔧 Full Node Access: Call Transfer Included\n\n"
-        else:
-            message_text += f"🔧 Partial Node Access: Call Transfer Excluded\n\n"
-
-        # Create a button for the free plan
-        plan_button = types.InlineKeyboardButton(free_plan.name, callback_data=f"plan_name_{free_plan.name}")
-        markup.add(plan_button)
-
-    # Iterate through the sorted other plans and build the message
-    for plan in other_plans:
-        # Add plan details to the message text
-        message_text += (f"🆔 {plan.name} Plan 📅\n"
-                         f"💲 ${plan.plan_price:.6f}\n"
-                         f"📞 {plan.number_of_bulk_call_minutes} Bulk IVR call minutes\n"
-                         f"🔧 Customer Support Level: {plan.customer_support_level}\n"
-                         f"📅 Validity: {plan.validity_days} Days\n\n")
-
-        if plan.call_transfer:
-            message_text += f"🔧 Full Node Access: Call Transfer Included\n\n"
-        else:
-            message_text += f"🔧 Partial Node Access: Call Transfer Excluded\n\n"
+    # Iterate through the plans and build buttons for each plan
+    for plan in plans:
+        # Add icon if applicable
+        plan_name_with_icon = f"{plan_icons.get(plan.name, '')} {plan.name}"
 
         # Create a button for each unique plan name
         if plan.name not in unique_plan_names:
             unique_plan_names.add(plan.name)
-            plan_button = types.InlineKeyboardButton(plan.name, callback_data=f"plan_name_{plan.name}")
+            plan_button = types.InlineKeyboardButton(plan_name_with_icon, callback_data=f"plan_name_{plan.name}")
             markup.add(plan_button)
 
-    # Add a prompt at the end of the message
-    message_text += "Please select a subscription plan below:"
-
     # Add a back button to go back to the welcome message
-    back_button = types.InlineKeyboardButton(f"Back ↩️", callback_data="back_to_welcome_message")
+    back_button = types.InlineKeyboardButton(f"Back ↩️", callback_data="back_to_view_terms")
     markup.add(back_button)
 
-    # Send the message to the user with the markup (buttons)
-    bot.send_message(user_id, message_text, reply_markup=markup)
+    # Send the message with the plan selection options
+    bot.send_message(
+        user_id,
+        "💡 Now, let’s get you on the right plan. Please choose a subscription plan from the options below:",
+        reply_markup=markup
+    )
 
+@bot.callback_query_handler(func=lambda call: call.data == 'back_to_view_terms')
+def back_to_view_terms(call):
+    view_terms_menu(call)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("plan_name_"))
 def view_plan_validity(call):
     user_id = call.message.chat.id
     plan_name = call.data.split("_")[2]
     plans = SubscriptionPlans.objects.filter(name=plan_name)
-    message_text = f"{plan_name} {PLAN_VALIDITY}\n\n"
-    for plan in plans:
-        message_text += (f"🆔 {PLAN_NAME} {plan.name} Plan 📅\n"
-                         f"💲 {PRICE} ${plan.plan_price:.6f}\n"
-                         f"📞 {UNLIMITED_SINGLE_IVR} & {plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
-                         f"🔧 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n"
-                         f"📅 {VALIDITY} {plan.validity_days} {DAYS}\n\n")
-        if plan.call_transfer:
-            message_text += f"🔧 {FULL_NODE_ACCESS}: {CALL_TRANSFER_INCLUDED}\n\n"
-        else:
-            message_text += f"🔧 {PARTIAL_NODE_ACCESS}: {CALL_TRANSFER_EXCLUDED}\n\n"
+    plan_validity = {
+        "1": "⃣",
+        "7": "⃣",
+        "30": "📅"
+    }
+
+    message_text = f"🕒 How long would you like to subscribe? Select your preferred duration:"
     markup = types.InlineKeyboardMarkup()
     for plan in plans:
-        plan_button = types.InlineKeyboardButton(f"{plan.validity_days} {DAYS}", callback_data=f"plan_{plan.plan_id}")
+        plan_icon = plan_validity.get(str(plan.validity_days), '')
+        if str(plan.validity_days) == '1':
+            day = f"{DAY}"
+        else:
+            day = f"{DAYS}"
+        plan_button = types.InlineKeyboardButton(f"{plan_icon} {plan.validity_days} {day}", callback_data=f"plan_{plan.plan_id}")
         markup.add(plan_button)
 
-    bot.send_message(user_id, f"{message_text}\n{VALIDITY_PROMPT}\n\n", reply_markup=markup)
+    back_button = types.InlineKeyboardButton(f"Back ↩️", callback_data="back_to_plan_names")
+    markup.add(back_button)
+
+    bot.send_message(user_id, f"{message_text}\n\n", reply_markup=markup)
 
 
+@bot.callback_query_handler(func=lambda call: call.data == 'back_to_plan_names')
+def back_to_plan_names(call):
+    handle_activate_subscription(call)
 
 @bot.callback_query_handler(func=lambda call: call.data == 'back_to_welcome_message')
 def handle_back_message(call):
     user_id = call.message.chat.id
     send_welcome(call.message)
-
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("plan_"))
@@ -904,44 +880,90 @@ def handle_plan_selection(call):
         bot.send_message(user_id, f"{PLAN_DOESNT_EXIST}")
         return
 
-    invoice_message = (
-        f"🆔 {PLAN_NAME} {plan.name} Plan 📅\n"
-                         f"💲 {PRICE} ${plan.plan_price:.6f}\n"
-                         f"📞 {UNLIMITED_SINGLE_IVR} & {plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
-                         f"🔧 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n"
-                         f"📅 {VALIDITY} {plan.validity_days} {DAYS}\n\n")
-    if plan.call_transfer:
-        invoice_message += f"🔧 {FULL_NODE_ACCESS}: {CALL_TRANSFER_INCLUDED}\n\n"
-    else:
-        invoice_message += f"🔧 {PARTIAL_NODE_ACCESS}: {CALL_TRANSFER_EXCLUDED}\n\n"
+    # Determine node access and call transfer options
+    node_access = "Full Node Access" if plan.call_transfer else "Partial Node Access"
+    call_transfer_node = '✅' if plan.call_transfer else '❌'
 
-
+    # Save the selected plan in user_data
+    user_data[user_id]['selected_plan'] = plan
     if user_id not in user_data:
         user_data[user_id] = {}
     user_data[user_id]['subscription_price'] = plan.plan_price
     user_data[user_id]['subscription_name'] = plan.name
     user_data[user_id]['subscription_id'] = plan.plan_id
-    user = TelegramUser.objects.get(user_id=user_id)
-    user.plan = plan.plan_id
-    user.save()
 
+    # Construct the confirmation message
+    invoice_message = (
+        f"You’ve selected the ***{plan.name}*** plan for ***{plan.validity_days} days***.\n"
+        f"💲 ***Price:*** {plan.plan_price:.2f}\n"
+        f"📝 ***Features:***\n"
+        f"🎧 {UNLIMITED_SINGLE_IVR} & {plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
+        f"🔗 {node_access}\n"
+        f"📞 Call Transfer Node {call_transfer_node}\n"
+        f"📞 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n\n"
+
+    )
     if plan.plan_price == 0:
-        if user.free_plan:
-            bot.send_message(user_id, invoice_message, parse_mode="Markdown")
-            bot.send_message(user_id, f"You have successfully subscribed to {plan.name}. You have unlimited number "
-                                      f"of SINGLE IVR calls, {plan.number_of_bulk_call_minutes} of BULK IVR calls, and "
-                                      f"{plan.call_transfer} number of transfer call minutes valid "
-                                      f"for {plan.validity_days} days.\n", reply_markup=get_main_menu())
-            set_subscription = set_user_subscription(user, plan_id)
-            if set_subscription != f"{STATUS_CODE_200}":
-                bot.send_message(user_id, set_subscription)
-            user.subscription_status = f"{ACTIVE}"
-            user.free_plan = False
-            user.save()
 
-        else:
-            bot.send_message(user_id, "You have already availed your free trial!", reply_markup=get_billing_and_subscription_keyboard())
+        bot.send_message(user_id, escape_markdown(invoice_message), parse_mode="MarkdownV2")
+        user = TelegramUser.objects.get(user_id=user_id)
+        user.subscription_status = 'active'
+        user.plan = plan.name
+        user.save()
+        set_subscription = set_user_subscription(user, plan.plan_id)
+        if set_subscription != f"{STATUS_CODE_200}":
+            bot.send_message(user_id, set_subscription)
+            return
+        bot.send_message(user_id , "You have successfully activated your free trial!", reply_markup=get_main_menu())
         return
+    bot.send_message(user_id, f"Would you like to enable auto-renewal from your wallet balance?")
+    markup = types.InlineKeyboardMarkup()
+    yes_button = types.InlineKeyboardButton('✅ Yes', callback_data="enable_auto_renewal_yes")
+    no_button = types.InlineKeyboardButton('❌ No', callback_data="enable_auto_renewal_no")
+    back_button = types.InlineKeyboardButton('↩️ Back', callback_data="back_to_plan_names")
+
+    markup.add(yes_button, no_button)
+    markup.add(back_button)
+
+    # Send the plan confirmation message with auto-renewal options
+    bot.send_message(user_id, escape_markdown(invoice_message), reply_markup=markup, parse_mode='MarkdownV2')
+
+
+@bot.callback_query_handler(func=lambda call: call.data in ["enable_auto_renewal_yes", "enable_auto_renewal_no"])
+def handle_auto_renewal_choice(call):
+    user_id = call.message.chat.id
+    selected_plan = user_data[user_id]['selected_plan']
+
+    if call.data == 'enable_auto_renewal_yes':
+        user_data[user_id]['auto_renewal'] = True
+        bot.send_message(user_id, "Auto-renewal has been enabled. Please proceed with payment.")
+    else:
+        user_data[user_id]['auto_renewal'] = False
+        bot.send_message(user_id, "Auto-renewal has been disabled. Please proceed with payment.")
+
+    # Proceed to the payment flow
+    send_payment_options(user_id)
+
+
+# Step 10: Payment Flow - Confirm Payment Method
+def send_payment_options(user_id):
+    # Construct the payment options message
+    payment_message = "💳 Please confirm your payment method to proceed:"
+
+    # Create a ReplyKeyboardMarkup (not InlineKeyboardMarkup) for payment options
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+
+    # Payment options buttons
+    wallet_button = types.KeyboardButton("💼 Pay from Wallet Balance")
+    crypto_button = types.KeyboardButton("💰 Pay with Cryptocurrency")
+
+    markup.add(wallet_button, crypto_button)
+    bot.send_message(user_id, payment_message, reply_markup=markup)
+
+
+@bot.message_handler(func=lambda message: message.text == "💼 Pay from Wallet Balance")
+def payment_through_wallet_balance(message):
+    user_id = message.chat.id
     markup = types.InlineKeyboardMarkup()
     payment_methods = ['Bitcoin (BTC) ₿', 'Ethereum (ETH) Ξ', 'TRC-20 USDT 💵', 'ERC-20 USDT 💵',
                        'Litecoin (LTC) Ł', 'Back ↩️']
@@ -950,6 +972,11 @@ def handle_plan_selection(call):
         markup.add(payment_button)
 
     bot.send_message(user_id, f"{SUBSCRIPTION_PAYMENT_METHOD_PROMPT}", reply_markup=markup)
+
+
+@bot.message_handler(func=lambda message: message.text == "💰 Pay with Cryptocurrency")
+def payment_through_cryptocurrency(message):
+    handle_deposit_address_method(message)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pay_"))
@@ -982,13 +1009,7 @@ def handle_payment_method(call):
 
     user_data[user_id]['payment_currency'] = payment_currency
     print(payment_currency,  "currency ")
-
-    markup = types.InlineKeyboardMarkup()
-    wallet_button = types.InlineKeyboardButton(f"{WALLET}", callback_data="wallet_payment")
-    deposit_address_button = types.InlineKeyboardButton(f"{DEPOSIT_ADDRESS}", callback_data="get_deposit_address")
-    markup.add(wallet_button)
-    markup.add(deposit_address_button)
-    bot.send_message(user_id, f"{PAYMENT_METHOD_PROMPT}", reply_markup=markup)
+    handle_wallet_method(call)
 
 @bot.callback_query_handler(func=lambda call: call.data == 'wallet_payment')
 def handle_wallet_method(call):
@@ -1035,7 +1056,8 @@ def handle_wallet_method(call):
             return
 
     except Exception as e:
-        bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
+        error = f"{PROCESSING_ERROR} {str(e)}"
+        bot.send_message(user_id, escape_markdown(error))
         return
 
     try:
@@ -1164,10 +1186,12 @@ def handle_account_topup(call):
 
         bot.send_photo(user_id, img_byte_arr,
                    caption=f'Price for your subscription plan is {plan_price:.6f} in {payment_currency}.\n'
-                           f'Please use the following address or scan the QR code to top up your balance! \n{address}')
+                           f'Please use the following address or scan the QR code to top up your balance! \n{address}',
+                       reply_markup=get_main_menu())
     else:
         bot.send_photo(user_id, img_byte_arr,
-                      caption=f'Please use the following address or scan the QR code to top up your balance! \n{address}')
+                caption=f'Please use the following address or scan the QR code to top up your balance! \n{address}',
+                       reply_markup=get_main_menu())
 
     if deposit_wallet.subscription_id is None:
         subscription = create_subscription_v3(deposit_wallet.account_id, f'{os.getenv("webhook_url")}/{WEBHOOK}')
@@ -1175,9 +1199,8 @@ def handle_account_topup(call):
         deposit_wallet.subscription_id = subscription_data.get('id')
         deposit_wallet.save()
 
-@bot.callback_query_handler(func=lambda call: call.data == 'get_deposit_address')
-def handle_deposit_address_method(call):
-    user_id = call.message.chat.id
+def handle_deposit_address_method(message):
+    user_id = message.chat.id
     payment_currency = user_data[user_id]['payment_currency']
     deposit_wallet = VirtualAccountsTable.objects.get(user = user_id , currency=payment_currency)
     address = deposit_wallet.main_wallet_deposit_address
@@ -1187,7 +1210,7 @@ def handle_deposit_address_method(call):
     img_byte_arr = generate_qr_code(address)
     plan_price = get_plan_price(payment_currency, plan_price)
     bot.send_photo(user_id, img_byte_arr, caption=f'You need to deposit {plan_price:.6f} amount. Please use the following '
-                                                  f'address or scan the QR code to deposit balance: \n{address}')
+                                                  f'address or scan the QR code to deposit balance: \n{address}', reply_markup=get_main_menu())
     if account.subscription_id is None:
         subscription = create_subscription_v3(account_id, f'{os.getenv("webhook_url")}/{WEBHOOK_DEPOSIT}')
         subscription_data = subscription.json()
@@ -2062,18 +2085,142 @@ def handle_language_selection(call):
     user_id = call.from_user.id
     selected_language = call.data.split(":")[1]
     user_data[user_id] = {'language': selected_language, 'step': 'terms_and_conditions'}
-    bot.send_message(user_id,
-                     f"You have selected {selected_language}.")
     user = TelegramUser.objects.get(user_id = user_id)
     user.language = selected_language
     user.save()
-    markup = types.InlineKeyboardMarkup()
-    view_terms_button = types.InlineKeyboardButton("View Terms and Conditions 📜", callback_data="view_terms")
-    back_button = types.InlineKeyboardButton("Back ↩️", callback_data="back_to_language")
-    markup.add(view_terms_button)
-    markup.add(back_button)
-    bot.send_message(user_id, "Please review and accept the Terms and Conditions to proceed.", reply_markup=markup)
+    view_terms_menu(call)
 
+def view_terms_menu(call):
+    user_id = call.message.chat.id
+    markup = InlineKeyboardMarkup()
+    web_app_info = types.WebAppInfo("https://www.websitepolicies.com/blog/sample-terms-conditions-template")
+    view_terms_button = types.InlineKeyboardButton("📜 View Terms and Conditions", web_app=web_app_info)
+    accept_button = InlineKeyboardButton("✅ Accept", callback_data="accept_terms")
+    decline_terms = InlineKeyboardButton("❌ Decline", callback_data="decline_terms")
+    # back_button = InlineKeyboardButton("Back ↩️", callback_data="back_to_language")
+    markup.add(view_terms_button)
+    markup.add(accept_button)
+    markup.add(decline_terms)
+    bot.send_message(user_id, "📜 Before proceeding, please review and accept our Terms and Conditions.",
+                     reply_markup=markup)
+
+
+# Handle Terms Acceptance
+@bot.callback_query_handler(func=lambda call: call.data in ['accept_terms', 'decline_terms'])
+def handle_terms_response(call):
+    user_id = call.message.chat.id
+    message_id = call.message.message_id  # Capture message ID for editing
+
+    if call.data == 'accept_terms':
+        bot.send_message(user_id, "✅ You've successfully accepted the Terms and Conditions! "
+                                  "🎉\nYou're all set to begin using Speechcad. Let's move to the fun part! 🎯"
+        )
+        bot.send_message(user_id, "Tooltip: You can revisit the Terms and Conditions "
+                                       "anytime in your profile settings."
+        )
+        handle_activate_subscription(call)
+
+    elif call.data == 'decline_terms':
+        markup = types.InlineKeyboardMarkup()
+        view_terms_button = types.InlineKeyboardButton("🔄 View Terms Again", callback_data='view_terms_new')
+        exit_button = types.InlineKeyboardButton("❌ Exit Setup", callback_data='exit_setup')
+
+        markup.add(view_terms_button, exit_button)
+
+        bot.edit_message_text(
+            chat_id=user_id,
+            message_id=message_id,
+            text="⚠️ You need to accept the Terms and Conditions to continue using Speechcad. Please review them again when you're ready.",
+            reply_markup=markup
+        )
+
+
+# View Terms Again
+# @bot.callback_query_handler(func=lambda call: call.data == 'view_terms_new')
+# def handle_view_terms_again(call):
+#     user_id = call.message.chat.id
+#     message_id = call.message.message_id  # Capture message ID for editing
+#
+#     bot.edit_message_text(
+#         chat_id=user_id,
+#         message_id=message_id,
+#         text=f"Please review the Terms and Conditions again: {TERMS_AND_CONDITIONS_URL}"
+#     )
+#     start_terms(call.message)  # Offer to accept or decline again
+
+
+# # Exit Setup
+# @bot.callback_query_handler(func=lambda call: call.data == 'exit_setup')
+# def handle_exit_setup(call):
+#     user_id = call.message.chat.id
+#     message_id = call.message.message_id  # Capture message ID for editing
+#
+#     bot.edit_message_text(
+#         chat_id=user_id,
+#         message_id=message_id,
+#         text="You have exited the setup process. You can start again by accepting the terms."
+#     )
+#     # Additional logic for handling exit
+
+#
+# # Step 6: Subscription Plan Selection
+# def show_subscription_plans(user_id, message_id):
+#     # Use Inline Keyboard to show subscription options
+#     markup = types.InlineKeyboardMarkup()
+#
+#     # Subscription options with inline buttons
+#     free_trial_button = types.InlineKeyboardButton("🎉 Free Trial", callback_data='plan_free_trial')
+#     prime_button = types.InlineKeyboardButton("🌟 Prime", callback_data='plan_prime')
+#     elite_button = types.InlineKeyboardButton("💎 Elite", callback_data='plan_elite')
+#     ultra_button = types.InlineKeyboardButton("🚀 Ultra", callback_data='plan_ultra')
+#     back_button = types.InlineKeyboardButton("↩️ Back to Terms", callback_data='back_to_terms')
+#
+#     # Add buttons to the markup
+#     markup.add(free_trial_button)
+#     markup.add(prime_button)
+#     markup.add(elite_button)
+#     markup.add(ultra_button)
+#     markup.add(back_button)
+#
+#     # Edit the previous message to show subscription plans with inline buttons
+#     bot.edit_message_text(
+#         chat_id=user_id,
+#         message_id=message_id,
+#         text="💡 Now, let's get you on the right plan. Please choose a subscription plan from the options below:",
+#         reply_markup=markup
+#     )
+
+
+# Handle Subscription Plan Selection
+# @bot.callback_query_handler(func=lambda call: call.data.startswith('plan_'))
+# def handle_subscription_plan_selection(call):
+#     user_id = call.message.chat.id
+#     message_id = call.message.message_id
+#
+#     # Determine which plan was selected
+#     selected_plan = call.data.split('_')[1]  # Extract the plan type from callback data
+#     plan_name = {
+#         'free_trial': "🎉 Free Trial",
+#         'prime': "🌟 Prime",
+#         'elite': "💎 Elite",
+#         'ultra': "🚀 Ultra"
+#     }.get(selected_plan, "Unknown Plan")
+#
+#     # Edit the message to confirm the selected plan
+#     bot.edit_message_text(
+#         chat_id=user_id,
+#         message_id=message_id,
+#         text=f"You have selected the {plan_name} plan! Proceeding with the next steps..."
+#     )
+#     # Proceed to payment or other setup actions
+#
+#
+# # Handle Back to Terms from the subscription plans
+# @bot.callback_query_handler(func=lambda call: call.data == 'back_to_terms')
+# def handle_back_to_terms(call):
+#     user_id = call.message.chat.id
+#     message_id = call.message.message_id
+#     start_terms(call.message)
 
 @bot.callback_query_handler(func=lambda call: call.data == "view_terms")
 def handle_view_terms(call):
