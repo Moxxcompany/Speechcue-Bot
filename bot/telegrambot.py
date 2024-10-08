@@ -176,9 +176,9 @@ def handle_view_subscription(call):
         subscription_plan = SubscriptionPlans.objects.get(plan_id=plan)
 
         plan_details = (
-            f"**{PLAN_NAME}** {subscription_plan.name}\n"
-            f"**{PRICE}** ${subscription_plan.plan_price}\n\n"
-            f"**{FEATURES}**\n"
+            f"{PLAN_NAME} {subscription_plan.name}\n"
+            f"{PRICE} ${subscription_plan.plan_price}\n\n"
+            f"{FEATURES}\n"
             f"- '{UNLIMITED_SINGLE_IVR}'\n"
             f"- {subscription_plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
             f"- {subscription_plan.customer_support_level} {CUSTOMER_SUPPORT_LEVEL}\n"
@@ -187,11 +187,11 @@ def handle_view_subscription(call):
         )
         if subscription_plan.call_transfer == True:
             plan_details+=(
-                f"**Full Node Access** : Call Transfer included"
+                f"Full Node Access : Call Transfer included"
             )
         else:
             plan_details+=(
-                f"**Partial Node Access** : Call Transfer not included"
+                f"Partial Node Access : Call Transfer not included"
             )
 
         bot.send_message(user_id, f"{ACTIVE_SUBSCRIPTION_PLAN_PROMPT}\n\n{plan_details}",
@@ -902,9 +902,9 @@ def handle_plan_selection(call):
 
 
     invoice_message = (
-        f"You’ve selected the ***{plan.name}*** plan for ***{plan.validity_days} days***.\n"
-        f"💲 ***Price:*** {plan.plan_price:.2f}\n"
-        f"📝 ***Features:***\n"
+        f"You’ve selected the {plan.name} plan for {plan.validity_days} days.\n"
+        f"💲 Price: {plan.plan_price:.2f}\n"
+        f"📝 Features:\n"
         f"🎧 {single_calls} & {bulk_calls}\n"
         f"🔗 {node_access}\n"
         f"📞 Call Transfer Node {call_transfer_node}\n"
