@@ -1,9 +1,18 @@
 import os
 import uuid
-import psycopg2
 from dotenv.main import load_dotenv
 
+# Load environment variables
 load_dotenv()
+
+# Set the Django settings module and initialize Django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'TelegramBot.settings')  # Replace with your actual settings module
+import django
+django.setup()
+
+# Import Django models after Django has been set up
+from payment.models import SubscriptionPlans, MainWalletTable
+
 def read_wallet_data(file_path):
     wallet_data = []
     with open(file_path, 'r') as file:
@@ -22,31 +31,28 @@ def read_wallet_data(file_path):
             })
     return wallet_data
 
+
 def read_subscription_plans(file_path):
     subscription_data = []
     with open(file_path, 'r') as file:
         for line in file:
             line = line.strip()
             parts = line.split('|')
+
+            # Check if single_ivr_flow is provided or not
+            single_ivr_flow = parts[6] if len(parts) > 6 and parts[6] != '' else None
+
             subscription_data.append({
                 "name": parts[0],
                 "plan_price": float(parts[1]),
                 "number_of_bulk_call_minutes": int(parts[2]),
-                "call_transfer": bool(parts[3]),
+                "call_transfer": parts[3].lower() == 'true',  # Convert string 'True'/'False' to boolean
                 "customer_support_level": parts[4],
-                "validity_days": parts[5],
-
+                "validity_days": int(parts[5]),
+                "single_ivr_flow": single_ivr_flow
             })
     return subscription_data
 
-conn = psycopg2.connect(
-    dbname=os.getenv('POSTGRES_DB'),
-    user=os.getenv('POSTGRES_USER'),
-    password=os.getenv('POSTGRES_PASSWORD'),
-    host=os.getenv('POSTGRES_HOST'),
-    port=os.getenv('POSTGRES_PORT'),
-)
-cur = conn.cursor()
 
 # File paths
 wallet_file_path = 'data_files/main_wallet_data.txt'
@@ -56,19 +62,36 @@ subscription_file_path = 'data_files/subscription_plans_data.txt'
 wallet_data = read_wallet_data(wallet_file_path)
 subscription_data = read_subscription_plans(subscription_file_path)
 
-for wallet in wallet_data:
-    cur.execute("""
-        INSERT INTO payment_mainwallettable (xpub, mnemonic, address, virtual_account, currency, deposit_address, subscription_id)
-        VALUES (%s, %s, %s, %s, %s, %s, NULL)
-    """, (wallet['xpub'], wallet['mnemonic'], wallet['address'], wallet['virtual_account'], wallet['currency'], wallet['deposit_address']))
-
+# Insert subscription plan data using Django ORM
 for plan in subscription_data:
-    cur.execute("""
-        INSERT INTO payment_subscriptionplans (plan_id, name, plan_price, number_of_bulk_call_minutes, call_transfer, customer_support_level, validity_days)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """, (str(uuid.uuid4()), plan['name'], plan['plan_price'], plan['number_of_bulk_call_minutes'], plan['call_transfer'], plan['customer_support_level'], plan['validity_days']))
+    if plan['single_ivr_flow'] is None:
+        SubscriptionPlans.objects.create(
+            name=plan['name'],
+            plan_price=plan['plan_price'],
+            number_of_bulk_call_minutes=plan['number_of_bulk_call_minutes'],
+            call_transfer=plan['call_transfer'],
+            customer_support_level=plan['customer_support_level'],
+            validity_days=plan['validity_days']
+        )
+    else:
+        SubscriptionPlans.objects.create(
+            name=plan['name'],
+            plan_price=plan['plan_price'],
+            number_of_bulk_call_minutes=plan['number_of_bulk_call_minutes'],
+            call_transfer=plan['call_transfer'],
+            customer_support_level=plan['customer_support_level'],
+            validity_days=plan['validity_days'],
+            single_ivr_flow=int(plan['single_ivr_flow'])
+        )
 
-conn.commit()
-
-cur.close()
-conn.close()
+for wallet in wallet_data:
+    MainWalletTable.objects.create(
+        xpub=wallet['xpub'],
+        mnemonic=wallet['mnemonic'],
+        address=wallet['address'],
+        virtual_account=wallet['virtual_account'],
+        currency=wallet['currency'],
+        deposit_address=wallet['deposit_address'],
+        subscription_id=None,  # Assuming no subscription_id for now
+        private_key=None  # Assuming no private_key in the current file
+    )

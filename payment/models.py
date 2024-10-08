@@ -2,6 +2,7 @@ import uuid
 
 from django.db import models
 
+from TelegramBot.constants import MAX_INFINITY_CONSTANT
 from user.models import TelegramUser
 
 
@@ -13,7 +14,8 @@ class SubscriptionPlans(models.Model):
     number_of_bulk_call_minutes = models.IntegerField()
     call_transfer = models.BooleanField(default=False)
     customer_support_level = models.TextField(max_length=100)
-    validity_days = models.CharField(max_length=100, blank=True, null=True)
+    validity_days = models.IntegerField( blank=True, null=True)
+    single_ivr_flow = models.IntegerField(default=MAX_INFINITY_CONSTANT)
 
 
     def __str__(self):

@@ -241,7 +241,6 @@ def set_user_subscription(user, plan_id):
 
     return '200'
 
-# Store cached prices and timestamps
 price_cache = {
     'btc': {'price': None, 'timestamp': 0},
     'eth': {'price': None, 'timestamp': 0},
@@ -249,55 +248,64 @@ price_cache = {
     'ltc': {'price': None, 'timestamp': 0}
 }
 
-CACHE_DURATION = 60  # Cache duration in seconds (e.g., 1 minute)
+# Cache system
+price_cache = {
+    'btc': {'price': None, 'timestamp': 0},
+    'eth': {'price': None, 'timestamp': 0},
+    'trx': {'price': None, 'timestamp': 0},
+    'ltc': {'price': None, 'timestamp': 0}
+}
 
+CACHE_DURATION = 60  # Cache duration in seconds
+TATUM_API_URL = os.getenv("TATUM_API_URL")
+TATUM_API_KEY = os.getenv("x-api-key")
+
+headers = {
+    "accept": "application/json",
+    "x-api-key": TATUM_API_KEY
+}
+
+# Get cached prices
 def get_cached_price(crypto_type, fetch_price_function):
     current_time = time.time()
 
-    # Check if the price is already cached and the cache is still valid
     if current_time - price_cache[crypto_type]['timestamp'] < CACHE_DURATION:
         return price_cache[crypto_type]['price']
 
-    # Otherwise, fetch the new price and update the cache
     price = fetch_price_function()
     price_cache[crypto_type]['price'] = price
     price_cache[crypto_type]['timestamp'] = current_time
 
     return price
 
+# Fetch crypto price from Tatum API
+def fetch_crypto_price_from_tatum(crypto_symbol, base_pair='USD'):
+    url = f"{TATUM_API_URL}/{crypto_symbol.upper()}?basePair={base_pair.upper()}"
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        data = response.json()
+        if 'value' in data:
+            return float(data['value'])
+        else:
+            raise ValueError(f"Price not found for {crypto_symbol} in {base_pair}.")
+    except requests.exceptions.RequestException as e:
+        raise ValueError(f"Error fetching price for {crypto_symbol}: {str(e)}")
+
+# Fetch individual prices
 def get_btc_price():
-    url = f"{crypto_conversion_base_url}"
-    params = {'ids': 'bitcoin', 'vs_currencies': 'usd'}
-    response = requests.get(url, params=params)
-    response.raise_for_status()
-    data = response.json()
-    return float(data['bitcoin']['usd'])
+    return fetch_crypto_price_from_tatum('BTC')
 
 def get_eth_price():
-    url = f"{crypto_conversion_base_url}"
-    params = {'ids': 'ethereum', 'vs_currencies': 'usd'}
-    response = requests.get(url, params=params)
-    response.raise_for_status()
-    data = response.json()
-    return float(data['ethereum']['usd'])
+    return fetch_crypto_price_from_tatum('ETH')
 
 def get_trx_price():
-    url = f"{crypto_conversion_base_url}"
-    params = {'ids': 'tron', 'vs_currencies': 'usd'}
-    response = requests.get(url, params=params)
-    response.raise_for_status()
-    data = response.json()
-    return float(data['tron']['usd'])
+    return fetch_crypto_price_from_tatum('TRON')  # Use 'TRON' for Tatum API
 
 def get_ltc_price():
-    url = f"{crypto_conversion_base_url}"
-    params = {'ids': 'litecoin', 'vs_currencies': 'usd'}
-    response = requests.get(url, params=params)
-    response.raise_for_status()
-    data = response.json()
-    return float(data['litecoin']['usd'])
+    return fetch_crypto_price_from_tatum('LTC')
 
-# Modify the convert_crypto_to_usd function to use cached prices
+# Convert crypto to USD
 def convert_crypto_to_usd(crypto_amount, crypto_type):
     try:
         if crypto_type.lower() == 'btc':
@@ -319,29 +327,29 @@ def convert_crypto_to_usd(crypto_amount, crypto_type):
     except requests.exceptions.RequestException as e:
         raise ValueError(f"Error converting {crypto_type} to USD: {str(e)}")
 
+# Convert USD to cryptocurrency
 def convert_dollars_to_crypto(amount_in_usd, price_in_usd):
     return float(amount_in_usd) / float(price_in_usd)
 
+# Get the price of a plan in cryptocurrency
 def get_plan_price(payment_currency, plan_price):
-    if payment_currency == 'BTC':
-        btc_price = get_btc_price()
+    if payment_currency.upper() == 'BTC':
+        btc_price = get_cached_price('btc', get_btc_price)
         plan_price = convert_dollars_to_crypto(plan_price, btc_price)
 
-    elif payment_currency == 'ETH':
-
-        eth_price = get_eth_price()
+    elif payment_currency.upper() == 'ETH':
+        eth_price = get_cached_price('eth', get_eth_price)
         plan_price = convert_dollars_to_crypto(plan_price, eth_price)
 
-    elif payment_currency == 'TRC':
-        tron_price = get_trx_price()
-        plan_price = convert_dollars_to_crypto(plan_price, tron_price)
+    elif payment_currency.upper() == 'TRX':
+        trx_price = get_cached_price('trx', get_trx_price)
+        plan_price = convert_dollars_to_crypto(plan_price, trx_price)
 
-    elif payment_currency == 'LTC':
-        ltc_price = get_ltc_price()
+    elif payment_currency.upper() == 'LTC':
+        ltc_price = get_cached_price('ltc', get_ltc_price)
         plan_price = convert_dollars_to_crypto(plan_price, ltc_price)
 
     return plan_price
-
 
 def username_formating(username):
     username = username.lower()

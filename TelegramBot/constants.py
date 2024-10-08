@@ -110,3 +110,4 @@ FULL_NODE_ACCESS = 'Full Node Access'
 PARTIAL_NODE_ACCESS = 'Partial Node Access'
 CALL_TRANSFER_INCLUDED = 'Call Transfer Included'
 CALL_TRANSFER_EXCLUDED = 'Call Transfer Excluded'
+MAX_INFINITY_CONSTANT = 2147483647

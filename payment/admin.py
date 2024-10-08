@@ -5,7 +5,7 @@ from payment.models import SubscriptionPlans, MainWalletTable, VirtualAccountsTa
 
 @admin.register(SubscriptionPlans)
 class SubscriptionPlansAdmin(admin.ModelAdmin):
-    list_display = ('name', 'plan_price', 'number_of_bulk_call_minutes', 'call_transfer', 'customer_support_level', 'validity_days')
+    list_display = ('name', 'plan_price','single_ivr_flow', 'number_of_bulk_call_minutes', 'call_transfer', 'customer_support_level', 'validity_days')
     list_filter = ('plan_price', 'number_of_bulk_call_minutes', 'customer_support_level', 'validity_days')
     search_fields = ('name', 'customer_support_level', 'validity_days')
     ordering = ('plan_price',)

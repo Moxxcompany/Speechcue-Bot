@@ -25,7 +25,7 @@ from TelegramBot.constants import PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH,
     BALANCE_IN_USD, USD, CALL_TRANSFER_EXCLUDED, CALL_TRANSFER_INCLUDED, FULL_NODE_ACCESS, PARTIAL_NODE_ACCESS, \
     CALL_TRANSFER_NODE, SETUP_TOOLTIP, NICE_TO_MEET_YOU, PROFILE_SETTING_PROMPT, SETUP_COMPLETION_FIRST_HALF, \
     SETUP_COMPLETION_SECOND_HALF, ACCOUNT_SETUP_TOOLTIP, FREE_TRIAL_TOOLTIP, PROFILE_LANGUAGE_SELECTION_PROMPT, \
-    PROCESSING_PAYMENT, DAY
+    PROCESSING_PAYMENT, DAY, MAX_INFINITY_CONSTANT
 
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable
 
@@ -252,6 +252,7 @@ def check_wallet(call):
             bitcoin_balance = check_balance(bitcoin_account.account_id)
             balance_in_usd = convert_crypto_to_usd(float(bitcoin_balance), 'btc')
             sum_in_usd += balance_in_usd
+            print(balance_in_usd)
         except Exception as e:
             bot.send_message(user_id, escape_markdown(f"Error fetching or converting Bitcoin balance: {str(e)}"), parse_mode='MarkdownV2')
             return
@@ -288,7 +289,7 @@ def check_wallet(call):
         markup.add(back_button)
 
         # Safely format and send the balance message using MarkdownV2 escaping
-        bot.send_message(user_id, escape_markdown(f"{BALANCE_IN_USD}: {sum_in_usd:.2f} USD"), reply_markup=markup, parse_mode='MarkdownV2')
+        bot.send_message(user_id, escape_markdown(f"{BALANCE_IN_USD}: {sum_in_usd:.8f} USD"), reply_markup=markup, parse_mode='MarkdownV2')
 
     except Exception as e:
         bot.send_message(user_id, escape_markdown(f"{PROCESSING_ERROR}\n\nUnexpected error: {str(e)}"), parse_mode='MarkdownV2')
@@ -832,9 +833,9 @@ def view_plan_validity(call):
     plans = SubscriptionPlans.objects.filter(name=plan_name).order_by('validity_days')
 
     plan_validity = {
-        "1": "⃣",
-        "7": "⃣",
-        "30": "📅"
+        1: "⃣",
+        7: "⃣",
+        30: "📅"
     }
 
     message_text = f"🕒 How long would you like to subscribe? Select your preferred duration:"
@@ -842,9 +843,13 @@ def view_plan_validity(call):
 
     # Loop through the sorted plans and add buttons
     for plan in plans:
-        plan_icon = plan_validity.get(str(plan.validity_days), '')
+        if plan.validity_days == 1:
+            day = f"{DAY}"
+        else:
+            day = f"{DAYS}"
+        plan_icon = plan_validity.get(plan.validity_days, '')
         # Create a button for each plan validity option
-        plan_button = types.InlineKeyboardButton(f"{plan_icon} {plan.validity_days} {DAYS}",
+        plan_button = types.InlineKeyboardButton(f"{plan_icon} {plan.validity_days} {day}",
                                                  callback_data=f"plan_{plan.plan_id}")
         markup.add(plan_button)
 
@@ -876,26 +881,31 @@ def handle_plan_selection(call):
         bot.send_message(user_id, f"{PLAN_DOESNT_EXIST}")
         return
 
-    # Ensure that the user_data dictionary has an entry for the current user_id
     if user_id not in user_data:
-        user_data[user_id] = {}  # Initialize the dictionary for this user_id
+        user_data[user_id] = {}
 
-    # Determine node access and call transfer options
     node_access = "Full Node Access" if plan.call_transfer else "Partial Node Access"
     call_transfer_node = '✅' if plan.call_transfer else '❌'
 
-    # Save selected plan details in user_data for the session
     user_data[user_id]['selected_plan'] = plan
     user_data[user_id]['subscription_price'] = plan.plan_price
     user_data[user_id]['subscription_name'] = plan.name
     user_data[user_id]['subscription_id'] = plan.plan_id
+    if plan.single_ivr_flow == MAX_INFINITY_CONSTANT:
+        single_calls = f"{UNLIMITED_SINGLE_IVR}"
+    else:
+        single_calls = f"{plan.single_ivr_flow} minutes of Single IVR Call"
+    if plan.number_of_bulk_call_minutes is None:
+        bulk_calls = "No Bulk IVR Calls"
+    else:
+        bulk_calls = f"{plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}"
 
-    # Construct the confirmation message
+
     invoice_message = (
         f"You’ve selected the ***{plan.name}*** plan for ***{plan.validity_days} days***.\n"
         f"💲 ***Price:*** {plan.plan_price:.2f}\n"
         f"📝 ***Features:***\n"
-        f"🎧 {UNLIMITED_SINGLE_IVR} & {plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
+        f"🎧 {single_calls} & {bulk_calls}\n"
         f"🔗 {node_access}\n"
         f"📞 Call Transfer Node {call_transfer_node}\n"
         f"📞 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n\n"
@@ -913,11 +923,7 @@ def handle_plan_selection(call):
             return
         bot.send_message(user_id, "You have successfully activated your free trial!", reply_markup=get_main_menu())
         return
-
-    # Ask if the user wants auto-renewal
-    bot.send_message(user_id, "Would you like to enable auto-renewal from your wallet balance?")
-
-    # Inline keyboard for auto-renewal options
+    auto_renewal = escape_markdown("Would you like to enable auto-renewal from your wallet balance?")
     markup = types.InlineKeyboardMarkup()
     yes_button = types.InlineKeyboardButton('✅ Yes', callback_data="enable_auto_renewal_yes")
     no_button = types.InlineKeyboardButton('❌ No', callback_data="enable_auto_renewal_no")
@@ -925,9 +931,8 @@ def handle_plan_selection(call):
 
     markup.add(yes_button, no_button)
     markup.add(back_button)
-
-    # Send the plan confirmation message with auto-renewal options
-    bot.send_message(user_id, escape_markdown(invoice_message), reply_markup=markup, parse_mode='MarkdownV2')
+    invoice_message = escape_markdown(invoice_message)
+    bot.send_message(user_id, f"{invoice_message} \n\n{auto_renewal}" , reply_markup=markup, parse_mode='MarkdownV2')
 
 
 @bot.callback_query_handler(func=lambda call: call.data in ["enable_auto_renewal_yes", "enable_auto_renewal_no"])
@@ -2122,105 +2127,30 @@ def handle_terms_response(call):
 
     elif call.data == 'decline_terms':
         markup = types.InlineKeyboardMarkup()
-        view_terms_button = types.InlineKeyboardButton("🔄 View Terms Again", callback_data='view_terms_new')
+        view_terms_button = types.InlineKeyboardButton("🔄 Go Back To Terms and Conditions", callback_data='view_terms_new')
         exit_button = types.InlineKeyboardButton("❌ Exit Setup", callback_data='exit_setup')
 
         markup.add(view_terms_button, exit_button)
 
-        bot.edit_message_text(
-            chat_id=user_id,
-            message_id=message_id,
-            text="⚠️ You need to accept the Terms and Conditions to continue using Speechcad. Please review them again when you're ready.",
-            reply_markup=markup
-        )
+        bot.send_message(user_id, "⚠️ You need to accept the Terms and Conditions to continue using Speechcad. "
+            "Please review them again when you're ready.", reply_markup=markup)
 
 
-# View Terms Again
-# @bot.callback_query_handler(func=lambda call: call.data == 'view_terms_new')
-# def handle_view_terms_again(call):
-#     user_id = call.message.chat.id
-#     message_id = call.message.message_id  # Capture message ID for editing
-#
-#     bot.edit_message_text(
-#         chat_id=user_id,
-#         message_id=message_id,
-#         text=f"Please review the Terms and Conditions again: {TERMS_AND_CONDITIONS_URL}"
-#     )
-#     start_terms(call.message)  # Offer to accept or decline again
+
+@bot.callback_query_handler(func=lambda call: call.data == 'view_terms_new')
+def handle_view_terms_again(call):
+    view_terms_menu(call)
 
 
-# # Exit Setup
-# @bot.callback_query_handler(func=lambda call: call.data == 'exit_setup')
-# def handle_exit_setup(call):
-#     user_id = call.message.chat.id
-#     message_id = call.message.message_id  # Capture message ID for editing
-#
-#     bot.edit_message_text(
-#         chat_id=user_id,
-#         message_id=message_id,
-#         text="You have exited the setup process. You can start again by accepting the terms."
-#     )
-#     # Additional logic for handling exit
+@bot.callback_query_handler(func=lambda call: call.data == 'exit_setup')
+def handle_exit_setup(call):
+    user_id = call.message.chat.id
+    markup = InlineKeyboardMarkup()
+    review_terms = InlineKeyboardButton("📜 View Terms and Conditions", callback_data="view_terms_new")
+    markup.add(review_terms)
+    bot.send_message( user_id, "You have exited the setup process. You can start again by accepting the terms.",
+                      reply_markup=markup)
 
-#
-# # Step 6: Subscription Plan Selection
-# def show_subscription_plans(user_id, message_id):
-#     # Use Inline Keyboard to show subscription options
-#     markup = types.InlineKeyboardMarkup()
-#
-#     # Subscription options with inline buttons
-#     free_trial_button = types.InlineKeyboardButton("🎉 Free Trial", callback_data='plan_free_trial')
-#     prime_button = types.InlineKeyboardButton("🌟 Prime", callback_data='plan_prime')
-#     elite_button = types.InlineKeyboardButton("💎 Elite", callback_data='plan_elite')
-#     ultra_button = types.InlineKeyboardButton("🚀 Ultra", callback_data='plan_ultra')
-#     back_button = types.InlineKeyboardButton("↩️ Back to Terms", callback_data='back_to_terms')
-#
-#     # Add buttons to the markup
-#     markup.add(free_trial_button)
-#     markup.add(prime_button)
-#     markup.add(elite_button)
-#     markup.add(ultra_button)
-#     markup.add(back_button)
-#
-#     # Edit the previous message to show subscription plans with inline buttons
-#     bot.edit_message_text(
-#         chat_id=user_id,
-#         message_id=message_id,
-#         text="💡 Now, let's get you on the right plan. Please choose a subscription plan from the options below:",
-#         reply_markup=markup
-#     )
-
-
-# Handle Subscription Plan Selection
-# @bot.callback_query_handler(func=lambda call: call.data.startswith('plan_'))
-# def handle_subscription_plan_selection(call):
-#     user_id = call.message.chat.id
-#     message_id = call.message.message_id
-#
-#     # Determine which plan was selected
-#     selected_plan = call.data.split('_')[1]  # Extract the plan type from callback data
-#     plan_name = {
-#         'free_trial': "🎉 Free Trial",
-#         'prime': "🌟 Prime",
-#         'elite': "💎 Elite",
-#         'ultra': "🚀 Ultra"
-#     }.get(selected_plan, "Unknown Plan")
-#
-#     # Edit the message to confirm the selected plan
-#     bot.edit_message_text(
-#         chat_id=user_id,
-#         message_id=message_id,
-#         text=f"You have selected the {plan_name} plan! Proceeding with the next steps..."
-#     )
-#     # Proceed to payment or other setup actions
-#
-#
-# # Handle Back to Terms from the subscription plans
-# @bot.callback_query_handler(func=lambda call: call.data == 'back_to_terms')
-# def handle_back_to_terms(call):
-#     user_id = call.message.chat.id
-#     message_id = call.message.message_id
-#     start_terms(call.message)
 
 @bot.callback_query_handler(func=lambda call: call.data == "view_terms")
 def handle_view_terms(call):
@@ -2232,16 +2162,6 @@ def handle_view_terms(call):
 @bot.callback_query_handler(func=lambda call: call.data == "back_to_language")
 def handle_back_to_language(call):
     signup(call.message)
-
-
-def send_confirmation_menu(user_id):
-    if 'first_time' not in user_data.get(user_id, {}):
-        user_data[user_id]['first_time'] = False
-        bot.send_message(user_id, "Welcome! 🎉 You have one free Single IVR call and Bulk IVR "
-                                  "call as a welcome gift. ☎️ ", reply_markup=get_main_menu())
-        user = TelegramUser.objects.get(user_id=user_id)
-        user.language = user_data[user_id]['language']
-        user.save()
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "Acknowledge and Proceed ✅")
