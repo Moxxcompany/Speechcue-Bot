@@ -1,13 +1,12 @@
 import json
-import re
 from io import BytesIO
 import qrcode
-from django.core.exceptions import ObjectDoesNotExist
-import os
 import requests
-from datetime import timedelta
-from django.utils import timezone
+from django.db import transaction
+
 from django.core.exceptions import ObjectDoesNotExist
+
+from bot.models import CallLogsTable, CallDuration
 from payment.models import UserSubscription, SubscriptionPlans
 from TelegramBot.constants import BTC, ETH, LTC, TRON
 
@@ -312,7 +311,7 @@ def convert_crypto_to_usd(crypto_amount, crypto_type):
             price_in_usd = get_cached_price('btc', get_btc_price)
         elif crypto_type.lower() == 'eth':
             price_in_usd = get_cached_price('eth', get_eth_price)
-        elif crypto_type.lower() == 'trx':
+        elif crypto_type.lower() == 'trx' or crypto_type.lower() == 'tron' :
             price_in_usd = get_cached_price('trx', get_trx_price)
         elif crypto_type.lower() == 'ltc':
             price_in_usd = get_cached_price('ltc', get_ltc_price)
@@ -434,4 +433,22 @@ def check_expiry_date(user_id):
     return user_subscription.date_of_expiry and current_date < user_subscription.date_of_expiry
 
 
+
+def get_user_subscription_by_call_id(call_id):
+    try:
+        try:
+            call_log = CallLogsTable.objects.get(call_id=call_id)
+            user_id = call_log.user_id
+        except CallLogsTable.DoesNotExist:
+            return {"status": f"No call log found with call_id {call_id}", "user_subscription": None}
+
+        try:
+            user_subscription = UserSubscription.objects.get(user_id=user_id)
+        except UserSubscription.DoesNotExist:
+            return {"status": f"No user subscription found for user_id {user_id}", "user_subscription": None}
+
+        return {"status": "Success", "user_subscription": user_subscription, "user_id" : user_id}
+
+    except Exception as e:
+        return {"status": f"An error occurred: {str(e)}", "user_subscription": None, "user_id" : None}
 

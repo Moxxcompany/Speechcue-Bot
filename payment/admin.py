@@ -1,6 +1,8 @@
 from django.contrib import admin
 
-from payment.models import SubscriptionPlans, MainWalletTable, VirtualAccountsTable, UserSubscription
+from bot.models import CallDuration
+from payment.models import SubscriptionPlans, MainWalletTable, VirtualAccountsTable, UserSubscription, \
+    OveragePricingTable
 
 
 @admin.register(SubscriptionPlans)
@@ -63,3 +65,33 @@ class UserSubscriptionAdmin(admin.ModelAdmin):
             'fields': ('plan_id', 'call_transfer', 'bulk_ivr_calls_left', 'date_of_expiry')
         }),
     )
+
+
+# New CallDuration Admin Registration
+@admin.register(CallDuration)
+class CallDurationAdmin(admin.ModelAdmin):
+    list_display = ('call_id', 'pathway_id', 'duration_in_seconds', 'start_time', 'end_time', 'queue_status', 'error_message', 'additional_minutes')
+    search_fields = ('call_id', 'pathway_id', 'queue_status', 'error_message')
+    list_filter = ('queue_status', 'start_time', 'end_time')
+
+    fieldsets = (
+        (None, {
+            'fields': ('call_id', 'pathway_id', 'queue_status', 'error_message')
+        }),
+        ('Duration Details', {
+            'fields': ('duration_in_seconds', 'start_time', 'end_time', 'additional_minutes')
+        }),
+    )
+
+@admin.register(OveragePricingTable)
+class OveragePricingTableAdmin(admin.ModelAdmin):
+    list_display = ( 'overage_pricing', 'pricing_unit')
+    search_fields = ('overage_pricing','pricing_unit')
+    list_filter = ('overage_pricing','pricing_unit')
+    fieldsets = [
+        ('Overage Pricing', {
+            'fields': [
+                'overage_pricing','pricing_unit',
+            ],
+        }),
+    ]

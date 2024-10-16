@@ -6,6 +6,8 @@ import requests
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 
+from TelegramBot import settings
+
 x_api_key = os.getenv('x-api-key')
 
 
@@ -264,4 +266,14 @@ def send_payment(sender_account, receiver_account, amount):
     }
 
     response = requests.post(url, json=payload, headers=headers)
+    return response
+
+
+def stop_single_active_call(call_id):
+
+    url = f"https://api.bland.ai/v1/calls/{call_id}/stop"
+    headers = {'authorization': f'{settings.BLAND_API_KEY}'}
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
     return response

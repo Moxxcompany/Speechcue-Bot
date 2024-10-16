@@ -7,3 +7,5 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         start_bot()
+
+
