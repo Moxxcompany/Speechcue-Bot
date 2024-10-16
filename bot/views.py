@@ -116,76 +116,8 @@ def create_flow(request) -> JsonResponse:
 
 def handle_end_call(pathway_id: int, node_id: int, prompt, node_name) -> requests.Response:
     pathway = Pathways.objects.get(pathway_id=pathway_id)
-    node = {
-        "id": f"{node_id}",
-        "type": "End Call",
-        "data": {
-            "name": node_name,
-            "prompt": prompt,
-        }
-    }
-    pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
-    nodes = add_node(pathway.pathway_payload, new_node=node)
-    data = {
-        "name": pathway_name,
-        "description": pathway_description,
-        "nodes": nodes,
-        "edges": []
-    }
-    response = handle_add_node(pathway_id, data)
 
-    if response.status_code == 200:
-        pathway_name, pathway_description = get_pathway_data(response.text)
-        pathway = Pathways.objects.get(pathway_id=pathway_id)
-        pathway.pathway_name = pathway_name
-        pathway.pathway_description = pathway_description
-        pathway.pathway_payload = response.text
-        pathway.save()
-    return response
-
-
-def handle_menu_node(pathway_id: int, node_id: int, prompt, node_name, menu) -> requests.Response:
-    pathway = Pathways.objects.get(pathway_id=pathway_id)
-    node = {
-        "id": f"{node_id}",
-        "type": "Default",
-        "data": {
-            "name": node_name,
-            "prompt": prompt,
-            "text": menu
-        }
-    }
-    pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
-    if pathway.pathway_payload:
-        nodes = add_node(pathway.pathway_payload, new_node=node)
-
-    else:
-        node["data"]["isStart"] = True
-        nodes = [node]
-        pathway_name = pathway.pathway_name
-        pathway_description = pathway.pathway_description
-    data = {
-        "name": pathway_name,
-        "description": pathway_description,
-        "nodes": nodes,
-        "edges": []
-    }
-    response = handle_add_node(pathway_id, data)
-
-    if response.status_code == 200:
-        pathway_name, pathway_description = get_pathway_data(response.text)
-        pathway = Pathways.objects.get(pathway_id=pathway_id)
-        pathway.pathway_name = pathway_name
-        pathway.pathway_description = pathway_description
-        pathway.pathway_payload = response.text
-        pathway.save()
-    return response
-
-
-def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name, message_type: str) -> requests.Response:
-    pathway = Pathways.objects.get(pathway_id=pathway_id)
-    existing_payload = pathway.pathway_payload
-
+    # Load existing pathway data, nodes, and edges
     if pathway.pathway_payload:
         pathway_data = json.loads(pathway.pathway_payload).get('pathway_data', {})
         existing_nodes = pathway_data.get('nodes', [])
@@ -194,8 +126,93 @@ def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name, mes
         existing_nodes = []
         existing_edges = []
 
-    print("Existing Payload: ", pathway_data)
-    print("Existing nodes: ", existing_nodes)
+    # Define the new node
+    node = {
+        "id": f"{node_id}",
+        "type": "End Call",
+        "data": {
+            "name": node_name,
+            "prompt": prompt,
+        }
+    }
+
+    nodes = add_node(pathway.pathway_payload, new_node=node)
+
+    # Prepare the data with both nodes and existing edges
+    data = {
+        "name": pathway.pathway_name,
+        "description": pathway.pathway_description,
+        "nodes": nodes,
+        "edges": existing_edges  # Keep the previous edges
+    }
+
+    response = handle_add_node(pathway_id, data)
+
+    if response.status_code == 200:
+        pathway.pathway_payload = response.text
+        pathway.save()
+
+    return response
+
+
+def handle_menu_node(pathway_id: int, node_id: int, prompt, node_name, menu) -> requests.Response:
+    pathway = Pathways.objects.get(pathway_id=pathway_id)
+
+    # Load existing pathway data, nodes, and edges
+    if pathway.pathway_payload:
+        pathway_data = json.loads(pathway.pathway_payload).get('pathway_data', {})
+        existing_nodes = pathway_data.get('nodes', [])
+        existing_edges = pathway_data.get('edges', [])
+    else:
+        existing_nodes = []
+        existing_edges = []
+
+    # Define the new node
+    node = {
+        "id": f"{node_id}",
+        "type": "Default",
+        "data": {
+            "name": node_name,
+            "prompt": prompt,
+        }
+    }
+
+    if existing_nodes:
+        nodes = add_node(pathway.pathway_payload, new_node=node)
+    else:
+        node["data"]["isStart"] = True
+        nodes = [node]
+
+    # Prepare the data with both nodes and existing edges
+    data = {
+        "name": pathway.pathway_name,
+        "description": pathway.pathway_description,
+        "nodes": nodes,
+        "edges": existing_edges  # Keep the previous edges
+    }
+
+    response = handle_add_node(pathway_id, data)
+
+    if response.status_code == 200:
+        pathway.pathway_payload = response.text
+        pathway.save()
+
+    return response
+
+
+
+def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name, message_type: str) -> requests.Response:
+    pathway = Pathways.objects.get(pathway_id=pathway_id)
+
+    # Load existing pathway data, nodes, and edges
+    if pathway.pathway_payload:
+        pathway_data = json.loads(pathway.pathway_payload).get('pathway_data', {})
+        existing_nodes = pathway_data.get('nodes', [])
+        existing_edges = pathway_data.get('edges', [])
+    else:
+        existing_nodes = []
+        existing_edges = []
+
     # Determine node type and text based on message_type
     if message_type == "DTMF Input":
         node_type = 'Default'
@@ -204,7 +221,7 @@ def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name, mes
         node_type = 'Transfer Call'
         text = "transferNumber"
 
-    # Prepare the new node
+    # Define the new node
     node = {
         "id": f"{node_id}",
         "type": node_type,
@@ -214,30 +231,26 @@ def handle_dtmf_input_node(pathway_id: int, node_id: int, prompt, node_name, mes
         }
     }
 
-    # Check if a "Transfer Call" node already exists
-    transfer_call_exists = any(node['type'] == 'Transfer Call' for node in existing_nodes)
-
-    if node_type == 'Transfer Call' and not transfer_call_exists:
+    # Add global properties for Transfer Call node
+    if node_type == 'Transfer Call' and not any(n['type'] == 'Transfer Call' for n in existing_nodes):
         node["data"]["isGlobal"] = True
         node["data"]["globalPrompt"] = "User says transfer call"
 
-    # Add the new node to the existing nodes or create a new list if necessary
-    if existing_payload:
-        nodes = add_node(existing_payload, new_node=node)
+    if existing_nodes:
+        nodes = add_node(pathway.pathway_payload, new_node=node)
     else:
         node["data"]["isStart"] = True
         nodes = [node]
 
-    # Prepare data to be sent
-    pathway_name, pathway_description = get_pathway_data(existing_payload)
+    # Prepare the data with both nodes and existing edges
+    pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
     data = {
         "name": pathway_name,
         "description": pathway_description,
         "nodes": nodes,
-        "edges": []
+        "edges": existing_edges  # Keep the previous edges
     }
 
-    # Call the function to handle adding the node
     response = handle_add_node(pathway_id, data)
 
     if response.status_code == 200:
@@ -475,6 +488,7 @@ def handle_view_single_flow(pathway_id):
 
 
 def send_call_through_pathway(pathway_id, phone_number, user_id):
+
     endpoint = "https://api.bland.ai/v1/calls"
 
     payload = {
@@ -491,20 +505,21 @@ def send_call_through_pathway(pathway_id, phone_number, user_id):
         pathway = response.json()
         call_id = pathway.get("call_id")
 
+
         CallLogsTable.objects.create(
             call_id=call_id,
             call_number=phone_number,
             pathway_id=pathway_id,
-            user_id = user_id
+            user_id = user_id,
+            call_status= 'new'
         )
 
         return pathway, 200
     else:
         return {f"{response.text}": 'Failed to retrieve pathways'}, response.status_code
 
-
-
 def get_voices():
+
     url = f"{base_url}/v1/voices"
 
     headers = {'Authorization': f'{settings.BLAND_API_KEY}'}
@@ -513,6 +528,7 @@ def get_voices():
 
 
 def bulk_ivr_flow(call_data, pathway_id):
+
     endpoint = f"{base_url}/v1/batches"
     headers = {
         'Authorization': f'{settings.BLAND_API_KEY}',
@@ -529,6 +545,7 @@ def bulk_ivr_flow(call_data, pathway_id):
 
 
 def get_call_details(call_id):
+
     endpoint = f"{base_url}/v1/calls/{call_id}"
     headers = {
         'Authorization': f'{settings.BLAND_API_KEY}'
@@ -538,7 +555,7 @@ def get_call_details(call_id):
 
 
 def get_transcript(call_id, pathway_id):
-    # Retrieve feedback questions associated with the pathway_id
+
     feedback_log = FeedbackLogs.objects.get(pathway_id=pathway_id)
     feedback_questions = feedback_log.feedback_questions
     print("Feedback questions: ", feedback_questions)
@@ -570,6 +587,7 @@ def get_transcript(call_id, pathway_id):
     return feedback_detail
 
 def get_variables(call_id):
+
     try:
         call_details = get_call_details(call_id)
         variables = call_details.get('variables', {})
@@ -584,3 +602,25 @@ def get_variables(call_id):
     except Exception as e:
         print(f"Error extracting user input variables: {e}")
         return {"error": str(e)}
+
+def stop_single_active_call(call_id):
+
+    url = f"https://api.bland.ai/v1/calls/{call_id}/stop"
+
+    headers = {'authorization': f'{settings.BLAND_API_KEY}'}
+
+    response = requests.request("POST", url, headers=headers)
+
+
+    return response
+
+def stop_all_active_calls(call_id):
+
+    url = "https://us.api.bland.ai/v1/calls/active/stop"
+
+    headers = {'authorization': f'{settings.BLAND_API_KEY}'}
+
+    response = requests.request("POST", url, headers=headers)
+
+
+    return response
