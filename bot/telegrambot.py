@@ -180,7 +180,7 @@ def handle_view_subscription(call):
             f"{PRICE} ${subscription_plan.plan_price}\n\n"
             f"{FEATURES}\n"
             f"- '{UNLIMITED_SINGLE_IVR}'\n"
-            f"- {subscription_plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}\n"
+            f"- {subscription_plan.number_of_bulk_call_minutes:.2f} {BULK_IVR_CALLS}\n"
             f"- {subscription_plan.customer_support_level} {CUSTOMER_SUPPORT_LEVEL}\n"
             f"- {subscription_plan.validity_days} {DAY_PLAN}\n"
 
@@ -598,7 +598,11 @@ def handle_call_selection(call):
         transcript = get_transcript(call_id, pathway_id)
 
         if transcript:
-            transcript_message = "\n".join(transcript.feedback_answers)
+            # Combine feedback questions and answers into a formatted message
+            transcript_message = "\n".join(
+                f"Q: {question}\nA: {answer}"
+                for question, answer in zip(transcript.feedback_questions, transcript.feedback_answers)
+            )
         else:
             transcript_message = f"{TRANSCRIPT_NOT_FOUND}"
 
@@ -898,13 +902,13 @@ def handle_plan_selection(call):
     if plan.number_of_bulk_call_minutes is None:
         bulk_calls = "No Bulk IVR Calls"
     else:
-        bulk_calls = f"{plan.number_of_bulk_call_minutes} {BULK_IVR_CALLS}"
+        bulk_calls = f"{plan.number_of_bulk_call_minutes:.2f} {BULK_IVR_CALLS}"
 
 
     invoice_message = (
         f"You’ve selected the {plan.name} plan for {plan.validity_days} days.\n"
         f"💲 Price: {plan.plan_price:.2f}\n"
-        f"📝 Features:\n"
+        f"📝 *Features:\n"
         f"🎧 {single_calls} & {bulk_calls}\n"
         f"🔗 {node_access}\n"
         f"📞 Call Transfer Node {call_transfer_node}\n"
