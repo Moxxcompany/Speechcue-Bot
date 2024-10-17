@@ -22,6 +22,16 @@ def create_periodic_task():
         name='Charge Users for Additional Minutes Task',
         task='bot.tasks.charge_user_for_additional_minutes',
     )
+    schedule_notify_user, created = IntervalSchedule.objects.get_or_create(
+        every=12,
+        period=IntervalSchedule.HOURS,
+    )
+
+    PeriodicTask.objects.update_or_create(
+        interval=schedule_notify_user,
+        name='Notify Users for Additional Minutes Payment',
+        task='bot.tasks.notify_users',
+    )
 
     print("All periodic tasks created successfully.")
 

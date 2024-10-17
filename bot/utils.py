@@ -2,12 +2,10 @@ import json
 from io import BytesIO
 import qrcode
 import requests
-from django.db import transaction
 
 from django.core.exceptions import ObjectDoesNotExist
 
-from bot.models import CallLogsTable, CallDuration
-from payment.models import UserSubscription, SubscriptionPlans
+from bot.models import CallLogsTable
 from TelegramBot.constants import BTC, ETH, LTC, TRON
 
 from payment.models import MainWalletTable, VirtualAccountsTable, SubscriptionPlans, UserSubscription
