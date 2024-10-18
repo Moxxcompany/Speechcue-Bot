@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 from uuid import UUID
 import time
 import re
@@ -27,13 +28,13 @@ from TelegramBot.constants import PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH,
     SETUP_COMPLETION_SECOND_HALF, ACCOUNT_SETUP_TOOLTIP, FREE_TRIAL_TOOLTIP, PROFILE_LANGUAGE_SELECTION_PROMPT, \
     PROCESSING_PAYMENT, DAY, MAX_INFINITY_CONSTANT
 
-from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable
+from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable, CallDuration
 
 from bot.utils import generate_random_id, create_user_virtual_account, generate_qr_code, \
     check_balance, set_user_subscription, convert_dollars_to_crypto, get_btc_price, get_eth_price, get_ltc_price, \
     get_trx_price, get_plan_price, check_validity, \
     check_subscription_status, username_formating, convert_crypto_to_usd, validate_transfer_number, validate_edges, \
-    get_currency_symbol
+    get_currency_symbol, charge_additional_mins
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
@@ -149,7 +150,18 @@ def trigger_bulk_ivr_call(message):
 
     user_id = message.chat.id
     user = TelegramUser.objects.get(user_id=user_id)
+
     if user.subscription_status == 'active':
+        additional_minutes_records = CallDuration.objects.filter(user_id=user_id, additional_minutes__gt=0)
+        if additional_minutes_records.exists():
+            unpaid_minutes_records = additional_minutes_records.filter(charged=False)
+            if unpaid_minutes_records.exists():
+                bot.send_message(user_id, "You have unpaid additional minutes. "
+                                          "Please settle the charges before proceeding."
+                                          "",
+                                 reply_markup=get_main_menu()
+                                 )
+                return
         user_data[user_id] = {'step': 'get_batch_numbers'}
         view_flows(message)
     else:
@@ -1296,9 +1308,11 @@ def handle_webhook(request):
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
+        print(json.dumps({"error": f"{INVALID_JSON}"}, indent=2))
         return JsonResponse({"error": "Invalid JSON payload"}, status=400)
 
     data = json.loads(request.body)
+    print(data)
     transaction_id = data.get("id")
     account_id = data.get("accountId")
     currency = data.get("currency")
@@ -1315,8 +1329,9 @@ def handle_webhook(request):
         bot.send_message(user_id, f"{PROCESSING_ERROR} \n{balance.json()}")
     balance_data = balance.json()
     available_balance = balance_data["availableBalance"]
-    user.balance = available_balance
+    user.balance = Decimal(available_balance)
     user.save()
+    charge_additional_mins(user_id, currency, float(available_balance))
     return JsonResponse({"message": "Webhook received successfully"}, status=200)
 
 

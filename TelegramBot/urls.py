@@ -18,7 +18,6 @@ from django.contrib import admin
 from django.urls import path
 from bot import views as bot_views
 from bot.telegrambot import handle_webhook, handle_deposit_webhook
-from payment import views as payment_views
 from django.conf.urls.static import static
 from django.conf import settings
 urlpatterns = [

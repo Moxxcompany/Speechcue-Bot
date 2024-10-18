@@ -1,15 +1,19 @@
 import json
 from io import BytesIO
+from locale import currency
+
 import qrcode
 import requests
 
 from django.core.exceptions import ObjectDoesNotExist
-
-from bot.models import CallLogsTable
+from TelegramBot.crypto_cache import *
+from bot.models import CallLogsTable, CallDuration
 from TelegramBot.constants import BTC, ETH, LTC, TRON
 
-from payment.models import MainWalletTable, VirtualAccountsTable, SubscriptionPlans, UserSubscription
-from payment.views import create_virtual_account, create_deposit_address, get_account_balance
+
+from payment.models import MainWalletTable, VirtualAccountsTable, SubscriptionPlans, UserSubscription, \
+    OveragePricingTable, UserTransactionLogs, TransactionType
+from payment.views import create_virtual_account, create_deposit_address, get_account_balance, send_payment
 from user.models import TelegramUser
 from datetime import timedelta
 from django.utils import timezone
@@ -430,6 +434,7 @@ def check_expiry_date(user_id):
     print(current_date, " ", user_subscription.date_of_expiry)
     return user_subscription.date_of_expiry and current_date < user_subscription.date_of_expiry
 
+#--------------------------------------------------#
 
 
 def get_user_subscription_by_call_id(call_id):
@@ -449,4 +454,60 @@ def get_user_subscription_by_call_id(call_id):
 
     except Exception as e:
         return {"status": f"An error occurred: {str(e)}", "user_subscription": None, "user_id" : None}
+
+def charge_additional_mins(user_id, currency, available_balance):
+    print("in charge function")
+    calls_with_additional_minutes = CallDuration.objects.filter(additional_minutes__gt=0, charged=False, user_id=user_id)
+
+    if calls_with_additional_minutes.exists():
+        print("found calls with additional minutes")
+        currency = currency
+        account = VirtualAccountsTable.objects.get(user_id=user_id, currency=currency)
+        account_id = account.account_id
+        acc_currency = currency.lower()
+
+
+        price_in_usd = None
+        if acc_currency == 'btc':
+            price_in_usd = get_cached_crypto_price('btc', lambda: fetch_crypto_price_with_retry('BTC'))
+        elif acc_currency == 'eth':
+            price_in_usd = get_cached_crypto_price('eth', lambda: fetch_crypto_price_with_retry('ETH'))
+        elif acc_currency == 'trx' or acc_currency == 'tron':
+            price_in_usd = get_cached_crypto_price('trx', lambda: fetch_crypto_price_with_retry('TRON'))
+        elif acc_currency == 'ltc':
+            price_in_usd = get_cached_crypto_price('ltc', lambda: fetch_crypto_price_with_retry('LTC'))
+
+        balance_in_usd = convert_crypto_to_usd(available_balance, acc_currency)
+        print("balance in usd calculated", balance_in_usd)
+        overage_pricing = OveragePricingTable.objects.get(pricing_unit='MIN')
+        price_per_min = float(overage_pricing.overage_pricing)
+        user = TelegramUser.objects.get(user_id=user_id)
+        for call in calls_with_additional_minutes:
+            print("in call loop")
+            total_charges = price_per_min *  call.additional_minutes
+            if balance_in_usd >= total_charges:
+                print("balance is sufficient for payment.")
+
+                crypto_charges = convert_dollars_to_crypto(total_charges, price_in_usd)
+                receiver_account = MainWalletTable.objects.get(currency=account.currency).virtual_account
+                payment_response = send_payment(account_id, receiver_account, crypto_charges)
+
+                if payment_response.status_code == 200:
+                    payment_reference = payment_response.json().get('reference', 'N/A')
+
+                    UserTransactionLogs.objects.create(
+                        user_id=user,
+                        reference=payment_reference,
+                        transaction_type=TransactionType.Overage,
+                    )
+                    call.charged = True
+                    call.save()
+
+                else:
+                    bot.send_message(user_id,f'Unable to process payment due to the following error: {payment_response.text}')
+                return
+    return
+
+
+
 
