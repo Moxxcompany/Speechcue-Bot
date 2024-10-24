@@ -1,5 +1,7 @@
 import json
 import os
+from locale import currency
+
 from django.http import JsonResponse
 from django.shortcuts import render
 import requests
@@ -7,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 
 from TelegramBot import settings
+from payment.models import MainWalletTable, OwnerWalletTable
 
 x_api_key = os.getenv('x-api-key')
 
@@ -278,3 +281,125 @@ def stop_single_active_call(call_id):
 
     return response
 
+#--------- Sending transaction to onchain blockchain addresses -----------
+
+def send_BTC_to_blockchain(amount):
+
+
+    url = "https://api.tatum.io/v3/offchain/bitcoin/transfer"
+    sender = MainWalletTable.objects.get(currency="BTC")
+    blockchain_address = OwnerWalletTable.objects.get(currency="BTC").address
+
+    payload = make_payload_with_fee(sender, blockchain_address, amount)
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "x-api-key": f"{x_api_key}"
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+
+    print(response.text)
+    return response
+
+def send_ETH_to_blockchain(amount):
+
+    url = "https://api.tatum.io/v3/offchain/ethereum/transfer"
+
+    sender = MainWalletTable.objects.get(currency ="ETH")
+    blockchain_address = OwnerWalletTable.objects.get(currency="ETH").address
+
+    payload = (sender, blockchain_address, amount)
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "x-api-key": f"{x_api_key}"
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+
+
+
+def send_LTC_to_blockchain(amount):
+
+    url = "https://api.tatum.io/v3/offchain/litecoin/transfer"
+    sender = MainWalletTable.objects.get(currency ="LTC")
+    blockchain_address = OwnerWalletTable.objects.get(currency="LTC").address
+
+    payload = make_payload_with_fee(sender, blockchain_address, amount)
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "x-api-key": f"{x_api_key}"
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+
+    print(response.text)
+    return response
+
+def send_TRC_20_to_blockchain(amount):
+
+    url = "https://api.tatum.io/v3/offchain/tron/transfer"
+    sender = MainWalletTable.objects.get(currency ="TRON")
+    blockchain_address = OwnerWalletTable.objects.get(currency="TRON").address
+
+    payload = {
+        "address": f"{blockchain_address}",
+        "amount": f"{amount}",
+        "fromPrivateKey": f"{sender.private_key}",
+        "senderAccountId": f"{sender.virtual_account}",
+        "fee": f"{sender.fee}"
+    }
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "x-api-key": f"{x_api_key}"
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+
+    print(response.text)
+    return response
+
+
+def send_ERC_20_to_blockchain(amount):
+
+    url = "https://api.tatum.io/v3/offchain/ethereum/erc20/transfer"
+    sender = MainWalletTable.objects.get(currency="ETH")
+
+    blockchain_address = OwnerWalletTable.objects.get(currency="ERC").address
+
+    payload = (sender, blockchain_address, amount)
+    headers = {
+        "accept": "application/json",
+        "content-type": "application/json",
+        "x-api-key": f"{x_api_key}"
+    }
+
+    response = requests.post(url, json=payload, headers=headers)
+
+    print(response.text)
+    return response
+
+def make_payload_ethereum(sender, blockchain_address, amount):
+    payload = {
+        "senderAccountId": f"{sender.virtual_account}",
+        "address": f"{blockchain_address}",
+        "amount": f"{amount}",
+        "privateKey": f"{sender.private_key}",
+        "gasLimit": f"{sender.gas_limit}",
+        "gasPrice": f"{sender.gas_price}",
+    }
+    return payload
+
+def make_payload_with_fee(sender, blockchain_address, amount):
+    payload = {
+         "senderAccountId": f"{sender.virtual_account}",
+        "address": f"{blockchain_address}",
+        "amount": f"{amount}",
+        "fee": f"{sender.fee}",
+        "mnemonic": f"{sender.mnemonic}",
+        "xpub": f"{sender.xpub}"
+    }
+    return payload

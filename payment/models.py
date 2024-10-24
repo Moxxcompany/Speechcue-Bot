@@ -30,6 +30,9 @@ class MainWalletTable(models.Model):
     deposit_address = models.TextField(null=True, blank=True)
     subscription_id = models.CharField(max_length=100, null=True, blank=True)
     private_key = models.TextField(null=True, blank=True)
+    fee = models.DecimalField(max_digits=20, decimal_places=6, default=0.00001)
+    gas_price = models.CharField(max_length=100, default='20')
+    gas_limit = models.CharField(max_length=100, default='40000')
 
     def __str__(self):
         return self.address
@@ -43,8 +46,6 @@ class VirtualAccountsTable(models.Model):
     deposit_address = models.TextField(null=True, blank=True)
     subscription_id = models.CharField(max_length=100, null=True, blank=True)
     main_wallet_deposit_address = models.TextField(null=True, blank=True)
-
-
 
     def __str__(self):
         return self.account_id
