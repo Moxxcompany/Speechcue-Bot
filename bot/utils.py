@@ -1,14 +1,18 @@
 import json
+from http.client import responses
 from io import BytesIO
 from locale import currency
+from logging import exception
 
 import qrcode
 import requests
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.http import JsonResponse
+
 from TelegramBot.crypto_cache import *
-from bot.models import CallLogsTable, CallDuration
-from TelegramBot.constants import BTC, ETH, LTC, TRON
+from bot.models import CallLogsTable, CallDuration, BatchCallLogs
+from TelegramBot.constants import BTC, ETH, LTC, TRON, MAX_INFINITY_CONSTANT, error
 
 
 from payment.models import MainWalletTable, VirtualAccountsTable, SubscriptionPlans, UserSubscription, \
@@ -227,7 +231,8 @@ def set_user_subscription(user, plan_id):
 
     # Calculate the date_of_expiry by adding the validity_days to the subscription date
     date_of_expiry = date_of_subscription + timedelta(days=validity_days)
-    # Update or create the user's subscription
+
+
     user_subscription, created = UserSubscription.objects.update_or_create(
         user_id=user,
         defaults={
@@ -236,7 +241,8 @@ def set_user_subscription(user, plan_id):
             'call_transfer': plan.call_transfer,
             'bulk_ivr_calls_left': plan.number_of_bulk_call_minutes,
             'date_of_subscription': date_of_subscription,
-            'date_of_expiry': date_of_expiry
+            'date_of_expiry': date_of_expiry,
+            'single_ivr_left': plan.single_ivr_minutes
         }
     )
 
@@ -510,4 +516,7 @@ def charge_additional_mins(user_id, currency, available_balance):
 
 
 
-
+def get_batch_id(data):
+    data = json.loads(data)
+    batch_id = data['data']['batch_id']
+    return batch_id

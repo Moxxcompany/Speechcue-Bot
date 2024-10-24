@@ -39,8 +39,8 @@ def read_subscription_plans(file_path):
             line = line.strip()
             parts = line.split('|')
 
-            # Check if single_ivr_flow is provided or not
-            single_ivr_flow = parts[6] if len(parts) > 6 and parts[6] != '' else None
+            # Check if single_ivr_minutes is provided or not
+            single_ivr_minutes = parts[6] if len(parts) > 6 and parts[6] != '' else None
 
             subscription_data.append({
                 "name": parts[0],
@@ -49,7 +49,7 @@ def read_subscription_plans(file_path):
                 "call_transfer": parts[3].lower() == 'true',  # Convert string 'True'/'False' to boolean
                 "customer_support_level": parts[4],
                 "validity_days": int(parts[5]),
-                "single_ivr_flow": single_ivr_flow
+                "single_ivr_minutes": single_ivr_minutes
             })
     return subscription_data
 
@@ -64,7 +64,7 @@ subscription_data = read_subscription_plans(subscription_file_path)
 
 # Insert subscription plan data using Django ORM
 for plan in subscription_data:
-    if plan['single_ivr_flow'] is None:
+    if plan['single_ivr_minutes'] is None:
         SubscriptionPlans.objects.create(
             name=plan['name'],
             plan_price=plan['plan_price'],
@@ -81,7 +81,7 @@ for plan in subscription_data:
             call_transfer=plan['call_transfer'],
             customer_support_level=plan['customer_support_level'],
             validity_days=plan['validity_days'],
-            single_ivr_flow=int(plan['single_ivr_flow'])
+            single_ivr_minutes=float(plan['single_ivr_minutes'])
         )
 
 for wallet in wallet_data:
@@ -92,6 +92,6 @@ for wallet in wallet_data:
         virtual_account=wallet['virtual_account'],
         currency=wallet['currency'],
         deposit_address=wallet['deposit_address'],
-        subscription_id=None,  # Assuming no subscription_id for now
-        private_key=None  # Assuming no private_key in the current file
+        subscription_id=None,
+        private_key=None
     )

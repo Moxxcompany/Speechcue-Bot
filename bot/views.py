@@ -5,8 +5,10 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from TelegramBot.constants import base_url, invalid_data, error
-from bot.models import Pathways, CallLogsTable, FeedbackDetails, FeedbackLogs
-from bot.utils import add_node, get_pathway_data
+from bot.models import Pathways, CallLogsTable, FeedbackDetails, FeedbackLogs, BatchCallLogs
+from bot.utils import add_node, get_pathway_data, get_batch_id
+from payment.models import UserSubscription, SubscriptionPlans, ManageFreePlanSingleIVRCall
+from user.models import TelegramUser
 
 
 def empty_nodes(pathway_name, pathway_description, pathway_id):
@@ -490,11 +492,11 @@ def handle_view_single_flow(pathway_id):
 def send_call_through_pathway(pathway_id, phone_number, user_id):
 
     endpoint = "https://api.bland.ai/v1/calls"
-
     payload = {
         "phone_number": f"{phone_number}",
         "pathway_id": f"{pathway_id}",
     }
+
     headers = {
         'Authorization': f'{settings.BLAND_API_KEY}',
         "Content-Type": "application/json"
@@ -504,7 +506,23 @@ def send_call_through_pathway(pathway_id, phone_number, user_id):
     if response.status_code == 200:
         pathway = response.json()
         call_id = pathway.get("call_id")
+        plan_id = UserSubscription.objects.get(user_id=user_id).plan_id_id
+        plan_price = SubscriptionPlans.objects.get(plan_id=plan_id).plan_price
+        print("plan_price: ", plan_price)
+        if plan_price == 0:
 
+            print("creating an entry in the Manage free single IVR tables")
+            max_duration = UserSubscription.objects.get(user_id=user_id).single_ivr_left
+            payload.update({"max_duration": f"{max_duration}"})
+            print(f"Updated payload for the free plan is {payload}")
+            user = TelegramUser.objects.get(user_id=user_id)
+            ManageFreePlanSingleIVRCall.objects.create(
+                call_id=call_id,
+                pathway_id=pathway_id,
+                call_number=phone_number,
+                user_id=user,
+                call_status = 'new'
+            )
 
         CallLogsTable.objects.create(
             call_id=call_id,
@@ -513,6 +531,7 @@ def send_call_through_pathway(pathway_id, phone_number, user_id):
             user_id = user_id,
             call_status= 'new'
         )
+
 
         return pathway, 200
     else:
@@ -527,7 +546,7 @@ def get_voices():
     return response.json()
 
 
-def bulk_ivr_flow(call_data, pathway_id):
+def bulk_ivr_flow(call_data, pathway_id, user_id):
 
     endpoint = f"{base_url}/v1/batches"
     headers = {
@@ -540,6 +559,12 @@ def bulk_ivr_flow(call_data, pathway_id):
         "pathway_id": str(pathway_id)
     }
     response = requests.request("POST", endpoint, json=data, headers=headers)
+    batch_id = get_batch_id(response.text)
+    print("batch id: {}".format(batch_id))
+    list_response = get_call_list_from_batch(batch_id, user_id)
+    print(f"list status : {list_response.status_code}")
+    if list_response.status_code != 200:
+        print(list_response.content)
 
     return response
 
@@ -624,3 +649,93 @@ def stop_all_active_calls(call_id):
 
 
     return response
+
+def stop_active_batch_calls(batch_id):
+
+    url = f"https://api.bland.ai/v1/batches/{batch_id}/stop"
+
+    headers = {'authorization': f'{settings.BLAND_API_KEY}'}
+
+    response = requests.request("POST", url, headers=headers)
+
+    print(response.text)
+
+    return response
+
+def batch_details(batch_id):
+
+    url = f"https://api.bland.ai/v1/batches/{batch_id}"
+
+    querystring = {"include_calls": "true"}
+
+    headers = {'authorization': f'{settings.BLAND_API_KEY}'}
+
+    response = requests.request("GET", url, headers=headers, params=querystring)
+
+    print(response.text)
+
+    return response
+
+def get_call_list_from_batch(batch_id, user_id):
+    try:
+        data = batch_details(batch_id)
+        if data.status_code != 200:
+            print("Error occurred while fetching the batch details")
+    except Exception as e:
+        print(str(e))
+        return JsonResponse({'error': f'An error occurred: {str(e)}'}, status=400)
+
+
+    try:
+        response = data.json()
+        print(response)
+        pathway_id = response['batch_params']['call_params']['pathway_id']
+        print(f"pathway id: {pathway_id}")
+        batch_id = response['batch_params']['id']
+        print(f"batch id: {batch_id}")
+
+        call_data = response['call_data']
+        print(f"call data: {call_data}")
+
+
+        for call in call_data:
+            call_id = call['call_id']
+            to_number = call['to']  # Receiver's phone number
+            from_number = call['from']
+            queue_status = call['queue_status']
+            print(f"queue status: {queue_status}")
+            print(f"to_number: {to_number}")
+            print(f"from_number: {from_number}")
+            print(f"call id: {call_id}")
+
+            batch_call_log = BatchCallLogs(
+                call_id=call_id,
+                batch_id=batch_id,
+                pathway_id=pathway_id,
+                user_id=user_id,
+                to_number = to_number,
+                from_number = from_number,
+                call_status = queue_status,
+            )
+            batch_call_log.save()
+
+            CallLogsTable.objects.create(
+                call_id=call_id,
+                call_number=to_number,
+                pathway_id=pathway_id,
+                user_id=user_id,
+                call_status='new'
+            )
+
+
+        return JsonResponse({'message': 'Batch call logs saved successfully.'}, status=200)
+
+    except KeyError as e:
+        return JsonResponse({'error': f'Missing key in response: {str(e)}'}, status=400)
+
+    except json.JSONDecodeError as e:
+        return JsonResponse({'error': 'Invalid JSON format'}, status=400)
+
+    except Exception as e:
+        return JsonResponse({'error': f'An error occurred: {str(e)}'}, status=500)
+

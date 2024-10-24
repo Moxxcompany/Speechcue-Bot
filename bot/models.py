@@ -25,6 +25,7 @@ class CallDetails(models.Model):
     call_details = models.TextField()
 
 
+
 class TransferCallNumbers(models.Model):
     user_id = models.BigIntegerField()
     phone_number = models.TextField()
@@ -60,4 +61,18 @@ class CallDuration(models.Model):
 
     def __str__(self):
         return f"Call {self.call_id} Duration: {self.duration_in_seconds} seconds"
+
+
+class BatchCallLogs(models.Model):
+    call_id = models.TextField(primary_key=True)
+    batch_id = models.TextField()
+    pathway_id = models.TextField()
+    user_id = models.BigIntegerField()
+    to_number = models.CharField(max_length=255, null=True, blank=True)
+    from_number = models.CharField(max_length=255, null=True, blank=True)
+    call_status = models.CharField(max_length=50, null=True, blank=True)
+
+    def __str__(self):
+        return f"Call {self.call_id} Batch Call: {self.batch_id}"
+
 

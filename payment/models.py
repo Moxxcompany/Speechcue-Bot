@@ -15,7 +15,7 @@ class SubscriptionPlans(models.Model):
     call_transfer = models.BooleanField(default=False)
     customer_support_level = models.TextField(max_length=100)
     validity_days = models.IntegerField( blank=True, null=True)
-    single_ivr_flow = models.IntegerField(default=MAX_INFINITY_CONSTANT)
+    single_ivr_minutes = models.DecimalField(max_digits=20, decimal_places=6 ,default=MAX_INFINITY_CONSTANT)
 
 
     def __str__(self):
@@ -59,6 +59,7 @@ class UserSubscription(models.Model):
     date_of_expiry = models.DateField(null = True, blank=True)
     call_transfer = models.BooleanField(default=False)
     auto_renewal = models.BooleanField(default=False)
+    single_ivr_left = models.DecimalField(null=True, max_digits=20, decimal_places=6, blank=True)
 
 
 class OwnerWalletTable(models.Model):
@@ -102,3 +103,15 @@ class OveragePricingTable(models.Model):
     )
     def __str__(self):
         return f'{self.pricing_unit}'
+
+class ManageFreePlanSingleIVRCall(models.Model):
+    user_id = models.ForeignKey(TelegramUser, on_delete= models.DO_NOTHING, related_name='manage_free_plans')
+    call_duration = models.DecimalField(max_digits=20, decimal_places=6,default=0)
+    call_id = models.CharField(max_length=255, primary_key=True)
+    pathway_id = models.CharField(max_length=255, null=True, blank=True)
+    call_number = models.CharField(max_length=255, null=True, blank=True)
+    call_status = models.CharField(max_length=50, null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.call_id}'
+

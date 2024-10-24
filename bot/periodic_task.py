@@ -32,6 +32,16 @@ def create_periodic_task():
         name='Notify Users for Additional Minutes Payment',
         task='bot.tasks.notify_users',
     )
+    schedule_call_status_free_plan, created = IntervalSchedule.objects.get_or_create(
+        every=12,
+        period=IntervalSchedule.HOURS,
+    )
+
+    PeriodicTask.objects.update_or_create(
+        interval=schedule_call_status_free_plan,
+        name='Calculate additional minutes for single ivr calls',
+        task='bot.tasks.call_status_free_plan',
+    )
 
     print("All periodic tasks created successfully.")
 

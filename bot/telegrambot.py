@@ -34,7 +34,7 @@ from bot.utils import generate_random_id, create_user_virtual_account, generate_
     check_balance, set_user_subscription, convert_dollars_to_crypto, get_btc_price, get_eth_price, get_ltc_price, \
     get_trx_price, get_plan_price, check_validity, \
     check_subscription_status, username_formating, convert_crypto_to_usd, validate_transfer_number, validate_edges, \
-    get_currency_symbol, charge_additional_mins
+    get_currency_symbol, charge_additional_mins, get_batch_id
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
@@ -106,9 +106,13 @@ def get_user_profile(message):
         bot.send_message(user_id, f"{NO_SUBSCRIPTION_PLAN}")
     else:
         user_plan = UserSubscription.objects.get(user_id=user.user_id)
-        bot.send_message(user_id, f"{SUBSCRIPTION_PLAN}: \n"
-                                  f"{NAME} :{user_plan.plan_id.name}\n"
-                                  f"{BULK_IVR_LEFT} : {user_plan.bulk_ivr_calls_left}\n")
+        plan_msg = (f"{SUBSCRIPTION_PLAN}: \n"
+                    f"{NAME} :{user_plan.plan_id.name}\n"
+                    f"{BULK_IVR_LEFT} : {user_plan.bulk_ivr_calls_left}\n")
+        if user_plan.single_ivr_left != MAX_INFINITY_CONSTANT:
+            plan_msg += f"Single IVR Calls left : {user_plan.single_ivr_left}\n"
+        bot.send_message(user_id, plan_msg)
+
         bot.send_message(user_id, f"{WALLET_INFORMATION} \n")
 
         bitcoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='BTC').account_id
@@ -519,6 +523,7 @@ def trigger_add_another_node(message):
 def trigger_repeat_message(message):
     pass
 
+
 @bot.message_handler(func=lambda message: message.text == 'Back to Main Menu ↩️' or message.text == 'Back ↩️')
 def trigger_back(message):
     send_welcome(message)
@@ -725,9 +730,8 @@ def get_profile_language(message):
         # Create virtual account for each cryptocurrency
         result = create_user_virtual_account(currency_code, user)
 
-        # Update progress bar and percentage
-        progress_bar = '▮' * i + ' ' * (10 - i)  # Adjust the progress bar
-        percentage = i * 25  # Since there are 4 steps, each step is 25%
+        progress_bar = '▮' * i + ' ' * (10 - i)
+        percentage = i * 25
         bot.edit_message_text(f"Progress: [{progress_bar}] {percentage}%",
                               chat_id=user_id, message_id=progress_message.message_id)
 
@@ -738,7 +742,6 @@ def get_profile_language(message):
         if result != f"{STATUS_CODE_200}":
             bot.send_message(user_id, f"{PROCESSING_ERROR} {result.text()}")
 
-    # Once account creation is complete, update the user with final success messages
     setup_completion_first_half = escape_markdown(SETUP_COMPLETION_FIRST_HALF)
     setup_completion_second_half = escape_markdown(SETUP_COMPLETION_SECOND_HALF)
 
@@ -746,10 +749,7 @@ def get_profile_language(message):
                           chat_id=user_id, message_id=progress_message.message_id, parse_mode="MarkdownV2")
     free_trial_tooltip = escape_markdown(FREE_TRIAL_TOOLTIP)
     bot.send_message(user_id, f"_{free_trial_tooltip}_", parse_mode = "MarkdownV2")
-    # Prompt for language selection
     bot.send_message(user_id, f"{PROFILE_LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('language'))
-
-
 
 @bot.message_handler(commands=['cancel'])
 def cancel_actions(message):
@@ -771,18 +771,13 @@ def signup(message):
             bot.send_message(user_id, f"{EXISTING_USER_WELCOME}", reply_markup=get_main_menu())
             return
 
-        # Send the setup prompt message
         bot.send_message(user_id, f"{SETUP_PROMPT}")
-
-        # Escape special characters for MarkdownV2
         setup_tooltip = escape_markdown(SETUP_TOOLTIP)
         bot.send_message(user_id, f"_{setup_tooltip}_", parse_mode="MarkdownV2")
 
         if user_id not in user_data:
             user_data[user_id] = {}
         user_data[user_id]['step'] = 'profile_language'
-
-        # Escape special characters for name input prompt
         name_input_prompt = escape_markdown(NAME_INPUT_PROMPT)
         bot.send_message(user_id, f"{name_input_prompt}", parse_mode="MarkdownV2")
         return
@@ -810,25 +805,19 @@ def handle_activate_subscription(call):
     # Create InlineKeyboardMarkup object to store the buttons
     markup = types.InlineKeyboardMarkup()
 
-    # Create a set to track unique plan names for buttons
     unique_plan_names = set()
 
-    # Iterate through the plans and build buttons for each plan
     for plan in plans:
-        # Add icon if applicable
         plan_name_with_icon = f"{plan_icons.get(plan.name, '')} {plan.name}"
 
-        # Create a button for each unique plan name
         if plan.name not in unique_plan_names:
             unique_plan_names.add(plan.name)
             plan_button = types.InlineKeyboardButton(plan_name_with_icon, callback_data=f"plan_name_{plan.name}")
             markup.add(plan_button)
 
-    # Add a back button to go back to the welcome message
     back_button = types.InlineKeyboardButton(f"Back ↩️", callback_data="back_to_view_terms")
     markup.add(back_button)
 
-    # Send the message with the plan selection options
     bot.send_message(
         user_id,
         "💡 Now, let’s get you on the right plan. Please choose a subscription plan from the options below:",
@@ -864,16 +853,12 @@ def view_plan_validity(call):
         else:
             day = f"{DAYS}"
         plan_icon = plan_validity.get(plan.validity_days, '')
-        # Create a button for each plan validity option
         plan_button = types.InlineKeyboardButton(f"{plan_icon} {plan.validity_days} {day}",
                                                  callback_data=f"plan_{plan.plan_id}")
         markup.add(plan_button)
 
-    # Add a back button to return to the plan selection
     back_button = types.InlineKeyboardButton(f"Back ↩️", callback_data="back_to_plan_names")
     markup.add(back_button)
-
-    # Send the message with plan options in ascending order
     bot.send_message(user_id, f"{message_text}\n\n", reply_markup=markup)
 
 
@@ -907,10 +892,10 @@ def handle_plan_selection(call):
     user_data[user_id]['subscription_price'] = plan.plan_price
     user_data[user_id]['subscription_name'] = plan.name
     user_data[user_id]['subscription_id'] = plan.plan_id
-    if plan.single_ivr_flow == MAX_INFINITY_CONSTANT:
+    if plan.single_ivr_minutes == MAX_INFINITY_CONSTANT:
         single_calls = f"{UNLIMITED_SINGLE_IVR}"
     else:
-        single_calls = f"{plan.single_ivr_flow} minutes of Single IVR Call"
+        single_calls = f"{plan.single_ivr_minutes:.4f} minutes of Single IVR Call"
     if plan.number_of_bulk_call_minutes is None:
         bulk_calls = "No Bulk IVR Calls"
     else:
@@ -963,19 +948,14 @@ def handle_auto_renewal_choice(call):
         user_data[user_id]['auto_renewal'] = False
         bot.send_message(user_id, "Auto-renewal has been disabled. Please proceed with payment.")
 
-    # Proceed to the payment flow
     send_payment_options(user_id)
 
 
-# Step 10: Payment Flow - Confirm Payment Method
 def send_payment_options(user_id):
-    # Construct the payment options message
     payment_message = "💳 Please confirm your payment method to proceed:"
 
-    # Create a ReplyKeyboardMarkup (not InlineKeyboardMarkup) for payment options
     markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
 
-    # Payment options buttons
     wallet_button = types.KeyboardButton("💼 Pay from Wallet Balance")
     crypto_button = types.KeyboardButton("💰 Pay with Cryptocurrency")
 
@@ -1544,9 +1524,7 @@ def get_batch_call_base_prompt(message):
     pathway_id = user_data[user_id]['call_flow_bulk']
 
     subscription_details = UserSubscription.objects.get(user_id=user_id)
-    max_contacts = subscription_details.bulk_ivr_calls_left
-    if max_contacts > 50:
-        max_contacts = 50
+    max_contacts = 50
     valid_phone_number_pattern = re.compile(r'^[\d\+\-\(\)\s]+$')
     base_prompts = []
 
@@ -1582,12 +1560,11 @@ def get_batch_call_base_prompt(message):
     user_data[user_id]['base_prompts'] = formatted_prompts
     user_data[user_id]['step'] = 'batch_numbers'
 
-    response = bulk_ivr_flow(formatted_prompts, pathway_id)
+    response = bulk_ivr_flow(formatted_prompts, pathway_id, user_id)
+
 
     if response.status_code == 200:
         bot.send_message(user_id, "Successfully sent!", reply_markup=get_main_menu())
-        subscription_details.bulk_ivr_calls_left = subscription_details.bulk_ivr_calls_left - calls_sent
-        subscription_details.save()
 
     else:
         bot.send_message(user_id, f"{PROCESSING_ERROR} {response.text}", reply_markup=get_main_menu())

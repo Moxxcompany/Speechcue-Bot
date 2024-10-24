@@ -7,7 +7,7 @@ from payment.models import SubscriptionPlans, MainWalletTable, VirtualAccountsTa
 
 @admin.register(SubscriptionPlans)
 class SubscriptionPlansAdmin(admin.ModelAdmin):
-    list_display = ('name', 'plan_price','single_ivr_flow', 'number_of_bulk_call_minutes', 'call_transfer', 'customer_support_level', 'validity_days')
+    list_display = ('plan_id','name', 'plan_price','single_ivr_minutes', 'number_of_bulk_call_minutes', 'call_transfer', 'customer_support_level', 'validity_days')
     list_filter = ('plan_price', 'number_of_bulk_call_minutes', 'customer_support_level', 'validity_days')
     search_fields = ('name', 'customer_support_level', 'validity_days')
     ordering = ('plan_price',)
@@ -51,7 +51,7 @@ class UserSubscriptionAdmin(admin.ModelAdmin):
 
     get_user_id.short_description = 'User ID'  # This will change the column name in the admin interface
 
-    list_display = ('get_user_id', 'subscription_status', 'plan_id', 'bulk_ivr_calls_left',
+    list_display = ('get_user_id', 'subscription_status', 'plan_id', 'bulk_ivr_calls_left','single_ivr_left',
                     'date_of_subscription', 'date_of_expiry', 'call_transfer', 'auto_renewal')
     list_filter = ('subscription_status', 'plan_id')
     search_fields = ('user_id__user_id', 'subscription_status', 'plan_id__name')  # Search by the user_id directly
