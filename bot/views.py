@@ -680,7 +680,6 @@ def batch_details(batch_id):
 
     return response
 
-
 def get_call_list_from_batch(batch_id, user_id):
     try:
         # Fetch batch details
@@ -703,8 +702,13 @@ def get_call_list_from_batch(batch_id, user_id):
         batch_id = response['batch_params']['id']
         logging.info(f"Batch ID: {batch_id}")
 
-        call_data = response['call_data']
+        call_data = response.get('call_data', None)
         logging.info(f"Call data: {call_data}")
+
+        # Check if call_data is None
+        if call_data is None:
+            logging.error("Call data is None, cannot iterate over NoneType.")
+            return JsonResponse({'error': 'No call data available in the response'}, status=400)
 
         # Loop through each call data
         for call in call_data:
