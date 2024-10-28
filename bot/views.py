@@ -682,11 +682,12 @@ def batch_details(batch_id):
 
 def get_call_list_from_batch(batch_id, user_id):
     try:
-        # Fetch batch details
         data = batch_details(batch_id)
         if data.status_code != 200:
             logging.error("Error occurred while fetching the batch details")
-            return JsonResponse({'error': 'Error occurred while fetching batch details'}, status=data.status_code)
+            return JsonResponse({'error': 'Error occurred while fetching batch details'},
+                                status=data.status_code)
+
     except Exception as e:
         logging.exception("An exception occurred while fetching batch details")
         return JsonResponse({'error': f'An error occurred: {str(e)}'}, status=400)
@@ -696,26 +697,27 @@ def get_call_list_from_batch(batch_id, user_id):
         response = data.json()
         logging.info(f"Response data: {response}")
 
-        pathway_id = response['batch_params']['call_params']['pathway_id']
+        # Extract batch_params information
+        batch_params = response.get('batch_params', {})
+        batch_id = batch_params.get('id')
+        pathway_id = batch_params.get('call_params', {}).get('pathway_id')
+        call_data = response.get('call_data', [])
+
         logging.info(f"Pathway ID: {pathway_id}")
-
-        batch_id = response['batch_params']['id']
         logging.info(f"Batch ID: {batch_id}")
-
-        call_data = response.get('call_data', None)
         logging.info(f"Call data: {call_data}")
 
-        # Check if call_data is None
-        if call_data is None:
-            logging.error("Call data is None, cannot iterate over NoneType.")
+        # Check if call_data is empty
+        if not call_data:
+            logging.error("Call data is empty, cannot iterate over an empty list.")
             return JsonResponse({'error': 'No call data available in the response'}, status=400)
 
         # Loop through each call data
         for call in call_data:
-            call_id = call['call_id']
-            to_number = call['to']  # Receiver's phone number
-            from_number = call['from']
-            queue_status = call['queue_status']
+            call_id = call.get('call_id')
+            to_number = call.get('to')
+            from_number = call.get('from')
+            queue_status = call.get('queue_status')
 
             logging.info(f"Queue Status: {queue_status}")
             logging.info(f"To Number: {to_number}")
@@ -733,9 +735,9 @@ def get_call_list_from_batch(batch_id, user_id):
                 call_status=queue_status,
             )
             batch_call_log.save()
-            logging.info(f"Batch call log saved for call ID: {call_id}")
+            logging.info(f"Batch call log saved for Call ID: {call_id}")
 
-            # Save to CallLogsTable
+            # Save to CallLogsTable with unique call_id
             CallLogsTable.objects.create(
                 call_id=call_id,
                 call_number=to_number,
@@ -743,7 +745,7 @@ def get_call_list_from_batch(batch_id, user_id):
                 user_id=user_id,
                 call_status='new'
             )
-            logging.info(f"Call log entry created for call ID: {call_id}")
+            logging.info(f"Call log entry created for Call ID: {call_id}")
 
         return JsonResponse({'message': 'Batch call logs saved successfully.'}, status=200)
 
