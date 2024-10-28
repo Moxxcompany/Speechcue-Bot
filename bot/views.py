@@ -1,4 +1,6 @@
 import json
+import logging
+
 import requests
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
@@ -9,6 +11,8 @@ from bot.models import Pathways, CallLogsTable, FeedbackDetails, FeedbackLogs, B
 from bot.utils import add_node, get_pathway_data, get_batch_id
 from payment.models import UserSubscription, SubscriptionPlans, ManageFreePlanSingleIVRCall
 from user.models import TelegramUser
+
+logging.basicConfig(level= logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def empty_nodes(pathway_name, pathway_description, pathway_id):
@@ -676,49 +680,58 @@ def batch_details(batch_id):
 
     return response
 
+
 def get_call_list_from_batch(batch_id, user_id):
     try:
+        # Fetch batch details
         data = batch_details(batch_id)
         if data.status_code != 200:
-            print("Error occurred while fetching the batch details")
+            logging.error("Error occurred while fetching the batch details")
+            return JsonResponse({'error': 'Error occurred while fetching batch details'}, status=data.status_code)
     except Exception as e:
-        print(str(e))
+        logging.exception("An exception occurred while fetching batch details")
         return JsonResponse({'error': f'An error occurred: {str(e)}'}, status=400)
 
-
     try:
+        # Process JSON response
         response = data.json()
-        print(response)
+        logging.info(f"Response data: {response}")
+
         pathway_id = response['batch_params']['call_params']['pathway_id']
-        print(f"pathway id: {pathway_id}")
+        logging.info(f"Pathway ID: {pathway_id}")
+
         batch_id = response['batch_params']['id']
-        print(f"batch id: {batch_id}")
+        logging.info(f"Batch ID: {batch_id}")
 
         call_data = response['call_data']
-        print(f"call data: {call_data}")
+        logging.info(f"Call data: {call_data}")
 
-
+        # Loop through each call data
         for call in call_data:
             call_id = call['call_id']
             to_number = call['to']  # Receiver's phone number
             from_number = call['from']
             queue_status = call['queue_status']
-            print(f"queue status: {queue_status}")
-            print(f"to_number: {to_number}")
-            print(f"from_number: {from_number}")
-            print(f"call id: {call_id}")
 
+            logging.info(f"Queue Status: {queue_status}")
+            logging.info(f"To Number: {to_number}")
+            logging.info(f"From Number: {from_number}")
+            logging.info(f"Call ID: {call_id}")
+
+            # Save each call log
             batch_call_log = BatchCallLogs(
                 call_id=call_id,
                 batch_id=batch_id,
                 pathway_id=pathway_id,
                 user_id=user_id,
-                to_number = to_number,
-                from_number = from_number,
-                call_status = queue_status,
+                to_number=to_number,
+                from_number=from_number,
+                call_status=queue_status,
             )
             batch_call_log.save()
+            logging.info(f"Batch call log saved for call ID: {call_id}")
 
+            # Save to CallLogsTable
             CallLogsTable.objects.create(
                 call_id=call_id,
                 call_number=to_number,
@@ -726,16 +739,18 @@ def get_call_list_from_batch(batch_id, user_id):
                 user_id=user_id,
                 call_status='new'
             )
-
+            logging.info(f"Call log entry created for call ID: {call_id}")
 
         return JsonResponse({'message': 'Batch call logs saved successfully.'}, status=200)
 
     except KeyError as e:
+        logging.error(f"Missing key in response: {str(e)}")
         return JsonResponse({'error': f'Missing key in response: {str(e)}'}, status=400)
 
     except json.JSONDecodeError as e:
+        logging.error("Invalid JSON format in response")
         return JsonResponse({'error': 'Invalid JSON format'}, status=400)
 
     except Exception as e:
+        logging.exception("An error occurred during processing")
         return JsonResponse({'error': f'An error occurred: {str(e)}'}, status=500)
-
