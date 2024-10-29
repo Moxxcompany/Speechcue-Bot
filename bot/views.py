@@ -670,11 +670,10 @@ def batch_details(batch_id):
 
     url = f"https://api.bland.ai/v1/batches/{batch_id}"
 
-    querystring = {"include_calls": "true"}
 
     headers = {'authorization': f'{settings.BLAND_API_KEY}'}
 
-    response = requests.request("GET", url, headers=headers, params=querystring)
+    response = requests.request("GET", url, headers=headers)
 
     print(response.text)
 
