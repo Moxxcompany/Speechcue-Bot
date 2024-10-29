@@ -669,6 +669,7 @@ def stop_active_batch_calls(batch_id):
 def batch_details(batch_id):
 
     url = f"https://api.bland.ai/v1/batches/{batch_id}"
+    logging.INFO(f"batch details url: {url}")
 
 
     headers = {'authorization': f'{settings.BLAND_API_KEY}'}
@@ -676,7 +677,7 @@ def batch_details(batch_id):
     response = requests.request("GET", url, headers=headers)
 
     print(response.text)
-
+    logging.INFO(f"batch details response text : {response.text}")
     return response
 
 def get_call_list_from_batch(batch_id, user_id):
