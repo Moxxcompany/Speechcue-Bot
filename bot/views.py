@@ -669,7 +669,7 @@ def stop_active_batch_calls(batch_id):
 def batch_details(batch_id):
 
     url = f"https://api.bland.ai/v1/batches/{batch_id}"
-    logging.info(f"batch details url: {url}")
+    print(f"batch details url: {url}")
 
 
     headers = {'authorization': f'{settings.BLAND_API_KEY}'}
@@ -677,7 +677,7 @@ def batch_details(batch_id):
     response = requests.request("GET", url, headers=headers)
 
     print(response.text)
-    logging.info(f"batch details response text : {response.text}")
+    print(f"batch details response text : {response.text}")
     return response
 
 def get_call_list_from_batch(batch_id, user_id):
@@ -695,7 +695,7 @@ def get_call_list_from_batch(batch_id, user_id):
     try:
         # Process JSON response
         response = data.json()
-        logging.info(f"Response data: {response}")
+        print(f"Response data: {response}")
 
         # Extract batch_params information
         batch_params = response.get('batch_params', {})
@@ -703,9 +703,9 @@ def get_call_list_from_batch(batch_id, user_id):
         pathway_id = batch_params.get('call_params', {}).get('pathway_id')
         call_data = response.get('call_data', [])
 
-        logging.info(f"Pathway ID: {pathway_id}")
-        logging.info(f"Batch ID: {batch_id}")
-        logging.info(f"Call data: {call_data}")
+        print(f"Pathway ID: {pathway_id}")
+        print(f"Batch ID: {batch_id}")
+        print(f"Call data: {call_data}")
 
         # Check if call_data is empty
         if not call_data:
@@ -719,10 +719,10 @@ def get_call_list_from_batch(batch_id, user_id):
             from_number = call.get('from')
             queue_status = call.get('queue_status')
 
-            logging.info(f"Queue Status: {queue_status}")
-            logging.info(f"To Number: {to_number}")
-            logging.info(f"From Number: {from_number}")
-            logging.info(f"Call ID: {call_id}")
+            print(f"Queue Status: {queue_status}")
+            print(f"To Number: {to_number}")
+            print(f"From Number: {from_number}")
+            print(f"Call ID: {call_id}")
 
             # Save each call log
             batch_call_log = BatchCallLogs(
@@ -735,7 +735,7 @@ def get_call_list_from_batch(batch_id, user_id):
                 call_status=queue_status,
             )
             batch_call_log.save()
-            logging.info(f"Batch call log saved for Call ID: {call_id}")
+            print(f"Batch call log saved for Call ID: {call_id}")
 
             # Save to CallLogsTable with unique call_id
             CallLogsTable.objects.create(
@@ -745,7 +745,7 @@ def get_call_list_from_batch(batch_id, user_id):
                 user_id=user_id,
                 call_status='new'
             )
-            logging.info(f"Call log entry created for Call ID: {call_id}")
+            print(f"Call log entry created for Call ID: {call_id}")
 
         return JsonResponse({'message': 'Batch call logs saved successfully.'}, status=200)
 
