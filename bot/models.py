@@ -63,6 +63,7 @@ class CallDuration(models.Model):
         return f"Call {self.call_id} Duration: {self.duration_in_seconds} seconds"
 
 
+
 class BatchCallLogs(models.Model):
     call_id = models.TextField(primary_key=True)
     batch_id = models.TextField()

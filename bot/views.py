@@ -11,6 +11,7 @@ from bot.models import Pathways, CallLogsTable, FeedbackDetails, FeedbackLogs, B
 from bot.utils import add_node, get_pathway_data, get_batch_id
 from payment.models import UserSubscription, SubscriptionPlans, ManageFreePlanSingleIVRCall
 from user.models import TelegramUser
+import curlify
 
 logging.basicConfig(level= logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -551,20 +552,33 @@ def get_voices():
 
 
 def bulk_ivr_flow(call_data, pathway_id, user_id):
-
-    endpoint = f"{base_url}/v1/batches"
-    headers = {
-        'Authorization': f'{settings.BLAND_API_KEY}',
-        "Content-Type": "application/json"
-    }
-    data = {
+    url = "https://api.bland.ai/v1/batches"
+    payload = json.dumps({
         "call_data": call_data,
         "test_mode": False,
         "pathway_id": str(pathway_id)
+    })
+    headers = {
+        'Authorization': f'{settings.BLAND_API_KEY}',
+        'Content-Type': 'application/json'
     }
-    response = requests.request("POST", endpoint, json=data, headers=headers)
-    batch_id = get_batch_id(response.text)
-    print("batch id: {}".format(batch_id))
+
+    response = requests.request("POST", url, headers=headers, data=payload)
+
+    print(response.text)
+
+    batch_id = response.json().get("batch_id")
+
+    print(batch_id, "batch_id_batch_id")
+    payload = {}
+    headers = {
+        'authorization': f'{settings.BLAND_API_KEY}'
+    }
+
+    response = requests.request("GET", url, headers=headers, data=payload)
+
+    print("Separate changes : ", response.text)
+
     list_response = get_call_list_from_batch(batch_id, user_id)
     print(f"list status : {list_response.status_code}")
     if list_response.status_code != 200:

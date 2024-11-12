@@ -1,5 +1,6 @@
 import json
 from decimal import Decimal
+from locale import currency
 from uuid import UUID
 import time
 import re
@@ -32,9 +33,9 @@ from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTabl
 
 from bot.utils import generate_random_id, create_user_virtual_account, generate_qr_code, \
     check_balance, set_user_subscription, convert_dollars_to_crypto, get_btc_price, get_eth_price, get_ltc_price, \
-    get_trx_price, get_plan_price, check_validity, \
+    get_plan_price, check_validity, \
     check_subscription_status, username_formating, convert_crypto_to_usd, validate_transfer_number, validate_edges, \
-    get_currency_symbol, charge_additional_mins, get_batch_id
+    get_currency_symbol, charge_additional_mins, get_batch_id, get_usdt_price
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
@@ -117,23 +118,28 @@ def get_user_profile(message):
 
         bitcoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='BTC').account_id
         etheruem = VirtualAccountsTable.objects.get(user_id=user_id, currency='ETH').account_id
-        tron = VirtualAccountsTable.objects.get(user_id=user_id, currency='TRON').account_id
+        #tron = VirtualAccountsTable.objects.get(user_id=user_id, currency='TRON').account_id
+        trc_20 = VirtualAccountsTable.objects.get(user_id=user_id, currency='TRC_20').account_id
+        erc_20 = VirtualAccountsTable.objects.get(user_id=user_id, currency='ERC_20').account_id
         litecoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='LTC').account_id
+
         sum_in_usd = 0
+
         bitcoin_balance = check_balance(bitcoin)
         balance_in_usd = convert_crypto_to_usd(float(bitcoin_balance), 'btc')
         sum_in_usd = sum_in_usd + balance_in_usd
-
 
         etheruem_balance = check_balance(etheruem)
         balance_in_usd = convert_crypto_to_usd(float(etheruem_balance), 'eth')
         sum_in_usd = sum_in_usd + balance_in_usd
 
-
-        tron_balance = check_balance(tron)
-        balance_in_usd = convert_crypto_to_usd(float(tron_balance), 'trx')
+        trc_20_balance = check_balance(trc_20)
+        balance_in_usd = convert_crypto_to_usd(float(trc_20_balance), 'USDT')
         sum_in_usd = sum_in_usd + balance_in_usd
 
+        erc_20_balance = check_balance(erc_20)
+        balance_in_usd = convert_crypto_to_usd(float(erc_20_balance), 'USDT')
+        sum_in_usd = sum_in_usd + balance_in_usd
 
         litecoin_balance = check_balance(litecoin)
         balance_in_usd = convert_crypto_to_usd(float(litecoin_balance), 'ltc')
@@ -161,10 +167,7 @@ def trigger_bulk_ivr_call(message):
             unpaid_minutes_records = additional_minutes_records.filter(charged=False)
             if unpaid_minutes_records.exists():
                 bot.send_message(user_id, "You have unpaid additional minutes. "
-                                          "Please settle the charges before proceeding."
-                                          "",
-                                 reply_markup=get_main_menu()
-                                 )
+                                          "Please settle the charges before proceeding.", reply_markup=get_main_menu())
                 return
         user_data[user_id] = {'step': 'get_batch_numbers'}
         view_flows(message)
@@ -201,7 +204,7 @@ def handle_view_subscription(call):
             f"- {subscription_plan.validity_days} {DAY_PLAN}\n"
 
         )
-        if subscription_plan.call_transfer == True:
+        if subscription_plan.call_transfer:
             plan_details+=(
                 f"Full Node Access : Call Transfer included"
             )
@@ -245,20 +248,31 @@ def check_wallet(call):
         try:
             bitcoin_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='BTC').first()
             etheruem_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='ETH').first()
-            tron_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='TRON').first()
+            erc_20_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='ERC_20').first()
+            trc_20_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='TRC_20').first()
+            #tron_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='TRON').first()
             litecoin_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='LTC').first()
 
             if not bitcoin_account:
                 raise ValueError("Bitcoin account not found.")
             if not etheruem_account:
                 raise ValueError("Ethereum account not found.")
-            if not tron_account:
-                raise ValueError("Tron account not found.")
+            if not trc_20_account:
+                raise ValueError("Trc 20 account not found.")
+
+            if not erc_20_account:
+                raise ValueError("ERC 20 account not found.")
+
+            # if not tron_account:
+            #     raise ValueError("Tron account not found.")
+
             if not litecoin_account:
                 raise ValueError("Litecoin account not found.")
 
         except VirtualAccountsTable.DoesNotExist:
-            bot.send_message(user_id, escape_markdown(f"{PROCESSING_ERROR}\n\nAccount details not found for one or more cryptocurrencies."), parse_mode='MarkdownV2')
+            bot.send_message(user_id, escape_markdown(f"{PROCESSING_ERROR}\n\n"
+                                                      f"Account details not found for one or more cryptocurrencies."),
+                             parse_mode='MarkdownV2')
             return
 
         sum_in_usd = 0
@@ -270,7 +284,8 @@ def check_wallet(call):
             sum_in_usd += balance_in_usd
             print(balance_in_usd)
         except Exception as e:
-            bot.send_message(user_id, escape_markdown(f"Error fetching or converting Bitcoin balance: {str(e)}"), parse_mode='MarkdownV2')
+            bot.send_message(user_id, escape_markdown(f"Error fetching or converting Bitcoin balance: {str(e)}"),
+                             parse_mode='MarkdownV2')
             return
 
         try:
@@ -278,23 +293,41 @@ def check_wallet(call):
             balance_in_usd = convert_crypto_to_usd(float(etheruem_balance), 'eth')
             sum_in_usd += balance_in_usd
         except Exception as e:
-            bot.send_message(user_id, escape_markdown(f"Error fetching or converting Ethereum balance: {str(e)}"), parse_mode='MarkdownV2')
+            bot.send_message(user_id, escape_markdown(f"Error fetching or converting Ethereum balance: {str(e)}"),
+                             parse_mode='MarkdownV2')
             return
-
         try:
-            tron_balance = check_balance(tron_account.account_id)
-            balance_in_usd = convert_crypto_to_usd(float(tron_balance), 'trx')
+            erc_20_balance = check_balance(erc_20_account.account_id)
+            balance_in_usd = convert_crypto_to_usd(float(erc_20_balance), 'usdt')
             sum_in_usd += balance_in_usd
         except Exception as e:
-            bot.send_message(user_id, escape_markdown(f"Error fetching or converting Tron balance: {str(e)}"), parse_mode='MarkdownV2')
+            bot.send_message(user_id, escape_markdown(f"Error fetching or converting erc-20 balance: {str(e)}"),
+                             parse_mode='MarkdownV2')
             return
+        try:
+            trc_20_balance = check_balance(trc_20_account.account_id)
+            balance_in_usd = convert_crypto_to_usd(float(trc_20_balance), 'usdt')
+            sum_in_usd += balance_in_usd
+        except Exception as e:
+            bot.send_message(user_id, escape_markdown(f"Error fetching or converting trc-20 balance: {str(e)}"),
+                             parse_mode='MarkdownV2')
+            return
+
+                # try:
+        #     tron_balance = check_balance(tron_account.account_id)
+        #     balance_in_usd = convert_crypto_to_usd(float(tron_balance), 'trx')
+        #     sum_in_usd += balance_in_usd
+        # except Exception as e:
+        #     bot.send_message(user_id, escape_markdown(f"Error fetching or converting Tron balance: {str(e)}"), parse_mode='MarkdownV2')
+        #     return
 
         try:
             litecoin_balance = check_balance(litecoin_account.account_id)
             balance_in_usd = convert_crypto_to_usd(float(litecoin_balance), 'ltc')
             sum_in_usd += balance_in_usd
         except Exception as e:
-            bot.send_message(user_id, escape_markdown(f"Error fetching or converting Litecoin balance: {str(e)}"), parse_mode='MarkdownV2')
+            bot.send_message(user_id, escape_markdown(f"Error fetching or converting Litecoin balance: {str(e)}"),
+                             parse_mode='MarkdownV2')
             return
 
         # Create inline keyboard markup
@@ -331,9 +364,9 @@ def trigger_text_to_speech(message):
 @check_validity
 def trigger_single_ivr_call(message):
     """
-   Handles the 'Single IVR Call ☎️' menu option to initiate an IVR call.
+    Handles the 'Single IVR Call ☎️' menu option to initiate an IVR call.
 
-   Args:
+    Args:
        message: The message object from the user.
     """
     user_id = message.from_user.id
@@ -418,7 +451,7 @@ def delete_node(call):
         bot.send_message(user_id, f"{PATHWAY_NOT_FOUND}")
         return
 
-    pathway_payload = json.loads(pathway.pathway_payload)  # Parse payload as JSON
+    pathway_payload = json.loads(pathway.pathway_payload)
 
     nodes = pathway_payload['pathway_data']['nodes']
     node_id_to_delete = None
@@ -501,12 +534,11 @@ def trigger_end_call_option(message):
     if not valid:
         if missing_sources:
             bot.send_message(chat_id,
-                             f"The following nodes do not have any outgoing connections to other nodes: {', '.join(missing_sources)}")
-
+                             f"The following nodes do not have any outgoing connections to other nodes: "
+                             f"{', '.join(missing_sources)}")
         if missing_targets:
             bot.send_message(chat_id,
                              f"The following nodes do not connect to any other nodes: {', '.join(missing_targets)}")
-
         bot.send_message(chat_id, "At least, add one edge for the missing nodes!")
         handle_add_edges(message)
     else:
@@ -542,7 +574,9 @@ def trigger_main_add_node(message):
 def view_variables(message):
     user_id = message.chat.id
 
-    list_calls = CallLogsTable.objects.filter(user_id=user_id)
+    list_calls = CallLogsTable.object
+
+    s.filter(user_id=user_id)
 
     if not list_calls.exists():
         bot.send_message(user_id, f"{CALL_LOGS_NOT_FOUND}")
@@ -723,7 +757,9 @@ def get_profile_language(message):
         ('BTC', 'Bitcoin'),
         ('ETH', 'Ethereum'),
         ('LTC', 'Litecoin'),
-        ('TRON', 'TRON')
+        ('TRC_20', 'TRC_20'),
+        ('ERC_20', 'ERC_20')
+
     ]
     progress_bar = ""
     for i, (currency_code, currency_name) in enumerate(progress_steps, start=1):
@@ -731,7 +767,7 @@ def get_profile_language(message):
         result = create_user_virtual_account(currency_code, user)
 
         progress_bar = '▮' * i + ' ' * (10 - i)
-        percentage = i * 25
+        percentage = i * 20
         bot.edit_message_text(f"Progress: [{progress_bar}] {percentage}%",
                               chat_id=user_id, message_id=progress_message.message_id)
 
@@ -739,8 +775,9 @@ def get_profile_language(message):
         time.sleep(1)
 
         # Check for errors
+        print(f'Result : {result}')
         if result != f"{STATUS_CODE_200}":
-            bot.send_message(user_id, f"{PROCESSING_ERROR} {result.text()}")
+            bot.send_message(user_id, f"{PROCESSING_ERROR} {result}")
 
     setup_completion_first_half = escape_markdown(SETUP_COMPLETION_FIRST_HALF)
     setup_completion_second_half = escape_markdown(SETUP_COMPLETION_SECOND_HALF)
@@ -991,12 +1028,14 @@ def handle_payment_method(call):
         payment_currency = f"{BTC}"
 
 
-    elif payment_method == f'{ethereum}' or payment_method == f'{erc20}':
+    elif payment_method == f'{ethereum}':
         payment_currency = f'{ETH}'
 
+    elif    payment_method == f'{erc20}':
+        payment_currency = f'ERC_20'
 
     elif payment_method == f'{trc20}':
-        payment_currency = f'{TRON}'
+        payment_currency = f'TRC_20'
 
 
     elif payment_method == f'{litecoin}':
@@ -1016,7 +1055,6 @@ def handle_payment_method(call):
 @bot.callback_query_handler(func=lambda call: call.data == 'wallet_payment')
 def handle_wallet_method(call):
     user_id = call.message.chat.id
-
     try:
         user = VirtualAccountsTable.objects.get(user_id=user_id, currency=user_data[user_id]['payment_currency'])
 
@@ -1066,7 +1104,6 @@ def handle_wallet_method(call):
         receiver = MainWalletTable.objects.get(currency=user_data[user_id]['payment_currency'])
         receiver_account = receiver.virtual_account
 
-        # Send payment from user's account to receiver's account
         payment_response = send_payment(account_id, receiver_account, float(plan_price))
 
         if payment_response.status_code != 200:
@@ -1081,7 +1118,6 @@ def handle_wallet_method(call):
         return
 
     try:
-        # Update balances for both user and receiver
         balance = get_account_balance(account_id)
         if balance.status_code != 200:
             bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
@@ -1160,15 +1196,21 @@ def handle_account_topup(call):
         currency_price = btc_price
 
 
-    elif payment_method == f'{ethereum}' or payment_method == f'{erc20}':
+    elif payment_method == f'{ethereum}':
         payment_currency = f'{ETH}'
         eth_price = get_eth_price()
         currency_price = eth_price
 
+    elif payment_method == f'{erc20}':
+        payment_currency = 'ERC_20'
+        erc20_price = get_usdt_price()
+        currency_price = erc20_price
+
     elif payment_method == f'{trc20}':
-        payment_currency = f'{TRON}'
-        tron_price = get_trx_price()
-        currency_price = tron_price
+        payment_currency = f'TRC_20'
+
+        trc20_price = get_usdt_price()
+        currency_price = trc20_price
 
     elif payment_method == f'{litecoin}':
         payment_currency = f'{LTC}'
@@ -1263,9 +1305,13 @@ def handle_deposit_webhook(request):
         eth_price = get_eth_price()
         price = convert_dollars_to_crypto(price, eth_price)
 
-    elif currency == f'{TRON}':
-        tron_price = get_trx_price()
-        price = convert_dollars_to_crypto(price, tron_price)
+    elif currency == 'ERC_20':
+        erc20_price = get_usdt_price()
+        price = convert_dollars_to_crypto(price, erc20_price)
+
+    elif currency == 'TRC_20':
+        trc20_price = get_usdt_price()
+        price = convert_dollars_to_crypto(price, trc20_price)
 
     elif currency == f'{LTC}':
         ltc_price = get_ltc_price()

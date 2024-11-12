@@ -77,7 +77,7 @@ class TransactionType(models.TextChoices):
 
 class UserTransactionLogs(models.Model):
     transaction_id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
-    user_id = models.ForeignKey(TelegramUser, on_delete=models.CASCADE, related_name='user_transactions')
+    user_id = models.CharField(max_length=200, null=True, blank=True)
     reference = models.CharField(max_length=200, null=True, blank=True)
     transaction_type = models.CharField(
         max_length=3,

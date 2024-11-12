@@ -187,16 +187,18 @@ def create_virtual_account(xpub, currency, customer_external_id=None):
         "currency": f"{currency}",
         "xpub": f"{xpub}"
     }
+
     if customer_external_id is not None:
         payload["customer"] = {"externalId": f"{customer_external_id}"}
+    print(f'payload : {payload}')
 
     headers = {
         "accept": "application/json",
         "content-type": "application/json",
         "x-api-key": f"{x_api_key}"
     }
-
-    response = requests.post(url, json=payload, headers=headers)
+    payload_json = json.dumps(payload)
+    response = requests.post(url, headers=headers, data=payload_json)
 
     return response
 

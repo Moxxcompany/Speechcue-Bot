@@ -1,16 +1,12 @@
 import os
-import uuid
 from dotenv.main import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-# Set the Django settings module and initialize Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'TelegramBot.settings')  # Replace with your actual settings module
 import django
 django.setup()
 
-# Import Django models after Django has been set up
 from payment.models import SubscriptionPlans, MainWalletTable
 
 def read_wallet_data(file_path):

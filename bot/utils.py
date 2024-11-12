@@ -86,7 +86,6 @@ def add_node(data, new_node):
     return nodes
 
 def generate_random_id(length=20):
-
     return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
 def get_pathway_data(data):
@@ -156,10 +155,12 @@ def generate_qr_code(address):
     return img_byte_arr
 
 def create_user_virtual_account(currency, existing_user):
-    print("currency : ", )
+    print("currency : ", currency)
     wallet = MainWalletTable.objects.get(currency=currency)
     xpub = wallet.xpub
-    virtual_account = create_virtual_account(xpub, currency)
+    print(f'xpub : {xpub}')
+    print(f'userrr id : {existing_user.user_id}')
+    virtual_account = create_virtual_account(xpub, currency, existing_user.user_id)
     if virtual_account.status_code != 200:
         return f"Error Creating Virtual Account: {virtual_account.json()}"
     data = virtual_account.json()
@@ -248,18 +249,11 @@ def set_user_subscription(user, plan_id):
 
     return '200'
 
+# Cache system for cryptocurrency prices
 price_cache = {
     'btc': {'price': None, 'timestamp': 0},
     'eth': {'price': None, 'timestamp': 0},
-    'trx': {'price': None, 'timestamp': 0},
-    'ltc': {'price': None, 'timestamp': 0}
-}
-
-# Cache system
-price_cache = {
-    'btc': {'price': None, 'timestamp': 0},
-    'eth': {'price': None, 'timestamp': 0},
-    'trx': {'price': None, 'timestamp': 0},
+    'usdt': {'price': None, 'timestamp': 0},
     'ltc': {'price': None, 'timestamp': 0}
 }
 
@@ -287,13 +281,18 @@ def get_cached_price(crypto_type, fetch_price_function):
 
 # Fetch crypto price from Tatum API
 def fetch_crypto_price_from_tatum(crypto_symbol, base_pair='USD'):
+    print(f"crypto symbol: {crypto_symbol}")
+    print(f"base_pair: {base_pair}")
     url = f"{TATUM_API_URL}/{crypto_symbol.upper()}?basePair={base_pair.upper()}"
     try:
         response = requests.get(url, headers=headers)
         response.raise_for_status()  # Raise an exception for HTTP errors
         data = response.json()
+        print(f"data: {data}")
         if 'value' in data:
+            print(f'{float(data["value"])}')
             return float(data['value'])
+
         else:
             raise ValueError(f"Price not found for {crypto_symbol} in {base_pair}.")
     except requests.exceptions.RequestException as e:
@@ -306,21 +305,22 @@ def get_btc_price():
 def get_eth_price():
     return fetch_crypto_price_from_tatum('ETH')
 
-def get_trx_price():
-    return fetch_crypto_price_from_tatum('TRON')  # Use 'TRON' for Tatum API
+def get_usdt_price():  # Updated function for USDT
+    return fetch_crypto_price_from_tatum('USDT')
 
 def get_ltc_price():
     return fetch_crypto_price_from_tatum('LTC')
 
 # Convert crypto to USD
 def convert_crypto_to_usd(crypto_amount, crypto_type):
+    print(f'crypto amount {crypto_amount} and type {crypto_type}')
     try:
         if crypto_type.lower() == 'btc':
             price_in_usd = get_cached_price('btc', get_btc_price)
         elif crypto_type.lower() == 'eth':
             price_in_usd = get_cached_price('eth', get_eth_price)
-        elif crypto_type.lower() == 'trx' or crypto_type.lower() == 'tron' :
-            price_in_usd = get_cached_price('trx', get_trx_price)
+        elif crypto_type.lower() == 'usdt':
+            price_in_usd = get_cached_price('usdt', get_usdt_price)
         elif crypto_type.lower() == 'ltc':
             price_in_usd = get_cached_price('ltc', get_ltc_price)
         else:
@@ -348,9 +348,9 @@ def get_plan_price(payment_currency, plan_price):
         eth_price = get_cached_price('eth', get_eth_price)
         plan_price = convert_dollars_to_crypto(plan_price, eth_price)
 
-    elif payment_currency.upper() == 'TRX':
-        trx_price = get_cached_price('trx', get_trx_price)
-        plan_price = convert_dollars_to_crypto(plan_price, trx_price)
+    elif payment_currency.upper() == 'ERC_20' or payment_currency.upper() == 'TRC_20':
+        token_price = get_cached_price('trx', get_usdt_price)
+        plan_price = convert_dollars_to_crypto(plan_price, token_price)
 
     elif payment_currency.upper() == 'LTC':
         ltc_price = get_cached_price('ltc', get_ltc_price)
@@ -372,9 +372,9 @@ def get_currency_symbol(currency):
     if currency == f"{ETH}":
         return 'Ξ'
     if currency == f"{LTC}":
-        return '💵'
-    if currency == f"{TRON}":
         return 'Ł'
+    if currency == f"ERC_20" or currency == f"TRC_20":
+        return '💵'
 
 
 #-------------- Decorator Functions ---------------#
@@ -391,7 +391,6 @@ def check_subscription_status(func):
             bot.send_message(user_id, "Please check your subscription status! "
                                       "You're currently not subscribed to any plan!")
             return None
-
     return wrapper
 
 def change_subscription_status(user_id):
@@ -407,7 +406,6 @@ def change_subscription_status(user_id):
         if user.subscription_status != 'inactive':
             user.subscription_status = 'inactive'
             user.save()
-
     except TelegramUser.DoesNotExist:
         pass
 
@@ -478,13 +476,14 @@ def charge_additional_mins(user_id, currency, available_balance):
             price_in_usd = get_cached_crypto_price('btc', lambda: fetch_crypto_price_with_retry('BTC'))
         elif acc_currency == 'eth':
             price_in_usd = get_cached_crypto_price('eth', lambda: fetch_crypto_price_with_retry('ETH'))
-        elif acc_currency == 'trx' or acc_currency == 'tron':
-            price_in_usd = get_cached_crypto_price('trx', lambda: fetch_crypto_price_with_retry('TRON'))
+        elif acc_currency == 'erc_20' or acc_currency == 'trc_20':
+            price_in_usd = get_cached_crypto_price('usdt', lambda: fetch_crypto_price_with_retry('USDT'))
         elif acc_currency == 'ltc':
             price_in_usd = get_cached_crypto_price('ltc', lambda: fetch_crypto_price_with_retry('LTC'))
 
         balance_in_usd = convert_crypto_to_usd(available_balance, acc_currency)
         print("balance in usd calculated", balance_in_usd)
+
         overage_pricing = OveragePricingTable.objects.get(pricing_unit='MIN')
         price_per_min = float(overage_pricing.overage_pricing)
         user = TelegramUser.objects.get(user_id=user_id)
