@@ -16,6 +16,17 @@ import curlify
 logging.basicConfig(level= logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
+
+def stop_single_active_call(call_id):
+
+    url = f"https://api.bland.ai/v1/calls/{call_id}/stop"
+    headers = {'authorization': f'{settings.BLAND_API_KEY}'}
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+    return response
+
+
 def empty_nodes(pathway_name, pathway_description, pathway_id):
     data = {
         "name": f"{pathway_name}",
@@ -562,7 +573,7 @@ def bulk_ivr_flow(call_data, pathway_id, user_id):
         'Authorization': f'{settings.BLAND_API_KEY}',
         'Content-Type': 'application/json'
     }
-
+    print(f"bulk ivr request payload: {payload}")
     response = requests.request("POST", url, headers=headers, data=payload)
 
     print(response.text)

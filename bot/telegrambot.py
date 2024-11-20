@@ -1,5 +1,9 @@
+import base64
+from io import BytesIO
+from PIL import Image
 import json
 from decimal import Decimal
+from http.client import responses
 from locale import currency
 from uuid import UUID
 import time
@@ -9,6 +13,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 
+import bot.telegrambot
 from TelegramBot.constants import PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH, \
     trc20, erc20, TRON, litecoin, LTC, back, TOP_UP, \
     INSUFFICIENT_BALANCE, BACK, WALLET, DEPOSIT_ADDRESS, PAYMENT_METHOD_PROMPT, ETHEREUM, ERC, TRC, LITECOIN, \
@@ -31,19 +36,17 @@ from TelegramBot.constants import PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH,
 
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable, CallDuration
 
-from bot.utils import generate_random_id, create_user_virtual_account, generate_qr_code, \
-    check_balance, set_user_subscription, convert_dollars_to_crypto, get_btc_price, get_eth_price, get_ltc_price, \
-    get_plan_price, check_validity, \
+from bot.utils import generate_random_id, get_plan_price, check_validity, \
     check_subscription_status, username_formating, convert_crypto_to_usd, validate_transfer_number, validate_edges, \
-    get_currency_symbol, charge_additional_mins, get_batch_id, get_usdt_price
+    get_currency_symbol, get_batch_id, get_currency, set_user_subscription, set_plan, \
+    set_details_for_user_table
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
     get_voices, empty_nodes, bulk_ivr_flow, get_transcript, question_type, get_variables
 
 from payment.models import SubscriptionPlans, MainWalletTable, VirtualAccountsTable, UserSubscription
-from payment.views import  get_account_balance, \
-    create_subscription_v3, send_payment
+from payment.views import  setup_user, check_user_balance, create_crypto_payment, credit_wallet_balance
 
 from user.models import TelegramUser
 from bot.keyboard_menus import *
@@ -113,40 +116,10 @@ def get_user_profile(message):
         if user_plan.single_ivr_left != MAX_INFINITY_CONSTANT:
             plan_msg += f"Single IVR Calls left : {user_plan.single_ivr_left}\n"
         bot.send_message(user_id, plan_msg)
+        wallet = check_user_balance(user_id)
+        balance = wallet.json()['data']['amount']
 
-        bot.send_message(user_id, f"{WALLET_INFORMATION} \n")
-
-        bitcoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='BTC').account_id
-        etheruem = VirtualAccountsTable.objects.get(user_id=user_id, currency='ETH').account_id
-        #tron = VirtualAccountsTable.objects.get(user_id=user_id, currency='TRON').account_id
-        trc_20 = VirtualAccountsTable.objects.get(user_id=user_id, currency='TRC_20').account_id
-        erc_20 = VirtualAccountsTable.objects.get(user_id=user_id, currency='ERC_20').account_id
-        litecoin = VirtualAccountsTable.objects.get(user_id=user_id, currency='LTC').account_id
-
-        sum_in_usd = 0
-
-        bitcoin_balance = check_balance(bitcoin)
-        balance_in_usd = convert_crypto_to_usd(float(bitcoin_balance), 'btc')
-        sum_in_usd = sum_in_usd + balance_in_usd
-
-        etheruem_balance = check_balance(etheruem)
-        balance_in_usd = convert_crypto_to_usd(float(etheruem_balance), 'eth')
-        sum_in_usd = sum_in_usd + balance_in_usd
-
-        trc_20_balance = check_balance(trc_20)
-        balance_in_usd = convert_crypto_to_usd(float(trc_20_balance), 'USDT')
-        sum_in_usd = sum_in_usd + balance_in_usd
-
-        erc_20_balance = check_balance(erc_20)
-        balance_in_usd = convert_crypto_to_usd(float(erc_20_balance), 'USDT')
-        sum_in_usd = sum_in_usd + balance_in_usd
-
-        litecoin_balance = check_balance(litecoin)
-        balance_in_usd = convert_crypto_to_usd(float(litecoin_balance), 'ltc')
-        sum_in_usd = sum_in_usd + balance_in_usd
-
-
-        bot.send_message(user_id, f"{BALANCE_IN_USD} : {sum_in_usd:.2f}", reply_markup=get_main_menu())
+        bot.send_message(user_id, f"{BALANCE_IN_USD}{balance}", reply_markup=get_main_menu())
 
 @bot.message_handler(func=lambda message: message.text == 'Help ℹ️')
 def handle_help(message):
@@ -239,107 +212,24 @@ def escape_markdown(text):
 def check_wallet(call):
 
     user_id = call.message.chat.id
-
-    # Notify user that the process is being started
     bot.send_message(user_id, escape_markdown(f"{CHECKING_WALLETS}"), parse_mode='MarkdownV2')
 
     try:
-        # Try to retrieve all virtual account information
-        try:
-            bitcoin_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='BTC').first()
-            etheruem_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='ETH').first()
-            erc_20_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='ERC_20').first()
-            trc_20_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='TRC_20').first()
-            #tron_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='TRON').first()
-            litecoin_account = VirtualAccountsTable.objects.filter(user_id=user_id, currency='LTC').first()
-
-            if not bitcoin_account:
-                raise ValueError("Bitcoin account not found.")
-            if not etheruem_account:
-                raise ValueError("Ethereum account not found.")
-            if not trc_20_account:
-                raise ValueError("Trc 20 account not found.")
-
-            if not erc_20_account:
-                raise ValueError("ERC 20 account not found.")
-
-            # if not tron_account:
-            #     raise ValueError("Tron account not found.")
-
-            if not litecoin_account:
-                raise ValueError("Litecoin account not found.")
-
-        except VirtualAccountsTable.DoesNotExist:
-            bot.send_message(user_id, escape_markdown(f"{PROCESSING_ERROR}\n\n"
-                                                      f"Account details not found for one or more cryptocurrencies."),
-                             parse_mode='MarkdownV2')
-            return
-
-        sum_in_usd = 0
-
-        # Fetch and convert balances for each cryptocurrency, ensuring errors are caught individually
-        try:
-            bitcoin_balance = check_balance(bitcoin_account.account_id)
-            balance_in_usd = convert_crypto_to_usd(float(bitcoin_balance), 'btc')
-            sum_in_usd += balance_in_usd
-            print(balance_in_usd)
-        except Exception as e:
-            bot.send_message(user_id, escape_markdown(f"Error fetching or converting Bitcoin balance: {str(e)}"),
-                             parse_mode='MarkdownV2')
-            return
-
-        try:
-            etheruem_balance = check_balance(etheruem_account.account_id)
-            balance_in_usd = convert_crypto_to_usd(float(etheruem_balance), 'eth')
-            sum_in_usd += balance_in_usd
-        except Exception as e:
-            bot.send_message(user_id, escape_markdown(f"Error fetching or converting Ethereum balance: {str(e)}"),
-                             parse_mode='MarkdownV2')
-            return
-        try:
-            erc_20_balance = check_balance(erc_20_account.account_id)
-            balance_in_usd = convert_crypto_to_usd(float(erc_20_balance), 'usdt')
-            sum_in_usd += balance_in_usd
-        except Exception as e:
-            bot.send_message(user_id, escape_markdown(f"Error fetching or converting erc-20 balance: {str(e)}"),
-                             parse_mode='MarkdownV2')
-            return
-        try:
-            trc_20_balance = check_balance(trc_20_account.account_id)
-            balance_in_usd = convert_crypto_to_usd(float(trc_20_balance), 'usdt')
-            sum_in_usd += balance_in_usd
-        except Exception as e:
-            bot.send_message(user_id, escape_markdown(f"Error fetching or converting trc-20 balance: {str(e)}"),
-                             parse_mode='MarkdownV2')
-            return
-
-                # try:
-        #     tron_balance = check_balance(tron_account.account_id)
-        #     balance_in_usd = convert_crypto_to_usd(float(tron_balance), 'trx')
-        #     sum_in_usd += balance_in_usd
-        # except Exception as e:
-        #     bot.send_message(user_id, escape_markdown(f"Error fetching or converting Tron balance: {str(e)}"), parse_mode='MarkdownV2')
-        #     return
-
-        try:
-            litecoin_balance = check_balance(litecoin_account.account_id)
-            balance_in_usd = convert_crypto_to_usd(float(litecoin_balance), 'ltc')
-            sum_in_usd += balance_in_usd
-        except Exception as e:
-            bot.send_message(user_id, escape_markdown(f"Error fetching or converting Litecoin balance: {str(e)}"),
-                             parse_mode='MarkdownV2')
-            return
-
-        # Create inline keyboard markup
+        wallet = check_user_balance(user_id)
+        if wallet.status_code != 200:
+            bot.send_message(user_id, f"Error fetching wallet details! {wallet.text}")
+        balance = wallet.json()['data']['amount']
+        currency = wallet.json()['data']['currency']
+        print(f'wallet details: {wallet.text}')
+        print(f'balance: {balance}')
+        print(f'currency: {currency}')
         markup = InlineKeyboardMarkup()
         top_up_wallet_button = types.InlineKeyboardButton("Top Up Wallet 💳", callback_data="top_up_wallet")
         back_button = types.InlineKeyboardButton("Back", callback_data='back_to_billing')
         markup.add(top_up_wallet_button)
         markup.add(back_button)
-
-        # Safely format and send the balance message using MarkdownV2 escaping
-        bot.send_message(user_id, escape_markdown(f"{BALANCE_IN_USD}: {sum_in_usd:.8f} USD"), reply_markup=markup, parse_mode='MarkdownV2')
-
+        bot.send_message(user_id, f"You have the following balance in your wallet:\n{balance} {currency}",
+                         reply_markup=markup)
     except Exception as e:
         bot.send_message(user_id, escape_markdown(f"{PROCESSING_ERROR}\n\nUnexpected error: {str(e)}"), parse_mode='MarkdownV2')
 
@@ -574,9 +464,7 @@ def trigger_main_add_node(message):
 def view_variables(message):
     user_id = message.chat.id
 
-    list_calls = CallLogsTable.object
-
-    s.filter(user_id=user_id)
+    list_calls = CallLogsTable.objects.filter(user_id=user_id)
 
     if not list_calls.exists():
         bot.send_message(user_id, f"{CALL_LOGS_NOT_FOUND}")
@@ -635,7 +523,6 @@ def view_feedback(message):
         button_text = f"Call ID: {call.call_id}"
         callback_data = f"feedback_{call.call_id}"
         markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
-
     bot.send_message(user_id, f"{VIEW_TRANSCRIPT_PROMPT}", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("feedback_"))
@@ -729,64 +616,73 @@ def show_commands(message):
 def get_user_name(message):
     user_id = message.chat.id
 
-
-
+# Track user state with a dictionary
+user_data = {}
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'profile_language')
 def get_profile_language(message):
     user_id = message.chat.id
-    text = message.text
-    bot.send_message(user_id, f"{NICE_TO_MEET_YOU} {text}, {PROFILE_SETTING_PROMPT}")
-
-    # Format username
-    username = username_formating(text)
+    name = message.text  # The user's name from the initial message
+    username = username_formating(name)
     username = f"{username}_{user_id}"
-    username_formatting = username.replace('_', '\\_')
 
-    # Update the user's profile in the database
-    user = TelegramUser.objects.get(user_id=user_id)
-    user.user_name = username
-    user.save()
+    # Store initial data and move to the next step (getting email)
+    user_data[user_id] = {
+        'step': 'get_email',
+        'name': name,
+        'username': username
+    }
+    bot.send_message(user_id, f"{NICE_TO_MEET_YOU} {name}, {PROFILE_SETTING_PROMPT}")
+    bot.send_message(user_id, "Enter your email address:")
 
-    account_setup_tooltip = escape_markdown(ACCOUNT_SETUP_TOOLTIP)
-    bot.send_message(user_id, f"_{account_setup_tooltip}_", parse_mode = "MarkdownV2")
-    progress_message = bot.send_message(user_id, "Progress: [          ] 0%")
 
-    # Create virtual accounts one by one and update progress
-    progress_steps = [
-        ('BTC', 'Bitcoin'),
-        ('ETH', 'Ethereum'),
-        ('LTC', 'Litecoin'),
-        ('TRC_20', 'TRC_20'),
-        ('ERC_20', 'ERC_20')
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_email')
+def get_email(message):
+    user_id = message.chat.id
+    email = message.text
 
-    ]
-    progress_bar = ""
-    for i, (currency_code, currency_name) in enumerate(progress_steps, start=1):
-        # Create virtual account for each cryptocurrency
-        result = create_user_virtual_account(currency_code, user)
+    # Validate email format here if necessary
+    if not validate_email(email):  # Assuming validate_email is a function you define
+        bot.send_message(user_id, "Invalid email format. Please enter a valid email address:")
+        return
 
-        progress_bar = '▮' * i + ' ' * (10 - i)
-        percentage = i * 20
-        bot.edit_message_text(f"Progress: [{progress_bar}] {percentage}%",
-                              chat_id=user_id, message_id=progress_message.message_id)
+    # Store email and move to the next step (getting mobile number)
+    user_data[user_id]['email'] = email
+    user_data[user_id]['step'] = 'get_mobile'
+    bot.send_message(user_id, "Enter your mobile number:")
 
-        # Simulate delay (replace with actual delay if the account creation takes time)
-        time.sleep(1)
 
-        # Check for errors
-        print(f'Result : {result}')
-        if result != f"{STATUS_CODE_200}":
-            bot.send_message(user_id, f"{PROCESSING_ERROR} {result}")
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_mobile')
+def get_mobile(message):
+    user_id = message.chat.id
+    mobile = message.text
 
-    setup_completion_first_half = escape_markdown(SETUP_COMPLETION_FIRST_HALF)
-    setup_completion_second_half = escape_markdown(SETUP_COMPLETION_SECOND_HALF)
+    # Validate mobile format here if necessary
+    if not validate_transfer_number(mobile):
+        bot.send_message(user_id, "Invalid mobile number format. Please enter a valid mobile number:")
+        return
 
-    bot.edit_message_text(f"{setup_completion_first_half} {username_formatting} {setup_completion_second_half}",
-                          chat_id=user_id, message_id=progress_message.message_id, parse_mode="MarkdownV2")
-    free_trial_tooltip = escape_markdown(FREE_TRIAL_TOOLTIP)
-    bot.send_message(user_id, f"_{free_trial_tooltip}_", parse_mode = "MarkdownV2")
-    bot.send_message(user_id, f"{PROFILE_LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('language'))
+    name = user_data[user_id]['name']
+    username = user_data[user_id]['username']
+    email = user_data[user_id]['email']
+
+    response = setup_user(user_id, email, mobile, name, username)
+    if response['status'] != 200:
+        bot.send_message(user_id, f"Sorry! We were unable to complete your request due to the following issue:\n{response['text']}")
+    else:
+        bot.send_message(user_id, f"{PROFILE_LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('language'))
+
+
+def validate_email(email):
+    # Placeholder function for email validation logic
+    import re
+    email_regex = r"[^@]+@[^@]+\.[^@]+"
+    return re.match(email_regex, email) is not None
+
+def validate_mobile(mobile):
+    # Placeholder function for mobile number validation logic
+    return mobile.isdigit() and len(mobile) in [10, 11]  # Example validation logic
+
 
 @bot.message_handler(commands=['cancel'])
 def cancel_actions(message):
@@ -827,6 +723,7 @@ def signup(message):
 @bot.callback_query_handler(func=lambda call: call.data == "activate_subscription")
 def handle_activate_subscription(call):
     user_id = call.message.chat.id
+
 
     # Retrieve all plans from the database
     plans = SubscriptionPlans.objects.all()
@@ -949,11 +846,13 @@ def handle_plan_selection(call):
         f"📞 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n\n"
     )
 
+
     if plan.plan_price == 0:
         bot.send_message(user_id, escape_markdown(invoice_message), parse_mode="MarkdownV2")
         user = TelegramUser.objects.get(user_id=user_id)
         user.subscription_status = 'active'
-        user.plan = plan.name
+
+        user.plan = plan.plan_id
         user.save()
         set_subscription = set_user_subscription(user, plan.plan_id)
         if set_subscription != f"{STATUS_CODE_200}":
@@ -976,7 +875,7 @@ def handle_plan_selection(call):
 @bot.callback_query_handler(func=lambda call: call.data in ["enable_auto_renewal_yes", "enable_auto_renewal_no"])
 def handle_auto_renewal_choice(call):
     user_id = call.message.chat.id
-    selected_plan = user_data[user_id]['selected_plan']
+    # selected_plan = user_data[user_id]['selected_plan']
 
     if call.data == 'enable_auto_renewal_yes':
         user_data[user_id]['auto_renewal'] = True
@@ -984,6 +883,7 @@ def handle_auto_renewal_choice(call):
     else:
         user_data[user_id]['auto_renewal'] = False
         bot.send_message(user_id, "Auto-renewal has been disabled. Please proceed with payment.")
+
 
     send_payment_options(user_id)
 
@@ -1003,167 +903,172 @@ def send_payment_options(user_id):
 @bot.message_handler(func=lambda message: message.text == "💼 Pay from Wallet Balance")
 def payment_through_wallet_balance(message):
     user_id = message.chat.id
-    markup = types.InlineKeyboardMarkup()
-    payment_methods = ['Bitcoin (BTC) ₿', 'Ethereum (ETH) Ξ', 'TRC-20 USDT 💵', 'ERC-20 USDT 💵',
-                       'Litecoin (LTC) Ł', 'Back ↩️']
-    for method in payment_methods:
-        payment_button = types.InlineKeyboardButton(method, callback_data=f"pay_{method.lower().replace(' ', '_')}")
-        markup.add(payment_button)
+    amount = user_data[user_id]['subscription_price']
+    print(f"amount to credit: {amount}")
+    response = credit_wallet_balance(user_id, amount)
 
-    bot.send_message(user_id, f"{SUBSCRIPTION_PAYMENT_METHOD_PROMPT}", reply_markup=markup)
+    if response.status_code != 200:
+        msg = response.json().get('message')
+        bot.send_message(user_id, f"{msg}",
+                         reply_markup=get_main_menu())
+        return
+
+    plan_id = user_data[user_id]['subscription_id']
+    auto_renewal = user_data[user_id]['auto_renewal']
+    response = set_plan(user_id, plan_id, auto_renewal)
+    if response['status'] != 200:
+        bot.send_message(user_id, f"{response['message']}")
+        return
+
+    bot.send_message(user_id, "Payment Successful!", reply_markup=get_main_menu())
 
 
 @bot.message_handler(func=lambda message: message.text == "💰 Pay with Cryptocurrency")
 def payment_through_cryptocurrency(message):
-    handle_deposit_address_method(message)
+    user_id = message.chat.id
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]['transaction_type'] = 'payment'
+    plan_id = user_data[user_id]['subscription_id']
+    response = set_details_for_user_table(user_id, plan_id)
+    if response['status'] != 200:
+        bot.send_message(user_id, f"f{response['message']}")
+        return
+    currency_selection(user_id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pay_"))
 def handle_payment_method(call):
     user_id = call.message.chat.id
     payment_method = call.data.split("_")[1]
-    payment_currency = ''
 
-    if payment_method == f'{bitcoin}':
-        payment_currency = f"{BTC}"
-
-
-    elif payment_method == f'{ethereum}':
-        payment_currency = f'{ETH}'
-
-    elif    payment_method == f'{erc20}':
-        payment_currency = f'ERC_20'
-
-    elif payment_method == f'{trc20}':
-        payment_currency = f'TRC_20'
-
-
-    elif payment_method == f'{litecoin}':
-        payment_currency = f'{LTC}'
-
-
-    elif payment_method == f'{back}':
+    if payment_method == f'{back}':
         handle_activate_subscription(call)
         return
+
+    currency_response = get_currency(payment_method)
+    if currency_response != 200:
+        bot.send_message(user_id, 'Unsupported Currency', reply_markup=get_main_menu())
+        return
+    payment_currency = currency_response.text
     if user_id not in user_data:
         user_data[user_id] = {}
 
     user_data[user_id]['payment_currency'] = payment_currency
     print(payment_currency,  "currency ")
-    handle_wallet_method(call)
 
-@bot.callback_query_handler(func=lambda call: call.data == 'wallet_payment')
-def handle_wallet_method(call):
-    user_id = call.message.chat.id
-    try:
-        user = VirtualAccountsTable.objects.get(user_id=user_id, currency=user_data[user_id]['payment_currency'])
 
-    except VirtualAccountsTable.DoesNotExist:
-        bot.send_message(user_id, f"{VIRTUAL_ACCOUNT_NOT_FOUND}")
-        return
-    except Exception as e:
-        bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
-        return
-
-    try:
-        account_id = user.account_id
-        balance = get_account_balance(account_id)
-
-        if balance.status_code != 200:
-            bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
-            return
-
-        balance_data = balance.json()
-        available_balance = float(balance_data["availableBalance"])
-        symbol = get_currency_symbol(user_data[user_id]['payment_currency'])
-        bot.send_message(user_id, f"{PROCESSING_PAYMENT}")
-    except Exception as e:
-        bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
-        return
-
-    try:
-        plan_price = float(user_data[user_id]['subscription_price'])
-        plan_price = get_plan_price(user_data[user_id]['payment_currency'], plan_price)
-        print(plan_price)
-
-        if float(available_balance) < float(plan_price):
-            markup = types.InlineKeyboardMarkup()
-            top_up_wallet_button = types.InlineKeyboardButton(f"{TOP_UP}", callback_data="top_up_wallet")
-            back_button = types.InlineKeyboardButton(f"{BACK}", callback_data='back_to_handle_payment')
-            markup.add(top_up_wallet_button)
-            markup.add(back_button)
-            bot.send_message(user_id, f'{INSUFFICIENT_BALANCE}', reply_markup=markup)
-            return
-
-    except Exception as e:
-        error = f"{PROCESSING_ERROR} {str(e)}"
-        bot.send_message(user_id, escape_markdown(error))
-        return
-
-    try:
-        receiver = MainWalletTable.objects.get(currency=user_data[user_id]['payment_currency'])
-        receiver_account = receiver.virtual_account
-
-        payment_response = send_payment(account_id, receiver_account, float(plan_price))
-
-        if payment_response.status_code != 200:
-            bot.send_message(user_id, f"{PROCESSING_ERROR} \n{payment_response.json()}")
-            return
-
-    except MainWalletTable.DoesNotExist:
-        bot.send_message(user_id, f"{RECEIVERS_WALLET_NOT_FOUND}")
-        return
-    except Exception as e:
-        bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
-        return
-
-    try:
-        balance = get_account_balance(account_id)
-        if balance.status_code != 200:
-            bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
-            return
-
-        balance_data = balance.json()
-        available_balance = balance_data["availableBalance"]
-        user.balance = available_balance
-        user.save()
-
-        balance = get_account_balance(receiver_account)
-        if balance.status_code != 200:
-            bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
-            return
-
-        balance_data = balance.json()
-        available_balance = balance_data["availableBalance"]
-        receiver.balance = available_balance
-        receiver.save()
-
-    except Exception as e:
-        bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
-        return
-
-    try:
-        # Activate the subscription
-        plan_id = user_data[user_id]['subscription_id']
-        current_user = TelegramUser.objects.get(user_id=user_id)
-        current_user.subscription_status = f'{ACTIVE}'
-        current_user.plan = plan_id
-        current_user.save()
-
-        set_subscription = set_user_subscription(current_user, plan_id)
-        if set_subscription != f"{STATUS_CODE_200}":
-            bot.send_message(user_id, set_subscription)
-            return
-        user_subscription = UserSubscription.objects.get(user_id= current_user)
-        user_subscription.auto_renewal = user_data[user_id]['auto_renewal']
-        user_subscription.save()
-
-        bot.send_message(user_id, f"{PAYMENT_SUCCESSFUL} {SUBSCRIPTION_ACTIVATED} {MAIN_MENU_PROMPT}", reply_markup=get_main_menu())
-
-    except TelegramUser.DoesNotExist:
-        bot.send_message(user_id, f"{USER_INFORMATION_NOT_FOUND}")
-    except Exception as e:
-        bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
+# @bot.callback_query_handler(func=lambda call: call.data == 'wallet_payment')
+# def handle_wallet_method(call):
+#     user_id = call.message.chat.id
+#     try:
+#         user = VirtualAccountsTable.objects.get(user_id=user_id, currency=user_data[user_id]['payment_currency'])
+#
+#     except VirtualAccountsTable.DoesNotExist:
+#         bot.send_message(user_id, f"{VIRTUAL_ACCOUNT_NOT_FOUND}")
+#         return
+#     except Exception as e:
+#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
+#         return
+#
+#     try:
+#         account_id = user.account_id
+#         balance = get_account_balance(account_id)
+#
+#         if balance.status_code != 200:
+#             bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
+#             return
+#
+#         balance_data = balance.json()
+#         available_balance = float(balance_data["availableBalance"])
+#         symbol = get_currency_symbol(user_data[user_id]['payment_currency'])
+#         bot.send_message(user_id, f"{PROCESSING_PAYMENT}")
+#     except Exception as e:
+#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
+#         return
+#
+#     try:
+#         plan_price = float(user_data[user_id]['subscription_price'])
+#         plan_price = get_plan_price(user_data[user_id]['payment_currency'], plan_price)
+#         print(plan_price)
+#
+#         if float(available_balance) < float(plan_price):
+#             markup = types.InlineKeyboardMarkup()
+#             top_up_wallet_button = types.InlineKeyboardButton(f"{TOP_UP}", callback_data="top_up_wallet")
+#             back_button = types.InlineKeyboardButton(f"{BACK}", callback_data='back_to_handle_payment')
+#             markup.add(top_up_wallet_button)
+#             markup.add(back_button)
+#             bot.send_message(user_id, f'{INSUFFICIENT_BALANCE}', reply_markup=markup)
+#             return
+#
+#     except Exception as e:
+#         error = f"{PROCESSING_ERROR} {str(e)}"
+#         bot.send_message(user_id, escape_markdown(error))
+#         return
+#
+#     try:
+#         receiver = MainWalletTable.objects.get(currency=user_data[user_id]['payment_currency'])
+#         receiver_account = receiver.virtual_account
+#
+#         payment_response = send_payment(account_id, receiver_account, float(plan_price))
+#
+#         if payment_response.status_code != 200:
+#             bot.send_message(user_id, f"{PROCESSING_ERROR} \n{payment_response.json()}")
+#             return
+#
+#     except MainWalletTable.DoesNotExist:
+#         bot.send_message(user_id, f"{RECEIVERS_WALLET_NOT_FOUND}")
+#         return
+#     except Exception as e:
+#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
+#         return
+#
+#     try:
+#         balance = get_account_balance(account_id)
+#         if balance.status_code != 200:
+#             bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
+#             return
+#
+#         balance_data = balance.json()
+#         available_balance = balance_data["availableBalance"]
+#         user.balance = available_balance
+#         user.save()
+#
+#         balance = get_account_balance(receiver_account)
+#         if balance.status_code != 200:
+#             bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
+#             return
+#
+#         balance_data = balance.json()
+#         available_balance = balance_data["availableBalance"]
+#         receiver.balance = available_balance
+#         receiver.save()
+#
+#     except Exception as e:
+#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
+#         return
+#
+#     try:
+#         plan_id = user_data[user_id]['subscription_id']
+#         current_user = TelegramUser.objects.get(user_id=user_id)
+#         current_user.subscription_status = f'{ACTIVE}'
+#         current_user.plan = plan_id
+#         current_user.save()
+#
+#         set_subscription = set_user_subscription(current_user, plan_id)
+#         if set_subscription != f"{STATUS_CODE_200}":
+#             bot.send_message(user_id, set_subscription)
+#             return
+#         user_subscription = UserSubscription.objects.get(user_id= current_user)
+#         user_subscription.auto_renewal = user_data[user_id]['auto_renewal']
+#         user_subscription.save()
+#
+#         bot.send_message(user_id, f"{PAYMENT_SUCCESSFUL} {SUBSCRIPTION_ACTIVATED} {MAIN_MENU_PROMPT}", reply_markup=get_main_menu())
+#
+#     except TelegramUser.DoesNotExist:
+#         bot.send_message(user_id, f"{USER_INFORMATION_NOT_FOUND}")
+#     except Exception as e:
+#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'back_to_handle_payment')
@@ -1174,191 +1079,180 @@ def handle_back_to_handle_payment(call):
 @bot.callback_query_handler(func=lambda call: call.data == 'top_up_wallet')
 def handle_top_up_wallet(call):
     user_id = call.message.chat.id
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]['transaction_type'] = 'top_up'
+    currency_selection(user_id)
+
+
+def currency_selection(user_id):
     payment_methods = ['Bitcoin (BTC) ₿', 'Ethereum (ETH) Ξ', 'TRC-20 USDT 💵', 'ERC-20 USDT 💵',
                        'Litecoin (LTC) Ł', 'Back ↩️']
     markup = types.InlineKeyboardMarkup()
     for method in payment_methods:
         payment_button = types.InlineKeyboardButton(method, callback_data=f"topup_{method.lower().replace(' ', '_')}")
         markup.add(payment_button)
-
     bot.send_message(user_id, f"{TOP_UP_PROMPT}", reply_markup=markup)
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("topup_"))
 def handle_account_topup(call):
-    currency_price = 0
+
     user_id = call.message.chat.id
     payment_method = call.data.split("_")[1]
-    payment_currency = ''
-
-    if payment_method == f'{bitcoin}':
-        payment_currency = f'{BTC}'
-        btc_price = get_btc_price()
-        currency_price = btc_price
-
-
-    elif payment_method == f'{ethereum}':
-        payment_currency = f'{ETH}'
-        eth_price = get_eth_price()
-        currency_price = eth_price
-
-    elif payment_method == f'{erc20}':
-        payment_currency = 'ERC_20'
-        erc20_price = get_usdt_price()
-        currency_price = erc20_price
-
-    elif payment_method == f'{trc20}':
-        payment_currency = f'TRC_20'
-
-        trc20_price = get_usdt_price()
-        currency_price = trc20_price
-
-    elif payment_method == f'{litecoin}':
-        payment_currency = f'{LTC}'
-        ltc_price = get_ltc_price()
-        currency_price = ltc_price
-
-    elif payment_method == f'{back}':
-        handle_wallet_method(call)
+    if payment_method == f'{back}':
+        trigger_back(call.message)
         return
-    # Convert to float
-    deposit_wallet = VirtualAccountsTable.objects.get(currency=payment_currency, user=user_id)
-    address = deposit_wallet.deposit_address
+    make_crypto_payment(user_id, payment_method)
 
-    img_byte_arr = generate_qr_code(address)
 
-    if 'subscription_price' in user_data.get(user_id, {}):
-        plan_price = float(user_data[user_id]['subscription_price'])
-        plan_price = convert_dollars_to_crypto(plan_price, currency_price)
 
-        bot.send_photo(user_id, img_byte_arr,
-                   caption=f'Price for your subscription plan is {plan_price:.6f} in {payment_currency}.\n'
-                           f'Please use the following address or scan the QR code to top up your balance! \n{address}',
-                       reply_markup=get_main_menu())
+def make_crypto_payment(user_id, payment_method):
+    response = get_currency(payment_method)
+    print("currency response ", response)
+
+    if response['status'] != 200:
+        bot.send_message(user_id, "Unsupported currency!")
+        return
+    payment_currency = response['text']
+    print(payment_currency)
+
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    print(f"payment currency : {payment_method}")
+    user_data[user_id]['currency'] = payment_currency
+    user_data[user_id]['step'] = 'get_amount'
+    if user_data[user_id]['transaction_type'] == 'top_up':
+        bot.send_message(user_id, "Enter the amount to top up your wallet: ", reply_markup=get_force_reply())
     else:
-        bot.send_photo(user_id, img_byte_arr,
-                caption=f'Please use the following address or scan the QR code to top up your balance! \n{address}',
-                       reply_markup=get_main_menu())
+        amount = user_data[user_id]['subscription_price']
+        make_payment(user_id, amount)
 
-    if deposit_wallet.subscription_id is None:
-        subscription = create_subscription_v3(deposit_wallet.account_id, f'{os.getenv("webhook_url")}/{WEBHOOK}')
-        subscription_data = subscription.json()
-        deposit_wallet.subscription_id = subscription_data.get('id')
-        deposit_wallet.save()
 
-def handle_deposit_address_method(message):
+def send_qr_code(user_id, address, qr_code_base64=None, ):
+    if qr_code_base64:
+        qr_code_data = qr_code_base64.split(",")[1]  # Remove the data:image/png;base64, prefix
+        qr_code_image = base64.b64decode(qr_code_data)
+
+        with BytesIO(qr_code_image) as qr_image:
+            img = Image.open(qr_image)
+            img.save("qr_code.png", "PNG")
+    with open("qr_code.png", "rb") as img_file:
+        bot.send_photo(user_id, img_file,
+                       caption=f"Scan this QR code or use the address below to complete the payment:\n\n`{address}`",
+                       parse_mode='Markdown')
+
+    return
+@csrf_exempt
+def payment_deposit_webhook(request):
+    if request.method == "POST":
+        try:
+            data = get_webhook_data(request)
+            print("Webhook data:", data)
+
+            user_id = int(data['user_id'])
+            auto_renewal = data['auto_renewal']
+            amount = float(data['amount'])  # Ensure amount is a float
+            currency = data['currency']
+            bot.send_message(user_id, "Deposit successful!")
+            plan_id = TelegramUser.objects.get(user_id=user_id).plan
+            plan_price = float(SubscriptionPlans.objects.get(plan_id=plan_id).plan_price)  # Convert to float if necessary
+            price_in_dollar = convert_crypto_to_usd(amount, currency)
+            print("plan price ", plan_price)
+            print("amount in dollars", price_in_dollar)
+            print("currency", currency)
+
+            if plan_price > price_in_dollar:  # Ensure correct comparison with USD amount
+                bot.send_message(user_id, f"Insufficient amount to activate subscription.\n"
+                                          f"Amount needed is {plan_price} USD and you deposited {price_in_dollar} USD")
+                return JsonResponse({"status": "error", "message": "Insufficient amount"}, status=400)
+
+            response = set_plan(user_id, plan_id, auto_renewal)
+            if response['status'] != 200:
+                bot.send_message(user_id, f"Failed to update user tables due to the following issue:\n"
+                                          f"{response['message']}")
+
+            return JsonResponse({"status": "success"}, status=200)
+
+        except json.JSONDecodeError:
+            return JsonResponse({"status": "error", "message": "Invalid JSON data"}, status=400)
+        except KeyError as e:
+            return JsonResponse({"status": "error", "message": f"Missing key: {e}"}, status=400)
+        except TypeError as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+
+    return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+
+def get_webhook_data(request):
+    print(f"request body : {request.body}")
+    data = json.loads(request.body)
+    print("Received webhook data:", data)
+    transaction_id = data.get('id')
+    payment_status = data.get('status')
+    meta_data = data.get('meta_data', {})
+    user_id = meta_data.get('product_name')
+    paid_amount = data.get('paid_amount')
+    paid_currency = data.get('paid_currency')
+    auto_renewal = meta_data.get('product')
+
+    message = (f"Transaction id: {transaction_id}\n"
+               f"Payment status: {payment_status}\n"
+               f"Product name: {user_id}\n"
+               f"Paid amount: {paid_amount}\n"
+               f"paid currency: {paid_currency}")
+    print(f'transaction id : {transaction_id}')
+    print(f'payment status: {payment_status}')
+    print(f'product_name: {user_id}')
+    print(f'paid_amount: {paid_amount}')
+    print(f'paid_currency: {paid_currency}')
+    print(f"auto renewal : {auto_renewal}")
+    if auto_renewal == 'True':
+        auto_renewal = True
+    else:
+        auto_renewal = False
+
+
+    bot.send_message(user_id, f"Transaction details:\n{message}", reply_markup=get_main_menu())
+    return {"user_id":user_id, "auto_renewal":auto_renewal, "amount":paid_amount, "currency":paid_currency}
+
+
+@csrf_exempt
+def crypto_transaction_webhook(request):
+    if request.method == 'POST':
+        try:
+            data = get_webhook_data(request)
+            user_id = data['user_id']
+            bot.send_message(user_id, "Top up successful!")
+            return JsonResponse({"status": "success"}, status=200)
+        except json.JSONDecodeError:
+            return JsonResponse({"status": "error", "message": "Invalid JSON data"}, status=400)
+
+    return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+
+def make_payment(user_id, amount):
+    webhook_url = os.getenv('webhook_url')
+    currency = user_data[user_id]['currency']
+    top_up = False
+    redirect_uri = f"{webhook_url}/webhook/webhook/crypto_deposit'"
+    if user_data[user_id]['transaction_type'] == 'top_up':
+        top_up = True
+        redirect_uri = f"{webhook_url}/webhook/crypto_transaction"
+    crypto_payment = create_crypto_payment(user_id, amount, currency, top_up, redirect_uri)
+
+    if crypto_payment.status_code != 200:
+        bot.send_message(user_id, f"{PROCESSING_ERROR}\n{crypto_payment.json()}")
+        return
+    response_data = crypto_payment.json().get('data', {})
+    qr_code_base64 = response_data.get('qr_code')
+    address = response_data.get('address')
+    send_qr_code(user_id, address, qr_code_base64)
+
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_amount')
+def get_top_up_amount(message):
     user_id = message.chat.id
-    payment_currency = user_data[user_id]['payment_currency']
-    deposit_wallet = VirtualAccountsTable.objects.get(user = user_id , currency=payment_currency)
-    address = deposit_wallet.main_wallet_deposit_address
-    account= MainWalletTable.objects.get(currency=payment_currency)
-    account_id = account.virtual_account
-    plan_price = float(user_data[user_id]['subscription_price'])
-    img_byte_arr = generate_qr_code(address)
-    plan_price = get_plan_price(payment_currency, plan_price)
-    bot.send_photo(user_id, img_byte_arr, caption=f'You need to deposit {plan_price:.6f} amount. Please use the following '
-                                                  f'address or scan the QR code to deposit balance: \n{address}', reply_markup=get_main_menu())
-    if account.subscription_id is None:
-        subscription = create_subscription_v3(account_id, f'{os.getenv("webhook_url")}/{WEBHOOK_DEPOSIT}')
-        subscription_data = subscription.json()
-        account.subscription_id =subscription_data.get('id')
-        account.save()
-
-@csrf_exempt
-@api_view(['GET', 'POST'])
-def handle_deposit_webhook(request):
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({"error": f"{INVALID_JSON}"}, status=400)
-
-    data = json.loads(request.body)
-    transaction_id = data.get("id")
-    account_id = data.get("accountId")
-    currency = data.get("currency")
-    amount = data.get("amount")
-    blockchain_address = data.get("blockchainAddress")
-    tx_id = data.get("txId")
-    to = data.get("to")
-    fromm = data.get("from")
-    user_account = VirtualAccountsTable.objects.get(main_wallet_deposit_address=to)
-    user = user_account.user
-    user_id = user.user_id
-    balance = get_account_balance(account_id)
-    if balance.status_code != 200:
-        bot.send_message(user_id, f"{PROCESSING_ERROR} \n{balance.json()}")
-    balance_data = balance.json()
-    available_balance = balance_data["availableBalance"]
-    user_account.balance = available_balance
-    user_account.save()
-    user.subscription_status=f'{ACTIVE}'
-    user.save()
-    plan_id = user.plan
-    print(f'plan id : {plan_id}')
-    price = SubscriptionPlans.objects.get(plan_id= plan_id).plan_price
-
-    if currency == f'{BTC}':
-        btc_price = get_btc_price()
-        price = convert_dollars_to_crypto(price, btc_price)
-
-
-    elif currency == f'{ETH}':
-        eth_price = get_eth_price()
-        price = convert_dollars_to_crypto(price, eth_price)
-
-    elif currency == 'ERC_20':
-        erc20_price = get_usdt_price()
-        price = convert_dollars_to_crypto(price, erc20_price)
-
-    elif currency == 'TRC_20':
-        trc20_price = get_usdt_price()
-        price = convert_dollars_to_crypto(price, trc20_price)
-
-    elif currency == f'{LTC}':
-        ltc_price = get_ltc_price()
-        price = convert_dollars_to_crypto(price, ltc_price)
-
-    if float(price) <= float(amount):
-        bot.send_message(user_id, f"{DEPOSIT_ADDRESS}")
-        set_subscription = set_user_subscription(user, plan_id )
-        if set_subscription != f"{STATUS_CODE_200}":
-            bot.send_message(user_id, set_subscription)
-
-    else:
-        bot.send_message(user_id, f"{INSUFFICIENT_DEPOSIT_AMOUNT}")
-    return JsonResponse({"message": f"{WEBHOOK_RECEIVED}"}, status=200)
-
-
-@csrf_exempt
-@api_view(['GET', 'POST'])
-def handle_webhook(request):
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        print(json.dumps({"error": f"{INVALID_JSON}"}, indent=2))
-        return JsonResponse({"error": "Invalid JSON payload"}, status=400)
-
-    data = json.loads(request.body)
-    print(data)
-    transaction_id = data.get("id")
-    account_id = data.get("accountId")
-    currency = data.get("currency")
-    amount = data.get("amount")
-    blockchain_address = data.get("blockchainAddress")
-    tx_id = data.get("txId")
-    to = data.get("to")
-    fromm = data.get("from")
-    user = VirtualAccountsTable.objects.get(account_id=account_id)
-    user_id = user.user_id
-    bot.send_message(user_id, f"Top Up successful! ✅ ", reply_markup=get_main_menu())
-    balance = get_account_balance(account_id)
-    if balance.status_code != 200:
-        bot.send_message(user_id, f"{PROCESSING_ERROR} \n{balance.json()}")
-    balance_data = balance.json()
-    available_balance = balance_data["availableBalance"]
-    user.balance = Decimal(available_balance)
-    user.save()
-    charge_additional_mins(user_id, currency, float(available_balance))
-    return JsonResponse({"message": "Webhook received successfully"}, status=200)
+    amount = message.text
+    make_payment(user_id, amount)
 
 
 @bot.message_handler(commands=['create_flow'])
@@ -1655,14 +1549,16 @@ def handle_pathway_selection(call):
         bot.send_message(user_id, "Are you sure you want to delete this flow?",
                          reply_markup=get_delete_confirmation_keyboard())
     elif step == 'phone_number_input':
-
+        print("phone numbers ")
         user_data[user_id]['call_flow'] = pathway_id
         user_data[user_id]['step'] = 'initiate_call'
         bot.send_message(user_id, "Please enter the phone number to call (include country code).")
     elif step == 'get_batch_numbers':
+        print("get batch numbers")
         user_data[user_id]['call_flow_bulk'] = pathway_id
         bot.send_message(user_id, "Please paste phone numbers (with country codes) or upload a file (TXT or CSV "
                                   "format) with up to 50 phone numbers.")
+
 
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_edges')
@@ -2135,6 +2031,8 @@ def handle_language_selection(call):
     user = TelegramUser.objects.get(user_id = user_id)
     user.language = selected_language
     user.save()
+    token = user.token
+    print("token from db: ", token)
     view_terms_menu(call)
 
 def view_terms_menu(call):
