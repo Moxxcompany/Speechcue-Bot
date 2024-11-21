@@ -1,0 +1,56 @@
+version: '3'
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: bash -c "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - pg_db
+    env_file:
+      - docker.env
+    networks:
+      - my_network
+
+  bot:
+    build: .
+    command: bash -c "python manage.py startbot"
+    volumes:
+      - .:/code
+    ports:
+      - "8001:8001"
+    depends_on:
+      - web
+      - pg_db
+    env_file:
+      - docker.env
+    networks:
+      - my_network
+
+  pg_db:
+    container_name: pg_db
+    hostname: db
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: tele_bot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    networks:
+      - my_network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+networks:
+  my_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
