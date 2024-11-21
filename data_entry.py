@@ -7,25 +7,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'TelegramBot.settings')  # Repla
 import django
 django.setup()
 
-from payment.models import SubscriptionPlans, MainWalletTable
-
-def read_wallet_data(file_path):
-    wallet_data = []
-    with open(file_path, 'r') as file:
-        for line in file:
-            line = line.strip()
-            parts = line.split('|')
-            if len(parts) == 5:
-                parts.insert(3, '')
-            wallet_data.append({
-                "xpub": parts[0],
-                "mnemonic": parts[1],
-                "address": parts[2],
-                "virtual_account": parts[3],
-                "currency": parts[4],
-                "deposit_address": parts[5]
-            })
-    return wallet_data
+from payment.models import SubscriptionPlans
 
 
 def read_subscription_plans(file_path):
@@ -49,16 +31,9 @@ def read_subscription_plans(file_path):
             })
     return subscription_data
 
-
-# File paths
-wallet_file_path = 'data_files/main_wallet_data.txt'
 subscription_file_path = 'data_files/subscription_plans_data.txt'
-
-# Read data from files
-wallet_data = read_wallet_data(wallet_file_path)
 subscription_data = read_subscription_plans(subscription_file_path)
 
-# Insert subscription plan data using Django ORM
 for plan in subscription_data:
     if plan['single_ivr_minutes'] is None:
         SubscriptionPlans.objects.create(
@@ -80,14 +55,3 @@ for plan in subscription_data:
             single_ivr_minutes=float(plan['single_ivr_minutes'])
         )
 
-for wallet in wallet_data:
-    MainWalletTable.objects.create(
-        xpub=wallet['xpub'],
-        mnemonic=wallet['mnemonic'],
-        address=wallet['address'],
-        virtual_account=wallet['virtual_account'],
-        currency=wallet['currency'],
-        deposit_address=wallet['deposit_address'],
-        subscription_id=None,
-        private_key=None
-    )
