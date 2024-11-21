@@ -33,7 +33,7 @@ def create_periodic_task():
         task='bot.tasks.notify_users',
     )
     schedule_call_status_free_plan, created = IntervalSchedule.objects.get_or_create(
-        every=1,
+        every=720,
         period=IntervalSchedule.MINUTES,
     )
 
