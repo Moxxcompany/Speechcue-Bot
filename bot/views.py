@@ -11,7 +11,6 @@ from bot.models import Pathways, CallLogsTable, FeedbackDetails, FeedbackLogs, B
 from bot.utils import add_node, get_pathway_data, get_batch_id
 from payment.models import UserSubscription, SubscriptionPlans, ManageFreePlanSingleIVRCall
 from user.models import TelegramUser
-import curlify
 
 logging.basicConfig(level= logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
