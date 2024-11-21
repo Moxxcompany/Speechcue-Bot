@@ -2,37 +2,25 @@ import base64
 from io import BytesIO
 from PIL import Image
 import json
-from decimal import Decimal
-from http.client import responses
-from locale import currency
 from uuid import UUID
-import time
 import re
 import io
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import api_view
 
 import bot.telegrambot
-from TelegramBot.constants import PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH, \
-    trc20, erc20, TRON, litecoin, LTC, back, TOP_UP, \
-    INSUFFICIENT_BALANCE, BACK, WALLET, DEPOSIT_ADDRESS, PAYMENT_METHOD_PROMPT, ETHEREUM, ERC, TRC, LITECOIN, \
-    AVAILABLE_COMMANDS_PROMPT, SUBSCRIPTION_PLAN, NAME, BULK_IVR_LEFT, WALLET_INFORMATION, \
+from TelegramBot.constants import PROCESSING_ERROR, back, \
+    AVAILABLE_COMMANDS_PROMPT, SUBSCRIPTION_PLAN, NAME, BULK_IVR_LEFT,\
     USERNAME, PROFILE_INFORMATION_PROMPT, NO_SUBSCRIPTION_PLAN, JOIN_CHANNEL_PROMPT, INACTIVE, \
     BULK_IVR_SUBSCRIPTION_PROMPT, ACTIVE_SUBSCRIPTION_PLAN_PROMPT, SUBSCRIPTION_PLAN_NOT_FOUND, CHECKING_WALLETS, \
     PLAN_NAME, PRICE, FEATURES, CUSTOMER_SUPPORT_LEVEL, DAY_PLAN, UNLIMITED_SINGLE_IVR, BULK_IVR_CALLS, \
     SELECTION_PROMPT, WELCOME_PROMPT, PATHWAY_NOT_FOUND, NOT_FOUND, STATUS_CODE_200, ACTIVE, \
-    INSUFFICIENT_DEPOSIT_AMOUNT, WEBHOOK_RECEIVED, invalid_data, INVALID_JSON, WEBHOOK_DEPOSIT, WEBHOOK, TOP_UP_PROMPT, \
-    SUBSCRIPTION_PAYMENT_METHOD_PROMPT, USER_INFORMATION_NOT_FOUND, SUBSCRIPTION_ACTIVATED, MAIN_MENU_PROMPT, \
-    PAYMENT_SUCCESSFUL, RECEIVERS_WALLET_NOT_FOUND, CURRENT_BALANCE, VIRTUAL_ACCOUNT_NOT_FOUND, CALL_TRANSFER_MINS, \
-    INVOICE_REVIEW_PROMPT, PLAN_DOESNT_EXIST, DAYS, VALIDITY_PROMPT, PLAN_VALIDITY, VALIDITY, \
-    SUBSCRIPTION_PLAN_SELECTION_PROMPT, NAME_INPUT_PROMPT, SETUP_PROMPT, EXISTING_USER_WELCOME, \
-    LANGUAGE_SELECTION_PROMPT, USERNAME_PROMPT, NEW_USER_WELCOME, ACKNOWLEDGE_AND_PROCEED, NODE_TYPE_SELECTION_PROMPT, \
+    TOP_UP_PROMPT, SUBSCRIPTION_PAYMENT_METHOD_PROMPT, PLAN_DOESNT_EXIST, \
+    DAYS, NAME_INPUT_PROMPT, SETUP_PROMPT, EXISTING_USER_WELCOME, \
+    LANGUAGE_SELECTION_PROMPT,NODE_TYPE_SELECTION_PROMPT, \
     TRANSCRIPT_NOT_FOUND, VIEW_TRANSCRIPT_PROMPT, CALL_LOGS_NOT_FOUND, VIEW_VARIABLES_PROMPT, EDGES_DELETED, \
-    BALANCE_IN_USD, USD, CALL_TRANSFER_EXCLUDED, CALL_TRANSFER_INCLUDED, FULL_NODE_ACCESS, PARTIAL_NODE_ACCESS, \
-    CALL_TRANSFER_NODE, SETUP_TOOLTIP, NICE_TO_MEET_YOU, PROFILE_SETTING_PROMPT, SETUP_COMPLETION_FIRST_HALF, \
-    SETUP_COMPLETION_SECOND_HALF, ACCOUNT_SETUP_TOOLTIP, FREE_TRIAL_TOOLTIP, PROFILE_LANGUAGE_SELECTION_PROMPT, \
-    PROCESSING_PAYMENT, DAY, MAX_INFINITY_CONSTANT
+    BALANCE_IN_USD, SETUP_TOOLTIP, NICE_TO_MEET_YOU, PROFILE_SETTING_PROMPT, \
+    PROFILE_LANGUAGE_SELECTION_PROMPT, DAY, MAX_INFINITY_CONSTANT
 
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable, CallDuration
 
@@ -45,7 +33,7 @@ from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow,
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
     get_voices, empty_nodes, bulk_ivr_flow, get_transcript, question_type, get_variables
 
-from payment.models import SubscriptionPlans, MainWalletTable, VirtualAccountsTable, UserSubscription
+from payment.models import SubscriptionPlans
 from payment.views import  setup_user, check_user_balance, create_crypto_payment, credit_wallet_balance
 
 from user.models import TelegramUser
@@ -78,26 +66,7 @@ CHANNEL_LINK = os.getenv('CHANNEL_LINK')
 def handle_join_channel(message):
 
     user_id = message.chat.id
-
-    # # Create an inline keyboard markup
-    # keyboard = InlineKeyboardMarkup()
-    #
-    # # Add a "Join Channel" button with an embedded URL
-    # join_channel_button = InlineKeyboardButton("Join Channel", url="https://www.google.com/")
-    #
-    # # Add a "Back" button with a callback to handle going back
-    # back_button = InlineKeyboardButton("Back ↩️", callback_data=send_welcome(message))
-    #
-    # # Add buttons to the keyboard
-    # keyboard.add(join_channel_button)
-    # keyboard.add(back_button)
-
-    # Send a message with the inline keyboard
     bot.send_message(user_id, f"{JOIN_CHANNEL_PROMPT}\n {CHANNEL_LINK}", reply_markup=get_main_menu())
-
-
-
-
 
 @bot.message_handler(func=lambda message: message.text == 'Profile 👤')
 def get_user_profile(message):
@@ -956,120 +925,6 @@ def handle_payment_method(call):
 
     user_data[user_id]['payment_currency'] = payment_currency
     print(payment_currency,  "currency ")
-
-
-# @bot.callback_query_handler(func=lambda call: call.data == 'wallet_payment')
-# def handle_wallet_method(call):
-#     user_id = call.message.chat.id
-#     try:
-#         user = VirtualAccountsTable.objects.get(user_id=user_id, currency=user_data[user_id]['payment_currency'])
-#
-#     except VirtualAccountsTable.DoesNotExist:
-#         bot.send_message(user_id, f"{VIRTUAL_ACCOUNT_NOT_FOUND}")
-#         return
-#     except Exception as e:
-#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
-#         return
-#
-#     try:
-#         account_id = user.account_id
-#         balance = get_account_balance(account_id)
-#
-#         if balance.status_code != 200:
-#             bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
-#             return
-#
-#         balance_data = balance.json()
-#         available_balance = float(balance_data["availableBalance"])
-#         symbol = get_currency_symbol(user_data[user_id]['payment_currency'])
-#         bot.send_message(user_id, f"{PROCESSING_PAYMENT}")
-#     except Exception as e:
-#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
-#         return
-#
-#     try:
-#         plan_price = float(user_data[user_id]['subscription_price'])
-#         plan_price = get_plan_price(user_data[user_id]['payment_currency'], plan_price)
-#         print(plan_price)
-#
-#         if float(available_balance) < float(plan_price):
-#             markup = types.InlineKeyboardMarkup()
-#             top_up_wallet_button = types.InlineKeyboardButton(f"{TOP_UP}", callback_data="top_up_wallet")
-#             back_button = types.InlineKeyboardButton(f"{BACK}", callback_data='back_to_handle_payment')
-#             markup.add(top_up_wallet_button)
-#             markup.add(back_button)
-#             bot.send_message(user_id, f'{INSUFFICIENT_BALANCE}', reply_markup=markup)
-#             return
-#
-#     except Exception as e:
-#         error = f"{PROCESSING_ERROR} {str(e)}"
-#         bot.send_message(user_id, escape_markdown(error))
-#         return
-#
-#     try:
-#         receiver = MainWalletTable.objects.get(currency=user_data[user_id]['payment_currency'])
-#         receiver_account = receiver.virtual_account
-#
-#         payment_response = send_payment(account_id, receiver_account, float(plan_price))
-#
-#         if payment_response.status_code != 200:
-#             bot.send_message(user_id, f"{PROCESSING_ERROR} \n{payment_response.json()}")
-#             return
-#
-#     except MainWalletTable.DoesNotExist:
-#         bot.send_message(user_id, f"{RECEIVERS_WALLET_NOT_FOUND}")
-#         return
-#     except Exception as e:
-#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
-#         return
-#
-#     try:
-#         balance = get_account_balance(account_id)
-#         if balance.status_code != 200:
-#             bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
-#             return
-#
-#         balance_data = balance.json()
-#         available_balance = balance_data["availableBalance"]
-#         user.balance = available_balance
-#         user.save()
-#
-#         balance = get_account_balance(receiver_account)
-#         if balance.status_code != 200:
-#             bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
-#             return
-#
-#         balance_data = balance.json()
-#         available_balance = balance_data["availableBalance"]
-#         receiver.balance = available_balance
-#         receiver.save()
-#
-#     except Exception as e:
-#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
-#         return
-#
-#     try:
-#         plan_id = user_data[user_id]['subscription_id']
-#         current_user = TelegramUser.objects.get(user_id=user_id)
-#         current_user.subscription_status = f'{ACTIVE}'
-#         current_user.plan = plan_id
-#         current_user.save()
-#
-#         set_subscription = set_user_subscription(current_user, plan_id)
-#         if set_subscription != f"{STATUS_CODE_200}":
-#             bot.send_message(user_id, set_subscription)
-#             return
-#         user_subscription = UserSubscription.objects.get(user_id= current_user)
-#         user_subscription.auto_renewal = user_data[user_id]['auto_renewal']
-#         user_subscription.save()
-#
-#         bot.send_message(user_id, f"{PAYMENT_SUCCESSFUL} {SUBSCRIPTION_ACTIVATED} {MAIN_MENU_PROMPT}", reply_markup=get_main_menu())
-#
-#     except TelegramUser.DoesNotExist:
-#         bot.send_message(user_id, f"{USER_INFORMATION_NOT_FOUND}")
-#     except Exception as e:
-#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
-
 
 @bot.callback_query_handler(func=lambda call: call.data == 'back_to_handle_payment')
 def handle_back_to_handle_payment(call):
