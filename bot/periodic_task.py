@@ -23,8 +23,8 @@ def create_periodic_task():
         task='bot.tasks.charge_user_for_additional_minutes',
     )
     schedule_notify_user, created = IntervalSchedule.objects.get_or_create(
-        every=12,
-        period=IntervalSchedule.HOURS,
+        every=1,
+        period=IntervalSchedule.MINUTES,
     )
 
     PeriodicTask.objects.update_or_create(
@@ -33,8 +33,8 @@ def create_periodic_task():
         task='bot.tasks.notify_users',
     )
     schedule_call_status_free_plan, created = IntervalSchedule.objects.get_or_create(
-        every=12,
-        period=IntervalSchedule.HOURS,
+        every=1,
+        period=IntervalSchedule.MINUTES,
     )
 
     PeriodicTask.objects.update_or_create(

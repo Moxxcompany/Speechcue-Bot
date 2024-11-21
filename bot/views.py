@@ -11,9 +11,19 @@ from bot.models import Pathways, CallLogsTable, FeedbackDetails, FeedbackLogs, B
 from bot.utils import add_node, get_pathway_data, get_batch_id
 from payment.models import UserSubscription, SubscriptionPlans, ManageFreePlanSingleIVRCall
 from user.models import TelegramUser
-import curlify
 
 logging.basicConfig(level= logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+
+def stop_single_active_call(call_id):
+
+    url = f"https://api.bland.ai/v1/calls/{call_id}/stop"
+    headers = {'authorization': f'{settings.BLAND_API_KEY}'}
+    response = requests.request("POST", url, headers=headers)
+    print(response.text)
+
+    return response
 
 
 def empty_nodes(pathway_name, pathway_description, pathway_id):
@@ -562,7 +572,7 @@ def bulk_ivr_flow(call_data, pathway_id, user_id):
         'Authorization': f'{settings.BLAND_API_KEY}',
         'Content-Type': 'application/json'
     }
-
+    print(f"bulk ivr request payload: {payload}")
     response = requests.request("POST", url, headers=headers, data=payload)
 
     print(response.text)

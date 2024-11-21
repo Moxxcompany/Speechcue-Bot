@@ -9,10 +9,10 @@ from dotenv.main import load_dotenv
 from TelegramBot.crypto_cache import *
 from payment.models import VirtualAccountsTable, OveragePricingTable, UserTransactionLogs, MainWalletTable, \
     TransactionType, ManageFreePlanSingleIVRCall
-
+from bot.views import stop_single_active_call
+from payment.views import check_user_balance, credit_wallet_balance, get_user_single_transaction
 from user.models import TelegramUser
-from .models import CallLogsTable, CallDuration, BatchCallLogs
-from payment.views import stop_single_active_call, get_account_balance, send_payment, x_api_key
+from .models import  CallDuration, BatchCallLogs
 from .utils import get_user_subscription_by_call_id, convert_crypto_to_usd, convert_dollars_to_crypto
 from .bot_config import *
 from .views import stop_active_batch_calls
@@ -49,6 +49,7 @@ def check_call_status():
 
     for call in tracked_calls:
         headers = {"authorization": f"{bland_api_key}"}
+
         try:
             response = fetch_with_retry(f"https://api.bland.ai/v1/calls/{call.call_id}", headers)
             print(f"Processing call ID: {call.call_id}")
@@ -133,7 +134,6 @@ def check_call_status():
 @shared_task
 def call_status_free_plan():
     bland_api_key = os.getenv('BLAND_API_KEY')
-    print("Starting check_call_status task with API key: ", bland_api_key)
 
     tracked_calls = ManageFreePlanSingleIVRCall.objects.filter(call_status__in=['new', 'queued', 'started'])
     for call in tracked_calls:
@@ -200,8 +200,8 @@ def call_status_free_plan():
             duration_in_seconds = (end_at - started_at).total_seconds()
             duration_in_minutes = duration_in_seconds / 60
 
-            if duration_in_minutes > single_ivr_left:
-                difference = duration_in_minutes - single_ivr_left
+            if float(duration_in_minutes) > float(single_ivr_left):
+                difference = float(duration_in_minutes) - float(single_ivr_left)
                 call_duration_record, created = CallDuration.objects.update_or_create(
                     call_id=call.call_id, pathway_id=call.pathway_id,
                     defaults={
@@ -213,7 +213,7 @@ def call_status_free_plan():
                 user_subscription.single_ivr_left = 0
                 user_subscription.save()
             else:
-                remaining_minutes = single_ivr_left - duration_in_minutes
+                remaining_minutes = float(single_ivr_left) - float(duration_in_minutes)
                 call_duration_record, created = CallDuration.objects.update_or_create(
                     call_id=call.call_id, pathway_id=call.pathway_id,
                     defaults={
@@ -242,53 +242,37 @@ def charge_user_for_additional_minutes():
         overage_pricing = OveragePricingTable.objects.get(pricing_unit='MIN')
         price_per_min = float(overage_pricing.overage_pricing)
         total_charges = price_per_min * call_duration.additional_minutes
+        print(f"total charges for call id {call_duration.call_id} : {total_charges}")
+        wallet_balance = check_user_balance(call_duration.user_id)
+        print(f"wallet balance for user {call_duration.user_id} : {wallet_balance}")
+        wallet = wallet_balance.json()
+        available_balance = wallet['data']['amount']
+        if float(total_charges) < float(available_balance):
+            response = credit_wallet_balance(call_duration.user_id, total_charges)
+            if response.status_code != 200:
+                bot.send_message(call_duration.user_id, f"We were unable to process"
+                                                        f" your payment due to the following reason:\n"
+                                                        f"{response.text}")
+                return
+            print("response 200 crediting user wallet ")
 
-        accounts = VirtualAccountsTable.objects.filter(user_id=user)
+            print(f"response data : {response.text}")
+            data = response.json()
+            transaction_id = data['data']['transaction_id']
+            print(f"Transaction id in charge_user_for_additional_minutes function : {transaction_id}")
+            response = get_user_single_transaction(call_duration.user_id,transaction_id)
+            if response.status_code == 200:
+                transaction_data = response.json()
 
-        for account in accounts:
-            balance_response = get_account_balance(account.account_id)
-            if balance_response.status_code != 200:
-                continue
-
-            available_balance = float(balance_response.json()["availableBalance"])
-            acc_currency = account.currency.lower()
-
-            price_in_usd = None
-            if acc_currency == 'btc':
-                price_in_usd = get_cached_crypto_price('btc', lambda: fetch_crypto_price_with_retry('BTC'))
-            elif acc_currency == 'eth':
-                price_in_usd = get_cached_crypto_price('eth', lambda: fetch_crypto_price_with_retry('ETH'))
-            elif acc_currency == 'trx':
-                price_in_usd = get_cached_crypto_price('trx', lambda: fetch_crypto_price_with_retry('TRON'))
-            elif acc_currency == 'ltc':
-                price_in_usd = get_cached_crypto_price('ltc', lambda: fetch_crypto_price_with_retry('LTC'))
-
-            if price_in_usd is None:
-                continue
-
-
-            balance_in_usd = convert_crypto_to_usd(available_balance, acc_currency)
-
-            if balance_in_usd >= total_charges:
-
-                crypto_charges = convert_dollars_to_crypto(total_charges, price_in_usd)
-                receiver_account = MainWalletTable.objects.get(currency=account.currency).virtual_account
-                payment_response = send_payment(account.account_id, receiver_account, crypto_charges)
-
-                if payment_response.status_code == 200:
-                    print(f"Payment successful for call {call_duration.call_id} from account {account.account_id}")
-                    payment_reference = payment_response.json().get('reference', 'N/A')
-                    UserTransactionLogs.objects.create(
+                payment_reference = transaction_data['data']['transaction_reference']
+                UserTransactionLogs.objects.create(
                         user_id=user,
                         reference=payment_reference,
                         transaction_type=TransactionType.Overage,
                     )
-                    call_duration.charged = True
-                    call_duration.save()
-                    break
-
-                else:
-                    print(f"Failed to send payment for call {call_duration.call_id} due to {payment_response.text}")
+                call_duration.charged = True
+                call_duration.save()
+                break
 
 @shared_task()
 def notify_users():
@@ -311,8 +295,9 @@ def notify_users():
     for user in users_with_unpaid_minutes:
         user_id = user['user_id']
         unpaid_minutes = user['total_unpaid_minutes']
-        bot.send_message(user_id, f"You have insufficient balance to pay {unpaid_minutes:.4f} additional minutes. "
-                                  f"Please top up your wallet.")
+        if unpaid_minutes > 0:
+            bot.send_message(user_id, f"You have insufficient balance to pay {unpaid_minutes:.4f} additional minutes. "
+                                      f"Please top up your wallet.")
 
 
 

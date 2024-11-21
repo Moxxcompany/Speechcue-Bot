@@ -4,8 +4,7 @@ python-dotenv==1.0.1
 psycopg2-binary==2.9.9
 pandas==2.2.2
 qrcode==7.4.2
-Pillow
 redis==5.1.1
 celery==5.4.0
 django-celery-beat==2.7.0
-
+django-cryptography==1.1
