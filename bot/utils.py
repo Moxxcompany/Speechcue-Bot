@@ -3,8 +3,9 @@ import json
 from django.core.exceptions import ObjectDoesNotExist
 from TelegramBot.crypto_cache import *
 from bot.models import CallLogsTable, CallDuration, BatchCallLogs
-from TelegramBot.constants import BTC, ETH, LTC, TRON, MAX_INFINITY_CONSTANT, error, bitcoin, ethereum, erc20, trc20, \
+from TelegramBot.constants import BTC, ETH, LTC, TRON, MAX_INFINITY_CONSTANT, bitcoin, ethereum, erc20, trc20, \
     litecoin, STATUS_CODE_200, ACTIVE
+from TelegramBot.prompts import error
 from payment.models import SubscriptionPlans, UserSubscription, \
     OveragePricingTable, UserTransactionLogs, TransactionType
 from user.models import TelegramUser

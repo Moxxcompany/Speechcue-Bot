@@ -28,4 +28,6 @@ urlpatterns = [
     # path('webhook_deposit', handle_deposit_webhook, name='handle_deposit_webhook'),
     path('webhook/crypto_transaction', crypto_transaction_webhook, name='crypto_transaction_webhook'),
     path('webhook/crypto_deposit', payment_deposit_webhook, name='crypto_deposit_webhook'),
+    path('terms-and-conditions/', bot_views.terms_and_conditions, name='terms_and_conditions'),
+
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

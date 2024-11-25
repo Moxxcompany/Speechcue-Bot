@@ -2,102 +2,77 @@ import base64
 from io import BytesIO
 from PIL import Image
 import json
-from decimal import Decimal
-from http.client import responses
-from locale import currency
 from uuid import UUID
-import time
 import re
 import io
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import api_view
 
 import bot.telegrambot
-from TelegramBot.constants import PROCESSING_ERROR, bitcoin, ethereum, BTC, ETH, \
-    trc20, erc20, TRON, litecoin, LTC, back, TOP_UP, \
-    INSUFFICIENT_BALANCE, BACK, WALLET, DEPOSIT_ADDRESS, PAYMENT_METHOD_PROMPT, ETHEREUM, ERC, TRC, LITECOIN, \
-    AVAILABLE_COMMANDS_PROMPT, SUBSCRIPTION_PLAN, NAME, BULK_IVR_LEFT, WALLET_INFORMATION, \
+
+from TelegramBot.constants import STATUS_CODE_200, MAX_INFINITY_CONSTANT
+
+from TelegramBot.prompts import SUCCESSFUL_FREE_TRIAL_ACTIVATION, AVAILABLE_COMMANDS_PROMPT, SUBSCRIPTION_PLAN, NAME, \
+    BULK_IVR_LEFT, \
     USERNAME, PROFILE_INFORMATION_PROMPT, NO_SUBSCRIPTION_PLAN, JOIN_CHANNEL_PROMPT, INACTIVE, \
     BULK_IVR_SUBSCRIPTION_PROMPT, ACTIVE_SUBSCRIPTION_PLAN_PROMPT, SUBSCRIPTION_PLAN_NOT_FOUND, CHECKING_WALLETS, \
     PLAN_NAME, PRICE, FEATURES, CUSTOMER_SUPPORT_LEVEL, DAY_PLAN, UNLIMITED_SINGLE_IVR, BULK_IVR_CALLS, \
-    SELECTION_PROMPT, WELCOME_PROMPT, PATHWAY_NOT_FOUND, NOT_FOUND, STATUS_CODE_200, ACTIVE, \
-    INSUFFICIENT_DEPOSIT_AMOUNT, WEBHOOK_RECEIVED, invalid_data, INVALID_JSON, WEBHOOK_DEPOSIT, WEBHOOK, TOP_UP_PROMPT, \
-    SUBSCRIPTION_PAYMENT_METHOD_PROMPT, USER_INFORMATION_NOT_FOUND, SUBSCRIPTION_ACTIVATED, MAIN_MENU_PROMPT, \
-    PAYMENT_SUCCESSFUL, RECEIVERS_WALLET_NOT_FOUND, CURRENT_BALANCE, VIRTUAL_ACCOUNT_NOT_FOUND, CALL_TRANSFER_MINS, \
-    INVOICE_REVIEW_PROMPT, PLAN_DOESNT_EXIST, DAYS, VALIDITY_PROMPT, PLAN_VALIDITY, VALIDITY, \
-    SUBSCRIPTION_PLAN_SELECTION_PROMPT, NAME_INPUT_PROMPT, SETUP_PROMPT, EXISTING_USER_WELCOME, \
-    LANGUAGE_SELECTION_PROMPT, USERNAME_PROMPT, NEW_USER_WELCOME, ACKNOWLEDGE_AND_PROCEED, NODE_TYPE_SELECTION_PROMPT, \
+    SELECTION_PROMPT, WELCOME_PROMPT, PATHWAY_NOT_FOUND, NOT_FOUND, TOP_UP_PROMPT, \
+    SUBSCRIPTION_PAYMENT_METHOD_PROMPT, PLAN_DOESNT_EXIST, DAYS, NAME_INPUT_PROMPT, SETUP_PROMPT, \
+    EXISTING_USER_WELCOME, LANGUAGE_SELECTION_PROMPT, NODE_TYPE_SELECTION_PROMPT, back, YES, NO, \
     TRANSCRIPT_NOT_FOUND, VIEW_TRANSCRIPT_PROMPT, CALL_LOGS_NOT_FOUND, VIEW_VARIABLES_PROMPT, EDGES_DELETED, \
-    BALANCE_IN_USD, USD, CALL_TRANSFER_EXCLUDED, CALL_TRANSFER_INCLUDED, FULL_NODE_ACCESS, PARTIAL_NODE_ACCESS, \
-    CALL_TRANSFER_NODE, SETUP_TOOLTIP, NICE_TO_MEET_YOU, PROFILE_SETTING_PROMPT, SETUP_COMPLETION_FIRST_HALF, \
-    SETUP_COMPLETION_SECOND_HALF, ACCOUNT_SETUP_TOOLTIP, FREE_TRIAL_TOOLTIP, PROFILE_LANGUAGE_SELECTION_PROMPT, \
-    PROCESSING_PAYMENT, DAY, MAX_INFINITY_CONSTANT
+    BALANCE_IN_USD, SETUP_TOOLTIP, NICE_TO_MEET_YOU, PROFILE_SETTING_PROMPT, \
+    PROFILE_LANGUAGE_SELECTION_PROMPT, DAY, SINGLE_CALLS_LEFT, UNPAID_MINUTES_PROMPT, \
+    FULL_NODE_ACCESS, CALL_TRANSFER_EXCLUDED, CALL_TRANSFER_INCLUDED, WALLET_DETAILS_ERROR, WALLET_BALANCE, \
+    ACTIVATE_SUBSCRIPTION, OUTGOING_CONNECTIONS_MISSING, INCOMING_CONNECTIONS_MISSING, ADD_ONE_EDGE, NO_VARIABLES_FOUND, \
+    EMAIL_PROMPT, INVALID_EMAIL_FORMAT, MOBILE_NUMBER_PROMPT, INVALID_NUMBER_PROMPT, REQUEST_FAILED, ACTION_CANCELLED, \
+    MAIN_MENU_REDIRECTION, SUBSCRIPTION_PLAN_OPTIONS, DURATION_SELECTION_PROMPT, NO_BULK_MINS_LEFT, PARTIAL_NODE_ACCESS, \
+    CALL_TRANSFER_NODE, VALIDITY, PLAN_SELECTED, AUTO_RENEWAL_PROMPT, PROCESSING_ERROR, AUTO_RENEWAL_ENABLED, \
+    PROCEED_PAYMENT, AUTO_RENEWAL_DISABLED, WALLET_BALANCE_PAYMENT, CRYPTO_PAYMENT, PAYMENT_SUCCESSFUL, \
+    UNSUPPORTED_CURRENCY, TOP_UP_AMOUNT_PROMPT, SCAN_ADDRESS_PROMPT, DEPOSIT_SUCCESSFUL, INSUFFICIENT_DEPOSIT_AMOUNT, \
+    AMOUNT_NEEDED, AMOUNT_DEPOSITED, TABLE_UPDATE_FAILED, INVALID_JSON, MISSING_KEY, METHOD_NOT_ALLOWED, TRANSACTION_ID, \
+    PAYMENT_STATUS, USER_ID, PAID_AMOUNT, PAID_CURRENCY, TRANSACTION_DETAILS, TOP_UP_SUCCESSFUL, SETUP_COMPLETE, \
+    SETUP_WELCOME
 
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable, CallDuration
 
-from bot.utils import generate_random_id, get_plan_price, check_validity, \
+from bot.utils import generate_random_id, check_validity, \
     check_subscription_status, username_formating, convert_crypto_to_usd, validate_transfer_number, validate_edges, \
-    get_currency_symbol, get_batch_id, get_currency, set_user_subscription, set_plan, \
-    set_details_for_user_table
+    get_currency, set_user_subscription, set_plan, set_details_for_user_table
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
-    get_voices, empty_nodes, bulk_ivr_flow, get_transcript, question_type, get_variables
+    empty_nodes, bulk_ivr_flow, get_transcript, question_type, get_variables
 
-from payment.models import SubscriptionPlans, MainWalletTable, VirtualAccountsTable, UserSubscription
+from payment.models import SubscriptionPlans
 from payment.views import  setup_user, check_user_balance, create_crypto_payment, credit_wallet_balance
 
 from user.models import TelegramUser
 from bot.keyboard_menus import *
 from bot.bot_config import *
 from bot.callback_query_handlers import *
-
 VALID_NODE_TYPES = ["End Call 🛑", "Call Transfer 🔄", "Get DTMF Input 📞", "Play Message ▶️", "Menu 📋",
                     "Feedback Node", "Question"]
-
-
 available_commands = {
     '/create_flow': 'Create a new pathway',
     '/view_flows': 'Get all pathways',
     '/add_node': 'Add a node to the pathway'
 }
+webhook_url = os.getenv('webhook_url')
 
 user_data = {}
-
 call_data = []
-
-
 TERMS_AND_CONDITIONS_URL = os.getenv('TERMS_AND_CONDITIONS_URL')
 CHANNEL_LINK = os.getenv('CHANNEL_LINK')
 
 # :: TRIGGERS ------------------------------------#
-
 
 @bot.message_handler(func=lambda message: message.text == 'Join Channel 🔗')
 def handle_join_channel(message):
 
     user_id = message.chat.id
 
-    # # Create an inline keyboard markup
-    # keyboard = InlineKeyboardMarkup()
-    #
-    # # Add a "Join Channel" button with an embedded URL
-    # join_channel_button = InlineKeyboardButton("Join Channel", url="https://www.google.com/")
-    #
-    # # Add a "Back" button with a callback to handle going back
-    # back_button = InlineKeyboardButton("Back ↩️", callback_data=send_welcome(message))
-    #
-    # # Add buttons to the keyboard
-    # keyboard.add(join_channel_button)
-    # keyboard.add(back_button)
-
-    # Send a message with the inline keyboard
     bot.send_message(user_id, f"{JOIN_CHANNEL_PROMPT}\n {CHANNEL_LINK}", reply_markup=get_main_menu())
-
-
-
-
 
 @bot.message_handler(func=lambda message: message.text == 'Profile 👤')
 def get_user_profile(message):
@@ -114,11 +89,10 @@ def get_user_profile(message):
                     f"{NAME} :{user_plan.plan_id.name}\n"
                     f"{BULK_IVR_LEFT} : {user_plan.bulk_ivr_calls_left}\n")
         if user_plan.single_ivr_left != MAX_INFINITY_CONSTANT:
-            plan_msg += f"Single IVR Calls left : {user_plan.single_ivr_left}\n"
+            plan_msg += f"{SINGLE_CALLS_LEFT}{user_plan.single_ivr_left}\n"
         bot.send_message(user_id, plan_msg)
         wallet = check_user_balance(user_id)
         balance = wallet.json()['data']['amount']
-
         bot.send_message(user_id, f"{BALANCE_IN_USD}{balance}", reply_markup=get_main_menu())
 
 @bot.message_handler(func=lambda message: message.text == 'Help ℹ️')
@@ -126,21 +100,17 @@ def handle_help(message):
     user_id = message.chat.id
     bot.send_message(user_id, f"{AVAILABLE_COMMANDS_PROMPT}", reply_markup=get_available_commands())
 
-
 @bot.message_handler(func=lambda message: message.text == 'Bulk IVR Call 📞📞')
 @check_validity
 def trigger_bulk_ivr_call(message):
-
     user_id = message.chat.id
     user = TelegramUser.objects.get(user_id=user_id)
-
     if user.subscription_status == 'active':
         additional_minutes_records = CallDuration.objects.filter(user_id=user_id, additional_minutes__gt=0)
         if additional_minutes_records.exists():
             unpaid_minutes_records = additional_minutes_records.filter(charged=False)
             if unpaid_minutes_records.exists():
-                bot.send_message(user_id, "You have unpaid additional minutes. "
-                                          "Please settle the charges before proceeding.", reply_markup=get_main_menu())
+                bot.send_message(user_id, f"{UNPAID_MINUTES_PROMPT}", reply_markup=get_main_menu())
                 return
         user_data[user_id] = {'step': 'get_batch_numbers'}
         view_flows(message)
@@ -179,11 +149,11 @@ def handle_view_subscription(call):
         )
         if subscription_plan.call_transfer:
             plan_details+=(
-                f"Full Node Access : Call Transfer included"
+                f"{FULL_NODE_ACCESS} : {CALL_TRANSFER_INCLUDED}"
             )
         else:
             plan_details+=(
-                f"Partial Node Access : Call Transfer not included"
+                f"{FULL_NODE_ACCESS} : {CALL_TRANSFER_EXCLUDED}"
             )
 
         bot.send_message(user_id, f"{ACTIVE_SUBSCRIPTION_PLAN_PROMPT}\n\n{plan_details}",
@@ -197,12 +167,9 @@ def handle_view_subscription(call):
         bot.send_message(user_id, f"{NO_SUBSCRIPTION_PLAN}",
                          reply_markup=get_billing_and_subscription_keyboard())
 
-
 @bot.callback_query_handler(func=lambda call: call.data == 'update_subscription')
 def update_subscription(call):
-    user_id = call.message.chat.id
     handle_activate_subscription(call)
-
 
 def escape_markdown(text):
     escape_chars = r'_*[]()~`>#+-=|{}.!'
@@ -210,29 +177,23 @@ def escape_markdown(text):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'check_wallet')
 def check_wallet(call):
-
     user_id = call.message.chat.id
     bot.send_message(user_id, escape_markdown(f"{CHECKING_WALLETS}"), parse_mode='MarkdownV2')
-
     try:
         wallet = check_user_balance(user_id)
         if wallet.status_code != 200:
-            bot.send_message(user_id, f"Error fetching wallet details! {wallet.text}")
+            bot.send_message(user_id, f"{WALLET_DETAILS_ERROR} {wallet.text}")
         balance = wallet.json()['data']['amount']
         currency = wallet.json()['data']['currency']
-        print(f'wallet details: {wallet.text}')
-        print(f'balance: {balance}')
-        print(f'currency: {currency}')
         markup = InlineKeyboardMarkup()
         top_up_wallet_button = types.InlineKeyboardButton("Top Up Wallet 💳", callback_data="top_up_wallet")
         back_button = types.InlineKeyboardButton("Back", callback_data='back_to_billing')
         markup.add(top_up_wallet_button)
         markup.add(back_button)
-        bot.send_message(user_id, f"You have the following balance in your wallet:\n{balance} {currency}",
+        bot.send_message(user_id, f"{WALLET_BALANCE}\n{balance} {currency}",
                          reply_markup=markup)
     except Exception as e:
         bot.send_message(user_id, escape_markdown(f"{PROCESSING_ERROR}\n\nUnexpected error: {str(e)}"), parse_mode='MarkdownV2')
-
     return
 @bot.callback_query_handler(func=lambda call : call.data == 'back_to_billing')
 def back_to_billing(call):
@@ -268,8 +229,8 @@ def trigger_single_ivr_call(message):
         view_flows(message)
 
     else:
-        bot.send_message(user_id, "A single IVR call requires an active subscription. Please activate your "
-                                  "subscription to proceed.", reply_markup=get_subscription_activation_markup())
+        bot.send_message(user_id, f"{ACTIVATE_SUBSCRIPTION}",
+                         reply_markup=get_subscription_activation_markup())
 
 @bot.callback_query_handler(func=lambda call: call.data == 'trigger_single_flow')
 def trigger_flow_single(call):
@@ -333,37 +294,28 @@ def trigger_delete_node(message):
 def delete_node(call):
     user_id = call.message.chat.id
     node_name = call.data.replace("delete_node_", "")
-
     pathway_id = user_data[user_id]['view_pathway']
     try:
         pathway = Pathways.objects.get(pathway_id=pathway_id)
     except Pathways.DoesNotExist:
         bot.send_message(user_id, f"{PATHWAY_NOT_FOUND}")
         return
-
     pathway_payload = json.loads(pathway.pathway_payload)
-
     nodes = pathway_payload['pathway_data']['nodes']
     node_id_to_delete = None
-
     for node in nodes:
         if node['data']['name'] == node_name:
             node_id_to_delete = node['id']
             break
-
     if not node_id_to_delete:
         bot.send_message(user_id, f"{node_name} {NOT_FOUND}")
         return
-
     new_nodes = [node for node in nodes if node['id'] != node_id_to_delete]
     edges = pathway_payload['pathway_data']['edges']
     new_edges = [edge for edge in edges if edge['source'] != node_id_to_delete and edge['target'] != node_id_to_delete]
-
     pathway_payload['pathway_data']['nodes'] = new_nodes
     pathway_payload['pathway_data']['edges'] = new_edges
-
     pathway.pathway_payload = json.dumps(pathway_payload)
-
     data = {
         "name": pathway_payload['pathway_data']['name'],
         "description": pathway_payload['pathway_data']['description'],
@@ -380,8 +332,6 @@ def delete_node(call):
 
     pathway.pathway_payload = updated.text
     pathway.save()
-
-
     bot.send_message(user_id, f"{node_name} {EDGES_DELETED}")
 
 @bot.message_handler(func=lambda message: message.text == 'Retry Node 🔄')
@@ -424,12 +374,12 @@ def trigger_end_call_option(message):
     if not valid:
         if missing_sources:
             bot.send_message(chat_id,
-                             f"The following nodes do not have any outgoing connections to other nodes: "
+                             f"{OUTGOING_CONNECTIONS_MISSING}"
                              f"{', '.join(missing_sources)}")
         if missing_targets:
             bot.send_message(chat_id,
-                             f"The following nodes do not connect to any other nodes: {', '.join(missing_targets)}")
-        bot.send_message(chat_id, "At least, add one edge for the missing nodes!")
+                             f"{INCOMING_CONNECTIONS_MISSING}{', '.join(missing_targets)}")
+        bot.send_message(chat_id, {ADD_ONE_EDGE})
         handle_add_edges(message)
     else:
         handle_call_failure(message)
@@ -489,7 +439,7 @@ def handle_call_selection_variable(call):
 
         if variables is None:
             # Handle the case where get_variables returns None
-            bot.send_message(call.message.chat.id, f"No variables found for call ID: {call_id}",
+            bot.send_message(call.message.chat.id, f"{NO_VARIABLES_FOUND} {call_id}",
                              parse_mode="MarkdownV2")
             return
 
@@ -529,21 +479,16 @@ def view_feedback(message):
 def handle_call_selection(call):
     try:
         call_id = call.data[len("feedback_"):]
-
         call_log = CallLogsTable.objects.get(call_id=call_id)
         pathway_id = call_log.pathway_id
-
         transcript = get_transcript(call_id, pathway_id)
-
         if transcript:
-            # Combine feedback questions and answers into a formatted message
             transcript_message = "\n".join(
                 f"Q: {question}\nA: {answer}"
                 for question, answer in zip(transcript.feedback_questions, transcript.feedback_answers)
             )
         else:
             transcript_message = f"{TRANSCRIPT_NOT_FOUND}"
-
         bot.send_message(call.message.chat.id, transcript_message)
     except Exception as e:
         bot.send_message(call.message.chat.id, f"{PROCESSING_ERROR} {str(e)}")
@@ -580,7 +525,6 @@ def trigger_delete_flow(message):
 def view_main_menu(message):
     user_id = message.chat.id
     user_data[user_id]['first_node'] = False
-
     bot.send_message(user_id, f"{LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('flowlanguage'))
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'select_node')
@@ -590,17 +534,13 @@ def select_node(message):
     keyboard = check_user_has_active_free_plan(user_id)
     bot.send_message(user_id, f"{NODE_TYPE_SELECTION_PROMPT}", reply_markup=keyboard)
 
-
 # :: BOT MESSAGE HANDLERS FOR FUNCTIONS ------------------------------------#
-
 
 def send_welcome(message):
     """
     Sends a welcome message when the user starts a conversation.
     """
-
     bot.send_message(message.chat.id, f"{WELCOME_PROMPT}", reply_markup=get_main_menu())
-
 
 @bot.message_handler(commands=['help'])
 def show_commands(message):
@@ -611,150 +551,117 @@ def show_commands(message):
         [f"{command} - {description}" for command, description in available_commands.items()])
     bot.send_message(message.chat.id, f"{AVAILABLE_COMMANDS_PROMPT}\n{formatted_commands}", reply_markup=get_main_menu())
 
-
-
-def get_user_name(message):
-    user_id = message.chat.id
-
-# Track user state with a dictionary
-user_data = {}
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'profile_language')
 def get_profile_language(message):
     user_id = message.chat.id
-    name = message.text  # The user's name from the initial message
+    name = message.text
     username = username_formating(name)
     username = f"{username}_{user_id}"
-
-    # Store initial data and move to the next step (getting email)
     user_data[user_id] = {
         'step': 'get_email',
         'name': name,
         'username': username
     }
-    bot.send_message(user_id, f"{NICE_TO_MEET_YOU} {name}, {PROFILE_SETTING_PROMPT}")
-    bot.send_message(user_id, "Enter your email address:")
-
+    bot.send_message(user_id, f"{NICE_TO_MEET_YOU}!😊 {name}, {PROFILE_SETTING_PROMPT}⏳")
+    bot.send_message(user_id, EMAIL_PROMPT ,reply_markup=get_force_reply())
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_email')
 def get_email(message):
     user_id = message.chat.id
     email = message.text
-
-    # Validate email format here if necessary
-    if not validate_email(email):  # Assuming validate_email is a function you define
-        bot.send_message(user_id, "Invalid email format. Please enter a valid email address:")
+    if not validate_email(email):
+        bot.send_message(user_id, INVALID_EMAIL_FORMAT, reply_markup=get_force_reply())
         return
-
-    # Store email and move to the next step (getting mobile number)
     user_data[user_id]['email'] = email
     user_data[user_id]['step'] = 'get_mobile'
-    bot.send_message(user_id, "Enter your mobile number:")
-
+    bot.send_message(user_id, MOBILE_NUMBER_PROMPT, reply_markup=get_force_reply())
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_mobile')
 def get_mobile(message):
     user_id = message.chat.id
     mobile = message.text
-
-    # Validate mobile format here if necessary
     if not validate_transfer_number(mobile):
-        bot.send_message(user_id, "Invalid mobile number format. Please enter a valid mobile number:")
+        bot.send_message(user_id, INVALID_NUMBER_PROMPT, reply_markup=get_force_reply())
         return
-
     name = user_data[user_id]['name']
     username = user_data[user_id]['username']
     email = user_data[user_id]['email']
-
     response = setup_user(user_id, email, mobile, name, username)
     if response['status'] != 200:
-        bot.send_message(user_id, f"Sorry! We were unable to complete your request due to the following issue:\n{response['text']}")
+        bot.send_message(user_id, f"{REQUEST_FAILED}\n{response['text']}")
     else:
-        bot.send_message(user_id, f"{PROFILE_LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('language'))
-
+        bot.send_message(user_id, f"🎉 {SETUP_COMPLETE}")
+        # TODO ths is the selection menu that has to come at step 1
+        # bot.send_message(user_id, f"{PROFILE_LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('language'))
+        handle_terms_and_conditions(message)
 
 def validate_email(email):
-    # Placeholder function for email validation logic
-    import re
     email_regex = r"[^@]+@[^@]+\.[^@]+"
     return re.match(email_regex, email) is not None
 
 def validate_mobile(mobile):
-    # Placeholder function for mobile number validation logic
-    return mobile.isdigit() and len(mobile) in [10, 11]  # Example validation logic
-
+    return mobile.isdigit() and len(mobile) in [10, 11]
 
 @bot.message_handler(commands=['cancel'])
 def cancel_actions(message):
     user_id = message.chat.id
-    bot.send_message(user_id, "You have cancelled the current action.\n"
-                              "Redirecting you to the main menu!",
+    msg = f"{ACTION_CANCELLED}\n{MAIN_MENU_REDIRECTION}"
+    bot.send_message(user_id, msg,
                      reply_markup = get_main_menu())
 
-
 @bot.message_handler(commands=['sign_up', 'start'])
-def signup(message):
+def language_selection(message):
     user_id = message.chat.id
-    text = message.text if message.content_type == 'text' else None
     try:
         existing_user, created = TelegramUser.objects.get_or_create(user_id=user_id,
                                                                     defaults={'user_name': f'{user_id}'})
-
         if not created:
             bot.send_message(user_id, f"{EXISTING_USER_WELCOME}", reply_markup=get_main_menu())
             return
-
-        bot.send_message(user_id, f"{SETUP_PROMPT}")
-        setup_tooltip = escape_markdown(SETUP_TOOLTIP)
-        bot.send_message(user_id, f"_{setup_tooltip}_", parse_mode="MarkdownV2")
-
-        if user_id not in user_data:
-            user_data[user_id] = {}
-        user_data[user_id]['step'] = 'profile_language'
-        name_input_prompt = escape_markdown(NAME_INPUT_PROMPT)
-        bot.send_message(user_id, f"{name_input_prompt}", parse_mode="MarkdownV2")
-        return
+        bot.send_message(user_id, f"🌍 {PROFILE_LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('language'))
 
     except Exception as e:
         bot.reply_to(message, f"{PROCESSING_ERROR} {str(e)}", reply_markup=get_force_reply())
 
-    get_profile_language(message)
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_user_information')
+def signup(message):
+    user_id = message.chat.id
+    text = message.text if message.content_type == 'text' else None
+
+    bot.send_message(user_id, f"👋 **{SETUP_WELCOME}** \n{SETUP_PROMPT}")
+    setup_tooltip = escape_markdown(SETUP_TOOLTIP)
+    bot.send_message(user_id, f"_{setup_tooltip}_", parse_mode="MarkdownV2")
+
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]['step'] = 'profile_language'
+    name_input_prompt = escape_markdown(NAME_INPUT_PROMPT)
+    bot.send_message(user_id, f"👤 {name_input_prompt}", parse_mode="MarkdownV2")
+    return
 
 @bot.callback_query_handler(func=lambda call: call.data == "activate_subscription")
 def handle_activate_subscription(call):
     user_id = call.message.chat.id
-
-
-    # Retrieve all plans from the database
     plans = SubscriptionPlans.objects.all()
-
-    # Icon mapping for specific plan names
     plan_icons = {
-        'Free': '🎉',    # Free plan
-        'Prime': '🌟',   # Prime plan
-        'Elite': '💎',   # Elite plan
-        'Ultra': '🚀'    # Ultra plan
+        'Free': '🎉',
+        'Prime': '🌟',
+        'Elite': '💎',
+        'Ultra': '🚀'
     }
-
-    # Create InlineKeyboardMarkup object to store the buttons
     markup = types.InlineKeyboardMarkup()
-
     unique_plan_names = set()
-
     for plan in plans:
         plan_name_with_icon = f"{plan_icons.get(plan.name, '')} {plan.name}"
-
         if plan.name not in unique_plan_names:
             unique_plan_names.add(plan.name)
             plan_button = types.InlineKeyboardButton(plan_name_with_icon, callback_data=f"plan_name_{plan.name}")
             markup.add(plan_button)
-
     back_button = types.InlineKeyboardButton(f"Back ↩️", callback_data="back_to_view_terms")
     markup.add(back_button)
-
+    msg = f"💡 {SUBSCRIPTION_PLAN_OPTIONS}"
     bot.send_message(
-        user_id,
-        "💡 Now, let’s get you on the right plan. Please choose a subscription plan from the options below:",
+        user_id, msg,
         reply_markup=markup
     )
 
@@ -762,25 +669,18 @@ def handle_activate_subscription(call):
 def back_to_view_terms(call):
     view_terms_menu(call)
 
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("plan_name_"))
 def view_plan_validity(call):
     user_id = call.message.chat.id
     plan_name = call.data.split("_")[2]
-
-    # Fetch the plans and order by validity_days in ascending order
     plans = SubscriptionPlans.objects.filter(name=plan_name).order_by('validity_days')
-
     plan_validity = {
-        1: "⃣",
-        7: "⃣",
+        1: "1⃣",
+        7: "7⃣",
         30: "📅"
     }
-
-    message_text = f"🕒 How long would you like to subscribe? Select your preferred duration:"
+    message_text = f"🕒 {DURATION_SELECTION_PROMPT}"
     markup = types.InlineKeyboardMarkup()
-
-    # Loop through the sorted plans and add buttons
     for plan in plans:
         if plan.validity_days == 1:
             day = f"{DAY}"
@@ -790,20 +690,17 @@ def view_plan_validity(call):
         plan_button = types.InlineKeyboardButton(f"{plan_icon} {plan.validity_days} {day}",
                                                  callback_data=f"plan_{plan.plan_id}")
         markup.add(plan_button)
-
     back_button = types.InlineKeyboardButton(f"Back ↩️", callback_data="back_to_plan_names")
     markup.add(back_button)
     bot.send_message(user_id, f"{message_text}\n\n", reply_markup=markup)
 
-
 @bot.callback_query_handler(func=lambda call: call.data == 'back_to_plan_names')
 def back_to_plan_names(call):
     handle_activate_subscription(call)
+
 @bot.callback_query_handler(func=lambda call: call.data == 'back_to_welcome_message')
 def handle_back_message(call):
-    user_id = call.message.chat.id
     send_welcome(call.message)
-
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("plan_"))
 def handle_plan_selection(call):
@@ -819,7 +716,7 @@ def handle_plan_selection(call):
     if user_id not in user_data:
         user_data[user_id] = {}
 
-    node_access = "Full Node Access" if plan.call_transfer else "Partial Node Access"
+    node_access = f"{FULL_NODE_ACCESS}" if plan.call_transfer else f"{PARTIAL_NODE_ACCESS}"
     call_transfer_node = '✅' if plan.call_transfer else '❌'
 
     user_data[user_id]['selected_plan'] = plan
@@ -831,18 +728,22 @@ def handle_plan_selection(call):
     else:
         single_calls = f"{plan.single_ivr_minutes:.4f} minutes of Single IVR Call"
     if plan.number_of_bulk_call_minutes is None:
-        bulk_calls = "No Bulk IVR Calls"
+        bulk_calls = NO_BULK_MINS_LEFT
     else:
         bulk_calls = f"{plan.number_of_bulk_call_minutes:.2f} {BULK_IVR_CALLS}"
 
 
     invoice_message = (
-        f"You’ve selected the {plan.name} plan for {plan.validity_days} days.\n"
-        f"💲 Price: {plan.plan_price:.2f}\n"
-        f"📝 *Features:\n"
+
+        f"{PLAN_SELECTED}\n"
+        f"📌 {PLAN_NAME}  {plan.name}\n"
+        f"🕛 {VALIDITY}   {plan.validity_days}"
+        
+        f"💲 {PRICE} {plan.plan_price:.2f}\n"
+        f"📝 *{FEATURES}\n"
         f"🎧 {single_calls} & {bulk_calls}\n"
         f"🔗 {node_access}\n"
-        f"📞 Call Transfer Node {call_transfer_node}\n"
+        f"📞 {CALL_TRANSFER_NODE} {call_transfer_node}\n"
         f"📞 {CUSTOMER_SUPPORT_LEVEL}: {plan.customer_support_level}\n\n"
     )
 
@@ -858,12 +759,14 @@ def handle_plan_selection(call):
         if set_subscription != f"{STATUS_CODE_200}":
             bot.send_message(user_id, set_subscription)
             return
-        bot.send_message(user_id, "You have successfully activated your free trial!", reply_markup=get_main_menu())
+        bot.send_message(user_id, SUCCESSFUL_FREE_TRIAL_ACTIVATION, reply_markup=get_main_menu())
         return
-    auto_renewal = escape_markdown("Would you like to enable auto-renewal from your wallet balance?")
+    auto_renewal = escape_markdown(AUTO_RENEWAL_PROMPT)
+    yes = f'✅ {YES}'
+    no = f'❌ {NO}'
     markup = types.InlineKeyboardMarkup()
-    yes_button = types.InlineKeyboardButton('✅ Yes', callback_data="enable_auto_renewal_yes")
-    no_button = types.InlineKeyboardButton('❌ No', callback_data="enable_auto_renewal_no")
+    yes_button = types.InlineKeyboardButton(yes, callback_data="enable_auto_renewal_yes")
+    no_button = types.InlineKeyboardButton(no, callback_data="enable_auto_renewal_no")
     back_button = types.InlineKeyboardButton('↩️ Back', callback_data="back_to_plan_names")
 
     markup.add(yes_button, no_button)
@@ -871,57 +774,46 @@ def handle_plan_selection(call):
     invoice_message = escape_markdown(invoice_message)
     bot.send_message(user_id, f"{invoice_message} \n\n{auto_renewal}" , reply_markup=markup, parse_mode='MarkdownV2')
 
-
 @bot.callback_query_handler(func=lambda call: call.data in ["enable_auto_renewal_yes", "enable_auto_renewal_no"])
 def handle_auto_renewal_choice(call):
     user_id = call.message.chat.id
-    # selected_plan = user_data[user_id]['selected_plan']
-
     if call.data == 'enable_auto_renewal_yes':
         user_data[user_id]['auto_renewal'] = True
-        bot.send_message(user_id, "Auto-renewal has been enabled. Please proceed with payment.")
+        auto_renewal_enabled = f"{AUTO_RENEWAL_ENABLED} {PROCEED_PAYMENT}"
+        bot.send_message(user_id,auto_renewal_enabled )
     else:
+        auto_renewal_disabled = f"{AUTO_RENEWAL_DISABLED} {PROCEED_PAYMENT}"
         user_data[user_id]['auto_renewal'] = False
-        bot.send_message(user_id, "Auto-renewal has been disabled. Please proceed with payment.")
-
-
+        bot.send_message(user_id, auto_renewal_disabled)
     send_payment_options(user_id)
 
-
 def send_payment_options(user_id):
-    payment_message = "💳 Please confirm your payment method to proceed:"
-
+    payment_message = f"💳 {SUBSCRIPTION_PAYMENT_METHOD_PROMPT}"
     markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
-
-    wallet_button = types.KeyboardButton("💼 Pay from Wallet Balance")
-    crypto_button = types.KeyboardButton("💰 Pay with Cryptocurrency")
-
+    wallet_balance = f"💼 {WALLET_BALANCE_PAYMENT}"
+    crypto = f"💰 {CRYPTO_PAYMENT}"
+    wallet_button = types.KeyboardButton(wallet_balance)
+    crypto_button = types.KeyboardButton(crypto)
     markup.add(wallet_button, crypto_button)
     bot.send_message(user_id, payment_message, reply_markup=markup)
-
 
 @bot.message_handler(func=lambda message: message.text == "💼 Pay from Wallet Balance")
 def payment_through_wallet_balance(message):
     user_id = message.chat.id
     amount = user_data[user_id]['subscription_price']
-    print(f"amount to credit: {amount}")
     response = credit_wallet_balance(user_id, amount)
-
     if response.status_code != 200:
         msg = response.json().get('message')
         bot.send_message(user_id, f"{msg}",
                          reply_markup=get_main_menu())
         return
-
     plan_id = user_data[user_id]['subscription_id']
     auto_renewal = user_data[user_id]['auto_renewal']
     response = set_plan(user_id, plan_id, auto_renewal)
     if response['status'] != 200:
         bot.send_message(user_id, f"{response['message']}")
         return
-
-    bot.send_message(user_id, "Payment Successful!", reply_markup=get_main_menu())
-
+    bot.send_message(user_id, PAYMENT_SUCCESSFUL, reply_markup=get_main_menu())
 
 @bot.message_handler(func=lambda message: message.text == "💰 Pay with Cryptocurrency")
 def payment_through_cryptocurrency(message):
@@ -936,140 +828,22 @@ def payment_through_cryptocurrency(message):
         return
     currency_selection(user_id)
 
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("pay_"))
 def handle_payment_method(call):
     user_id = call.message.chat.id
     payment_method = call.data.split("_")[1]
-
     if payment_method == f'{back}':
         handle_activate_subscription(call)
         return
-
     currency_response = get_currency(payment_method)
     if currency_response != 200:
-        bot.send_message(user_id, 'Unsupported Currency', reply_markup=get_main_menu())
+        bot.send_message(user_id, UNSUPPORTED_CURRENCY , reply_markup=get_main_menu())
         return
     payment_currency = currency_response.text
     if user_id not in user_data:
         user_data[user_id] = {}
 
     user_data[user_id]['payment_currency'] = payment_currency
-    print(payment_currency,  "currency ")
-
-
-# @bot.callback_query_handler(func=lambda call: call.data == 'wallet_payment')
-# def handle_wallet_method(call):
-#     user_id = call.message.chat.id
-#     try:
-#         user = VirtualAccountsTable.objects.get(user_id=user_id, currency=user_data[user_id]['payment_currency'])
-#
-#     except VirtualAccountsTable.DoesNotExist:
-#         bot.send_message(user_id, f"{VIRTUAL_ACCOUNT_NOT_FOUND}")
-#         return
-#     except Exception as e:
-#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
-#         return
-#
-#     try:
-#         account_id = user.account_id
-#         balance = get_account_balance(account_id)
-#
-#         if balance.status_code != 200:
-#             bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
-#             return
-#
-#         balance_data = balance.json()
-#         available_balance = float(balance_data["availableBalance"])
-#         symbol = get_currency_symbol(user_data[user_id]['payment_currency'])
-#         bot.send_message(user_id, f"{PROCESSING_PAYMENT}")
-#     except Exception as e:
-#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
-#         return
-#
-#     try:
-#         plan_price = float(user_data[user_id]['subscription_price'])
-#         plan_price = get_plan_price(user_data[user_id]['payment_currency'], plan_price)
-#         print(plan_price)
-#
-#         if float(available_balance) < float(plan_price):
-#             markup = types.InlineKeyboardMarkup()
-#             top_up_wallet_button = types.InlineKeyboardButton(f"{TOP_UP}", callback_data="top_up_wallet")
-#             back_button = types.InlineKeyboardButton(f"{BACK}", callback_data='back_to_handle_payment')
-#             markup.add(top_up_wallet_button)
-#             markup.add(back_button)
-#             bot.send_message(user_id, f'{INSUFFICIENT_BALANCE}', reply_markup=markup)
-#             return
-#
-#     except Exception as e:
-#         error = f"{PROCESSING_ERROR} {str(e)}"
-#         bot.send_message(user_id, escape_markdown(error))
-#         return
-#
-#     try:
-#         receiver = MainWalletTable.objects.get(currency=user_data[user_id]['payment_currency'])
-#         receiver_account = receiver.virtual_account
-#
-#         payment_response = send_payment(account_id, receiver_account, float(plan_price))
-#
-#         if payment_response.status_code != 200:
-#             bot.send_message(user_id, f"{PROCESSING_ERROR} \n{payment_response.json()}")
-#             return
-#
-#     except MainWalletTable.DoesNotExist:
-#         bot.send_message(user_id, f"{RECEIVERS_WALLET_NOT_FOUND}")
-#         return
-#     except Exception as e:
-#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
-#         return
-#
-#     try:
-#         balance = get_account_balance(account_id)
-#         if balance.status_code != 200:
-#             bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
-#             return
-#
-#         balance_data = balance.json()
-#         available_balance = balance_data["availableBalance"]
-#         user.balance = available_balance
-#         user.save()
-#
-#         balance = get_account_balance(receiver_account)
-#         if balance.status_code != 200:
-#             bot.send_message(user_id, f"{PROCESSING_ERROR}\n{balance.json()}")
-#             return
-#
-#         balance_data = balance.json()
-#         available_balance = balance_data["availableBalance"]
-#         receiver.balance = available_balance
-#         receiver.save()
-#
-#     except Exception as e:
-#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
-#         return
-#
-#     try:
-#         plan_id = user_data[user_id]['subscription_id']
-#         current_user = TelegramUser.objects.get(user_id=user_id)
-#         current_user.subscription_status = f'{ACTIVE}'
-#         current_user.plan = plan_id
-#         current_user.save()
-#
-#         set_subscription = set_user_subscription(current_user, plan_id)
-#         if set_subscription != f"{STATUS_CODE_200}":
-#             bot.send_message(user_id, set_subscription)
-#             return
-#         user_subscription = UserSubscription.objects.get(user_id= current_user)
-#         user_subscription.auto_renewal = user_data[user_id]['auto_renewal']
-#         user_subscription.save()
-#
-#         bot.send_message(user_id, f"{PAYMENT_SUCCESSFUL} {SUBSCRIPTION_ACTIVATED} {MAIN_MENU_PROMPT}", reply_markup=get_main_menu())
-#
-#     except TelegramUser.DoesNotExist:
-#         bot.send_message(user_id, f"{USER_INFORMATION_NOT_FOUND}")
-#     except Exception as e:
-#         bot.send_message(user_id, f"{PROCESSING_ERROR} {str(e)}")
-
 
 @bot.callback_query_handler(func=lambda call: call.data == 'back_to_handle_payment')
 def handle_back_to_handle_payment(call):
@@ -1084,7 +858,6 @@ def handle_top_up_wallet(call):
     user_data[user_id]['transaction_type'] = 'top_up'
     currency_selection(user_id)
 
-
 def currency_selection(user_id):
     payment_methods = ['Bitcoin (BTC) ₿', 'Ethereum (ETH) Ξ', 'TRC-20 USDT 💵', 'ERC-20 USDT 💵',
                        'Litecoin (LTC) Ł', 'Back ↩️']
@@ -1094,10 +867,8 @@ def currency_selection(user_id):
         markup.add(payment_button)
     bot.send_message(user_id, f"{TOP_UP_PROMPT}", reply_markup=markup)
 
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("topup_"))
 def handle_account_topup(call):
-
     user_id = call.message.chat.id
     payment_method = call.data.split("_")[1]
     if payment_method == f'{back}':
@@ -1105,83 +876,67 @@ def handle_account_topup(call):
         return
     make_crypto_payment(user_id, payment_method)
 
-
-
 def make_crypto_payment(user_id, payment_method):
     response = get_currency(payment_method)
-    print("currency response ", response)
-
     if response['status'] != 200:
-        bot.send_message(user_id, "Unsupported currency!")
+        bot.send_message(user_id, UNSUPPORTED_CURRENCY)
         return
     payment_currency = response['text']
-    print(payment_currency)
-
     if user_id not in user_data:
         user_data[user_id] = {}
-    print(f"payment currency : {payment_method}")
     user_data[user_id]['currency'] = payment_currency
     user_data[user_id]['step'] = 'get_amount'
     if user_data[user_id]['transaction_type'] == 'top_up':
-        bot.send_message(user_id, "Enter the amount to top up your wallet: ", reply_markup=get_force_reply())
+        bot.send_message(user_id, TOP_UP_AMOUNT_PROMPT, reply_markup=get_force_reply())
     else:
         amount = user_data[user_id]['subscription_price']
         make_payment(user_id, amount)
 
-
 def send_qr_code(user_id, address, qr_code_base64=None, ):
     if qr_code_base64:
-        qr_code_data = qr_code_base64.split(",")[1]  # Remove the data:image/png;base64, prefix
+        qr_code_data = qr_code_base64.split(",")[1]
         qr_code_image = base64.b64decode(qr_code_data)
-
         with BytesIO(qr_code_image) as qr_image:
             img = Image.open(qr_image)
             img.save("qr_code.png", "PNG")
     with open("qr_code.png", "rb") as img_file:
         bot.send_photo(user_id, img_file,
-                       caption=f"Scan this QR code or use the address below to complete the payment:\n\n`{address}`",
+                       caption=f"{SCAN_ADDRESS_PROMPT}\n\n`{address}`",
                        parse_mode='Markdown')
-
     return
+
 @csrf_exempt
 def payment_deposit_webhook(request):
     if request.method == "POST":
         try:
             data = get_webhook_data(request)
-            print("Webhook data:", data)
-
             user_id = int(data['user_id'])
             auto_renewal = data['auto_renewal']
-            amount = float(data['amount'])  # Ensure amount is a float
+            amount = float(data['amount'])
             currency = data['currency']
-            bot.send_message(user_id, "Deposit successful!")
+            bot.send_message(user_id, DEPOSIT_SUCCESSFUL)
             plan_id = TelegramUser.objects.get(user_id=user_id).plan
             plan_price = float(SubscriptionPlans.objects.get(plan_id=plan_id).plan_price)  # Convert to float if necessary
             price_in_dollar = convert_crypto_to_usd(amount, currency)
-            print("plan price ", plan_price)
-            print("amount in dollars", price_in_dollar)
-            print("currency", currency)
-
-            if plan_price > price_in_dollar:  # Ensure correct comparison with USD amount
-                bot.send_message(user_id, f"Insufficient amount to activate subscription.\n"
-                                          f"Amount needed is {plan_price} USD and you deposited {price_in_dollar} USD")
+            if plan_price > price_in_dollar:
+                bot.send_message(user_id, f"{INSUFFICIENT_DEPOSIT_AMOUNT}\n"
+                                          f"{AMOUNT_NEEDED} {plan_price} USD\n{AMOUNT_DEPOSITED}{price_in_dollar} USD")
                 return JsonResponse({"status": "error", "message": "Insufficient amount"}, status=400)
 
             response = set_plan(user_id, plan_id, auto_renewal)
             if response['status'] != 200:
-                bot.send_message(user_id, f"Failed to update user tables due to the following issue:\n"
+                bot.send_message(user_id, f"{TABLE_UPDATE_FAILED}\n"
                                           f"{response['message']}")
-
             return JsonResponse({"status": "success"}, status=200)
 
         except json.JSONDecodeError:
-            return JsonResponse({"status": "error", "message": "Invalid JSON data"}, status=400)
+            return JsonResponse({"status": "error", "message": INVALID_JSON}, status=400)
         except KeyError as e:
-            return JsonResponse({"status": "error", "message": f"Missing key: {e}"}, status=400)
+            return JsonResponse({"status": "error", "message": f"{MISSING_KEY} key: {e}"}, status=400)
         except TypeError as e:
             return JsonResponse({"status": "error", "message": str(e)}, status=400)
 
-    return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+    return JsonResponse({"status": "error", "message": METHOD_NOT_ALLOWED}, status=405)
 
 def get_webhook_data(request):
     print(f"request body : {request.body}")
@@ -1195,26 +950,18 @@ def get_webhook_data(request):
     paid_currency = data.get('paid_currency')
     auto_renewal = meta_data.get('product')
 
-    message = (f"Transaction id: {transaction_id}\n"
-               f"Payment status: {payment_status}\n"
-               f"Product name: {user_id}\n"
-               f"Paid amount: {paid_amount}\n"
-               f"paid currency: {paid_currency}")
-    print(f'transaction id : {transaction_id}')
-    print(f'payment status: {payment_status}')
-    print(f'product_name: {user_id}')
-    print(f'paid_amount: {paid_amount}')
-    print(f'paid_currency: {paid_currency}')
-    print(f"auto renewal : {auto_renewal}")
+    message = (f"{TRANSACTION_ID} {transaction_id}\n"
+               f"{PAYMENT_STATUS} {payment_status}\n"
+               f"{USER_ID} {user_id}\n"
+               f"{PAID_AMOUNT} {paid_amount}\n"
+               f"{PAID_CURRENCY} {paid_currency}")
+
     if auto_renewal == 'True':
         auto_renewal = True
     else:
         auto_renewal = False
-
-
-    bot.send_message(user_id, f"Transaction details:\n{message}", reply_markup=get_main_menu())
+    bot.send_message(user_id, f"{TRANSACTION_DETAILS}\n{message}", reply_markup=get_main_menu())
     return {"user_id":user_id, "auto_renewal":auto_renewal, "amount":paid_amount, "currency":paid_currency}
-
 
 @csrf_exempt
 def crypto_transaction_webhook(request):
@@ -1222,15 +969,14 @@ def crypto_transaction_webhook(request):
         try:
             data = get_webhook_data(request)
             user_id = data['user_id']
-            bot.send_message(user_id, "Top up successful!")
+            bot.send_message(user_id, TOP_UP_SUCCESSFUL)
             return JsonResponse({"status": "success"}, status=200)
         except json.JSONDecodeError:
-            return JsonResponse({"status": "error", "message": "Invalid JSON data"}, status=400)
+            return JsonResponse({"status": "error", "message": INVALID_JSON}, status=400)
 
-    return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+    return JsonResponse({"status": "error", "message": METHOD_NOT_ALLOWED}, status=405)
 
 def make_payment(user_id, amount):
-    webhook_url = os.getenv('webhook_url')
     currency = user_data[user_id]['currency']
     top_up = False
     redirect_uri = f"{webhook_url}/webhook/webhook/crypto_deposit'"
@@ -1247,13 +993,11 @@ def make_payment(user_id, amount):
     address = response_data.get('address')
     send_qr_code(user_id, address, qr_code_base64)
 
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_amount')
 def get_top_up_amount(message):
     user_id = message.chat.id
     amount = message.text
     make_payment(user_id, amount)
-
 
 @bot.message_handler(commands=['create_flow'])
 def create_flow(message):
@@ -1264,7 +1008,6 @@ def create_flow(message):
     user_data[user_id] = {'step': 'ask_name'}
     bot.send_message(user_id, "Please enter the name of the pathway:", reply_markup=get_force_reply())
 
-
 @bot.message_handler(commands=['delete_flow'])
 def delete_flow(message):
     """
@@ -1274,25 +1017,20 @@ def delete_flow(message):
     user_data[user_id] = {'step': 'get_pathway'}
     view_flows(message)
 
-
 @bot.message_handler(commands=['add_node'])
 def add_node(message):
     """
     Handle '/add_node' command to initiate node addition.
     """
     user_id = message.chat.id
-
     if user_id not in user_data:
         user_data[user_id] = {}
-
     pathway_name = user_data[user_id].get('pathway_name')
-
     pathway = Pathways.objects.get(pathway_name=pathway_name)
     user_data[user_id]['step'] = 'add_node'
     user_data[user_id]['node'] = message.text
     user_data[user_id]['select_pathway'] = pathway.pathway_id
     bot.send_message(user_id, "Please enter the name of your custom node:", reply_markup=get_force_reply())
-
 
 @bot.message_handler(commands=['view_flows'])
 def display_flows(message):
@@ -1306,9 +1044,7 @@ def display_flows(message):
 
     current_users_pathways = Pathways.objects.filter(pathway_user_id=message.chat.id)
     user_pathway_ids = set(p.pathway_id for p in current_users_pathways)
-
     filtered_pathways = [pathway for pathway in pathways if pathway.get('id') in user_pathway_ids]
-
     markup = InlineKeyboardMarkup()
     if filtered_pathways:
         pathway_buttons = [
@@ -1316,11 +1052,8 @@ def display_flows(message):
             for pathway in filtered_pathways
         ]
         markup.add(*pathway_buttons)
-
     markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
-
     bot.send_message(message.chat.id, "Here are your IVR flows:", reply_markup=markup)
-
 
 @bot.callback_query_handler(func=lambda call: call.data == 'back')
 def handle_back_button(call):
@@ -1355,8 +1088,6 @@ def handle_pathway_details(call):
 
     bot.send_message(user_id, pathway_info, reply_markup=get_flow_node_menu())
 
-
-
 @bot.message_handler(commands=['list_flows'])
 def view_flows(message):
     """
@@ -1369,9 +1100,7 @@ def view_flows(message):
 
     current_users_pathways = Pathways.objects.filter(pathway_user_id=message.chat.id)
     user_pathway_ids = set(p.pathway_id for p in current_users_pathways)
-
     filtered_pathways = [pathway for pathway in pathways if pathway.get('id') in user_pathway_ids]
-
     markup = InlineKeyboardMarkup()
     if filtered_pathways:
         pathway_buttons = [
@@ -1389,20 +1118,16 @@ def view_flows(message):
                          "No IVR flows available!.\nPlease create a new IVR flow.",
                          reply_markup=markup)
 
-
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'ask_name')
 def handle_ask_name(message):
     user_id = message.chat.id
     text = message.text if message.content_type == 'text' else None
-
     if Pathways.objects.filter(pathway_name=text).exists():
         bot.send_message(user_id, "A flow with similar name already exists. Please enter the name again:")
         return
     user_data[user_id]['pathway_name'] = text
     user_data[user_id]['step'] = 'ask_description'
     bot.send_message(user_id, "Please enter the description of the pathway:", reply_markup=get_force_reply())
-
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'ask_description')
 def handle_ask_description(message):
@@ -1431,7 +1156,6 @@ def handle_add_start_node(message):
     message.text = 'End Call 🛑'
     add_node(message)
 
-
 @bot.callback_query_handler(func=lambda call : call.data.startswith('flowlanguage:'))
 def handle_add_flow_language(call):
     user_id = call.message.chat.id
@@ -1456,13 +1180,11 @@ def handle_show_error_node_type(message):
     keyboard = check_user_has_active_free_plan(user_id)
     bot.send_message(user_id, "Select from the menu provided below:", reply_markup=keyboard)
 
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_batch_numbers',
                      content_types=['text', 'document'])
 def get_batch_call_base_prompt(message):
     user_id = message.chat.id
     pathway_id = user_data[user_id]['call_flow_bulk']
-
     subscription_details = UserSubscription.objects.get(user_id=user_id)
     max_contacts = 50
     valid_phone_number_pattern = re.compile(r'^[\d\+\-\(\)\s]+$')
@@ -1517,7 +1239,6 @@ def get_batch_call_numbers(message):
     user_data[user_id]['batch_numbers'] = message.text
     bot.message_handler(user_id, "Do you want to add another number?")
 
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_pathway')
 def handle_get_pathway(message):
     user_id = message.chat.id
@@ -1529,7 +1250,6 @@ def handle_get_pathway(message):
         bot.send_message(user_id, "Flow deleted successfully! ✅", reply_markup=get_main_menu())
     else:
         bot.send_message(user_id, f"{PROCESSING_ERROR} {response}!", reply_markup=get_main_menu())
-
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith('select_pathway_'))
 def handle_pathway_selection(call):
@@ -1559,8 +1279,6 @@ def handle_pathway_selection(call):
         bot.send_message(user_id, "Please paste phone numbers (with country codes) or upload a file (TXT or CSV "
                                   "format) with up to 50 phone numbers.")
 
-
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_edges')
 def handle_add_edges(message):
     chat_id = message.chat.id
@@ -1577,8 +1295,6 @@ def handle_add_edges(message):
     nodes = response.get("nodes", [])
     user_data[chat_id]['node_info'] = nodes
     user_data[chat_id]['edge_info'] = edges
-
-
     start_node = next((node for node in nodes if node['data'].get('isStart') == True), None)
 
     if not edges:
@@ -1590,10 +1306,9 @@ def handle_add_edges(message):
                     markup.add(types.InlineKeyboardButton(f"{node['data']['name']}",
                                                           callback_data=f"target_node_{node['id']}"))
             user_data[chat_id]['source_node_id'] = f"{start_node['id']}"
-
-
             bot.send_message(chat_id,
-                             f"Start Node ID: {start_node['id']}\nStart Node Name: {start_node['data']['name']}\nPlease select another node to connect to the start node:",
+                             f"Start Node ID: {start_node['id']}\nStart Node Name: {start_node['data']['name']}\n"
+                             f"Please select another node to connect to the start node:",
                              reply_markup=markup)
 
         else:
@@ -1604,7 +1319,6 @@ def handle_add_edges(message):
             markup.add(types.InlineKeyboardButton(f"{node['data']['name']} ({node['id']})",
                                                   callback_data=f"source_node_{node['id']}"))
         bot.send_message(chat_id, "Select source node:", reply_markup=markup)
-
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("source_node_"))
 def handle_source_node(call):
@@ -1619,27 +1333,17 @@ def handle_source_node(call):
     bot.send_message(call.message.chat.id, "Select target node:", reply_markup=markup)
     bot.answer_callback_query(call.id)
 
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("target_node_"))
 def handle_target_node(call):
     target_node_id = call.data.split("_")[2]
     chat_id = call.message.chat.id
-    nodes = user_data[call.message.chat.id]['node_info']
-
-    edges = user_data[call.message.chat.id]['edge_info']
-
     source_node_id = user_data[call.message.chat.id]['source_node_id']
-    data = user_data[call.message.chat.id]['data']
-
-    pathway_id = user_data[call.message.chat.id]['select_pathway']
     user_data[call.message.chat.id]['step'] = 'add_label'
     user_data[call.message.chat.id]['src'] = source_node_id
     user_data[call.message.chat.id]['target'] = target_node_id
-
-    bot.send_message(call.message.chat.id,
+    bot.send_message(chat_id,
                      "Enter Label: (Default: User Responds, For DTMF: User enters {your option}) ",
                      reply_markup=get_force_reply())
-
 
 @bot.message_handler(func=lambda message: 'step' in user_data.get(message.chat.id, {}) and user_data[message.chat.id]['step'] == 'add_label')
 def add_label(message):
@@ -1675,12 +1379,10 @@ def add_label(message):
         pathway.pathway_payload = response.text
         pathway.save()
 
-        # Reset user state
         if message.text not in edges_complete:
             user_data[chat_id]['step'] = 'error_edges_complete'
     else:
         bot.send_message(chat_id, f"{PROCESSING_ERROR} {response}")
-
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'error_edges_complete')
 def error_edges_complete(message):
@@ -1691,11 +1393,8 @@ def error_edges_complete(message):
 def handle_add_node_t(message):
     user_id = message.chat.id
     node_name = message.text
-
     pathway_id = user_data[user_id]['select_pathway']
-
     pathway = Pathways.objects.get(pathway_id=pathway_id)
-
     if pathway.pathway_payload:
         pathway_data = json.loads(pathway.pathway_payload).get('pathway_data', {})
         nodes = pathway_data.get('nodes', [])
@@ -1707,7 +1406,6 @@ def handle_add_node_t(message):
     user_data[user_id]['add_node'] = node_name
     user_data[user_id]['step'] = 'add_node_id'
     bot.send_message(user_id, 'Please assign a number (0-9) for this node.', reply_markup=get_force_reply())
-
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_node_id')
 def handle_add_node_id(message):
@@ -1723,7 +1421,6 @@ def handle_add_node_id(message):
             return
 
         user_data[user_id]['add_node_id'] = int(text)
-
         node = user_data[user_id]['node']
 
         if node == "Play Message ▶️":
@@ -1772,7 +1469,6 @@ def get_menu(message):
     bot.send_message(user_id, "Please assign numbers (0-9) and corresponding actions for each option.",
                      reply_markup=get_force_reply())
 
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_action_list')
 def get_action_list(message):
     user_id = message.chat.id
@@ -1791,12 +1487,10 @@ def get_action_list(message):
     else:
         bot.send_message(user_id, f"{PROCESSING_ERROR} {response}")
 
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'error_nodes_complete')
 def error_nodes_complete(message):
     user_id = message.chat.id
     bot.send_message(user_id, "Select from the menu given below: ", reply_markup=get_node_complete_menu())
-
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'text-to-speech')
 def text_to_speech(message):
@@ -1807,7 +1501,6 @@ def text_to_speech(message):
     if message.text not in message_input_type:
         user_data[user_id]['step'] = 'error_message_input_type'
 
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'error_message_input_type')
 def error_message_input_type(message):
     user_id = message.chat.id
@@ -1816,7 +1509,6 @@ def error_message_input_type(message):
         return
 
     bot.send_message(user_id, "Select from an option given below: ", reply_markup=get_play_message_input_type())
-
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_dtmf_input')
 def handle_get_dtmf_input(message):
@@ -1844,7 +1536,6 @@ def handle_get_dtmf_input(message):
     else:
         bot.send_message(user_id, f"{PROCESSING_ERROR} {response}")
 
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_node_type')
 def handle_get_node_type(message):
     user_id = message.chat.id
@@ -1856,7 +1547,6 @@ def handle_get_node_type(message):
         user_data[user_id]['step'] = 'play_message'
         bot.send_message(user_id, f"Please enter the prompt message for {message_type}: ",
                          reply_markup=get_force_reply())
-
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'play_message')
 def handle_play_message(message):
@@ -1877,7 +1567,6 @@ def handle_play_message(message):
     bot.send_message(user_id,
                      "Please select the type of voice.", reply_markup=get_voice_type_menu())
 
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'select_voice_type')
 def handle_select_voice_type(message):
     user_id = message.chat.id
@@ -1890,7 +1579,6 @@ def handle_select_voice_type(message):
     if text == 'Default John':
         text = 'f93094fc-72ac-4fcf-9cf0-83a7fff43e88'
     voice_type = next((voice for voice in voice_data['voices'] if voice['name'] == text), None)
-
     language = user_data[user_id]['select_language']
     message_type = user_data[user_id]['message_type']
     if message_type == 'Question':
@@ -1907,7 +1595,6 @@ def handle_select_voice_type(message):
     else:
         bot.send_message(user_id, f"{PROCESSING_ERROR} {response}")
 
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'call_failed')
 def handle_call_failure(message):
     user_id = message.chat.id
@@ -1916,18 +1603,15 @@ def handle_call_failure(message):
     if message.text not in call_failed_menu:
         user_data[user_id]['step'] = 'show_error_call_failed'
 
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'show_error_call_failed')
 def handle_show_error_call_failed(message):
     user_id = message.chat.id
     bot.send_message(user_id, "Select from the provided menu: ", reply_markup=get_call_failed_menu())
 
-
 @bot.message_handler(commands=['transfer'])
 def transfer_to_agent(message):
     user_id = message.chat.id
     phone_numbers = TransferCallNumbers.objects.filter(user_id=user_id).values_list('phone_number', flat=True)
-
     if phone_numbers:
         bot.send_message(user_id, "Do you want to use a previously entered phone number?",
                          reply_markup=get_reply_keyboard(['Yes', 'No']))
@@ -1935,7 +1619,6 @@ def transfer_to_agent(message):
     else:
         bot.send_message(user_id, "Please enter the phone number to transfer to.", reply_markup=get_force_reply())
         user_data[user_id] = {'step': 'enter_new_number'}
-
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'use_previous_number')
 def handle_use_previous_number(message):
@@ -1952,7 +1635,6 @@ def handle_use_previous_number(message):
     else:
         bot.send_message(user_id, "Please choose 'Yes' or 'No'.", reply_markup=get_reply_keyboard(['Yes', 'No']))
 
-
 @bot.callback_query_handler(
     func=lambda call: user_data.get(call.message.chat.id, {}).get('step') == 'select_phone_number')
 def handle_select_phone_number(call):
@@ -1963,7 +1645,6 @@ def handle_select_phone_number(call):
     bot.send_message(user_id, "Add another node or select 'Done' if you are finished.",
                      reply_markup=get_reply_keyboard(['Add Another Node', 'Done']))
     user_data[user_id]['step'] = 'add_or_done'
-
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'enter_new_number')
 def handle_enter_new_number(message):
@@ -1982,7 +1663,6 @@ def handle_enter_new_number(message):
                          "Invalid phone number. Please enter a valid number with a country code (e.g., +123456789).",
                          reply_markup=get_force_reply())
 
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_or_done')
 def handle_add_or_done(message):
     user_id = message.chat.id
@@ -1998,7 +1678,6 @@ def handle_add_or_done(message):
         bot.send_message(user_id, "Please choose 'Add Another Node' or 'Done'.",
                          reply_markup=get_reply_keyboard(['Add Another Node', 'Done']))
 
-
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_another_node')
 def handle_add_another_node(message):
     user_id = message.chat.id
@@ -2007,7 +1686,6 @@ def handle_add_another_node(message):
     user_data[user_id]['step'] = 'select_pathway'
     view_flows(message)
     bot.send_message(user_id, "Please enter the name of flow to add node:", reply_markup=get_force_reply())
-
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'initiate_call')
 def handle_single_ivr_call_flow(message):
@@ -2022,27 +1700,32 @@ def handle_single_ivr_call_flow(message):
         return
     bot.send_message(user_id, f"{PROCESSING_ERROR} {response}")
 
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("language:"))
 def handle_language_selection(call):
     user_id = call.from_user.id
+
     selected_language = call.data.split(":")[1]
-    user_data[user_id] = {'language': selected_language, 'step': 'terms_and_conditions'}
+    #'step': 'terms_and_conditions'
+    print("language : ", {selected_language})
+    user_data[user_id] = {'language': selected_language, 'step' : 'get_user_information' }
     user = TelegramUser.objects.get(user_id = user_id)
     user.language = selected_language
     user.save()
     token = user.token
     print("token from db: ", token)
-    view_terms_menu(call)
+    signup(call.message)
+    # todo remove this step from here
+    #view_terms_menu(call)
 
-def view_terms_menu(call):
-    user_id = call.message.chat.id
+
+def handle_terms_and_conditions(message):
+    user_id = message.chat.id
     markup = InlineKeyboardMarkup()
-    web_app_info = types.WebAppInfo("https://www.websitepolicies.com/blog/sample-terms-conditions-template")
+    url = f"{webhook_url}/terms-and-conditions/"
+    web_app_info = types.WebAppInfo(url)
     view_terms_button = types.InlineKeyboardButton("📜 View Terms and Conditions", web_app=web_app_info)
     accept_button = InlineKeyboardButton("✅ Accept", callback_data="accept_terms")
     decline_terms = InlineKeyboardButton("❌ Decline", callback_data="decline_terms")
-    # back_button = InlineKeyboardButton("Back ↩️", callback_data="back_to_language")
     markup.add(view_terms_button)
     markup.add(accept_button)
     markup.add(decline_terms)
@@ -2050,11 +1733,13 @@ def view_terms_menu(call):
                      reply_markup=markup)
 
 
+def view_terms_menu(call):
+    handle_terms_and_conditions(call.message)
+
 # Handle Terms Acceptance
 @bot.callback_query_handler(func=lambda call: call.data in ['accept_terms', 'decline_terms'])
 def handle_terms_response(call):
     user_id = call.message.chat.id
-    message_id = call.message.message_id  # Capture message ID for editing
 
     if call.data == 'accept_terms':
         bot.send_message(user_id, "✅ You've successfully accepted the Terms and Conditions! "
@@ -2067,7 +1752,7 @@ def handle_terms_response(call):
 
     elif call.data == 'decline_terms':
         markup = types.InlineKeyboardMarkup()
-        view_terms_button = types.InlineKeyboardButton("🔄 Go Back To Terms and Conditions", callback_data='view_terms_new')
+        view_terms_button = types.InlineKeyboardButton("🔄 View Terms Again", callback_data='view_terms_new')
         exit_button = types.InlineKeyboardButton("❌ Exit Setup", callback_data='exit_setup')
 
         markup.add(view_terms_button, exit_button)
@@ -2075,12 +1760,9 @@ def handle_terms_response(call):
         bot.send_message(user_id, "⚠️ You need to accept the Terms and Conditions to continue using Speechcad. "
             "Please review them again when you're ready.", reply_markup=markup)
 
-
-
 @bot.callback_query_handler(func=lambda call: call.data == 'view_terms_new')
 def handle_view_terms_again(call):
     view_terms_menu(call)
-
 
 @bot.callback_query_handler(func=lambda call: call.data == 'exit_setup')
 def handle_exit_setup(call):
@@ -2091,18 +1773,15 @@ def handle_exit_setup(call):
     bot.send_message( user_id, "You have exited the setup process. You can start again by accepting the terms.",
                       reply_markup=markup)
 
-
 @bot.callback_query_handler(func=lambda call: call.data == "view_terms")
 def handle_view_terms(call):
     user_id = call.from_user.id
     bot.send_message(user_id, f"View the Terms and Conditions here: {TERMS_AND_CONDITIONS_URL}")
     handle_activate_subscription(call)
 
-
 @bot.callback_query_handler(func=lambda call: call.data == "back_to_language")
 def handle_back_to_language(call):
     signup(call.message)
-
 
 @bot.callback_query_handler(func=lambda call: call.data == "Acknowledge and Proceed ✅")
 def handle_acknowledge_and_proceed(call):
@@ -2110,15 +1789,10 @@ def handle_acknowledge_and_proceed(call):
     user = TelegramUser.objects.get(user_id=user_id)
     user.save()
 
-
 @bot.callback_query_handler(func=lambda call: call.data == "main_menu")
 def handle_main_menu(call):
     user_id = call.from_user.id
-
     bot.send_message(user_id, "This is the main menu.", reply_markup=get_main_menu())
-
-
-
 
 def start_bot():
     """

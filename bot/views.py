@@ -6,15 +6,20 @@ from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from TelegramBot.constants import base_url, invalid_data, error
+from TelegramBot.prompts import base_url, invalid_data, error
 from bot.models import Pathways, CallLogsTable, FeedbackDetails, FeedbackLogs, BatchCallLogs
 from bot.utils import add_node, get_pathway_data, get_batch_id
 from payment.models import UserSubscription, SubscriptionPlans, ManageFreePlanSingleIVRCall
 from user.models import TelegramUser
 
 logging.basicConfig(level= logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+from django.shortcuts import render
 
-
+def terms_and_conditions(request):
+    """
+    Function-based view to display the terms and conditions page.
+    """
+    return render(request, 'terms_and_conditions.html')
 
 def stop_single_active_call(call_id):
 
