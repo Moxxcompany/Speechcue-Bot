@@ -12,7 +12,7 @@ import bot.telegrambot
 
 from TelegramBot.constants import STATUS_CODE_200, MAX_INFINITY_CONSTANT
 
-from TelegramBot.prompts import SUCCESSFUL_FREE_TRIAL_ACTIVATION, AVAILABLE_COMMANDS_PROMPT, SUBSCRIPTION_PLAN, NAME, \
+from TelegramBot.English import SUCCESSFUL_FREE_TRIAL_ACTIVATION, AVAILABLE_COMMANDS_PROMPT, SUBSCRIPTION_PLAN, NAME, \
     BULK_IVR_LEFT, \
     USERNAME, PROFILE_INFORMATION_PROMPT, NO_SUBSCRIPTION_PLAN, JOIN_CHANNEL_PROMPT, INACTIVE, \
     BULK_IVR_SUBSCRIPTION_PROMPT, ACTIVE_SUBSCRIPTION_PLAN_PROMPT, SUBSCRIPTION_PLAN_NOT_FOUND, CHECKING_WALLETS, \
@@ -32,13 +32,23 @@ from TelegramBot.prompts import SUCCESSFUL_FREE_TRIAL_ACTIVATION, AVAILABLE_COMM
     UNSUPPORTED_CURRENCY, TOP_UP_AMOUNT_PROMPT, SCAN_ADDRESS_PROMPT, DEPOSIT_SUCCESSFUL, INSUFFICIENT_DEPOSIT_AMOUNT, \
     AMOUNT_NEEDED, AMOUNT_DEPOSITED, TABLE_UPDATE_FAILED, INVALID_JSON, MISSING_KEY, METHOD_NOT_ALLOWED, TRANSACTION_ID, \
     PAYMENT_STATUS, USER_ID, PAID_AMOUNT, PAID_CURRENCY, TRANSACTION_DETAILS, TOP_UP_SUCCESSFUL, SETUP_COMPLETE, \
-    SETUP_WELCOME
+    SETUP_WELCOME, MAIN_MENU_PROMPT, EXIT_SETUP_PROMPT, ACCEPT_TERMS_AND_CONDITIONS, TERMS_AND_CONDITIONS_TOOLTIP, \
+    ENTER_PATHWAY_NAME_PROMPT, ENTER_CUSTOM_NODE_NAME, DISPLAY_IVR_FLOWS, SELECT_IVR_FLOW, \
+    ENTER_PATHWAY_DESCRIPTION_PROMPT, EDGES_LIST_EMPTY, NO_START_NODE_FOUND, SELECT_SOURCE_NODE, ENTER_LABEL_PROMPT, \
+    INVALID_NUMBER_INPUT, USE_TEXT_TO_SPEECH_PROMPT, ASSIGN_NUMBERS_FOR_MENU, ADD_NODE_OR_DONE_PROMPT, SETTINGS_SAVED, \
+    INVALID_PHONE_NUMBER, FINISHED_ADDING_NODES, CALL_QUEUED_SUCCESSFULLY, VIEW_TERMS_AND_CONDITIONS, \
+    CALL_FAILURE_PROMPT, BEGIN_USING_SPEECHCAD, SUCCESSFULLY_ACCEPTED_TERMS_AND_CONDITIONS, SELECT_VOICE_TYPE_PROMPT, \
+    NODE_NAME_ALREADY_TAKEN, ENTER_PHONE_NUMBER_TO_TRANSFER, NO_IVR_FLOW_AVAILABLE, SIMILAR_FLOW_NAME_EXISTS, \
+    DESCRIPTION, NODES, LANGUAGE_SELECTION_FOR_FLOW, MENU_SELECT, REDUCE_NUMBER_OF_CONTACTS, ALLOWED_CONTACTS_PROMPT, \
+    SUBSCRIPTION_EXPIRED, SUCCESSFULLY_SENT, ADD_ANOTHER_NUMBER_PROMPT, FLOW_DELETED_SUCCESSFULLY, \
+    DELETE_FLOW_CONFIRMATION, ENTER_PHONE_NUMBER_PROMPT, UPLOAD_TXT, START_NODE_ID, START_NODE_NAME, CONNECT_NODE, \
+    SELECT_TARGET_NODE, NODE_NUMBER_ALREADY_ASSIGNED, SINGLE_IVR_MINUTES, ADD_GREETING_NODE
 
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable, CallDuration
 
 from bot.utils import generate_random_id, check_validity, \
     check_subscription_status, username_formating, convert_crypto_to_usd, validate_transfer_number, validate_edges, \
-    get_currency, set_user_subscription, set_plan, set_details_for_user_table
+    get_currency, set_user_subscription, set_plan, set_details_for_user_table, load_language_module
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
@@ -64,6 +74,16 @@ user_data = {}
 call_data = []
 TERMS_AND_CONDITIONS_URL = os.getenv('TERMS_AND_CONDITIONS_URL')
 CHANNEL_LINK = os.getenv('CHANNEL_LINK')
+
+import importlib
+
+DEFAULT_LANGUAGE = 'English'
+
+
+
+
+
+
 
 # :: TRIGGERS ------------------------------------#
 
@@ -130,7 +150,6 @@ def trigger_billing_and_subscription(message):
 @check_subscription_status
 def handle_view_subscription(call):
     user_id = call.message.chat.id
-
     try:
         user = TelegramUser.objects.get(user_id=user_id)
         plan = user.plan
@@ -145,8 +164,8 @@ def handle_view_subscription(call):
             f"- {subscription_plan.number_of_bulk_call_minutes:.2f} {BULK_IVR_CALLS}\n"
             f"- {subscription_plan.customer_support_level} {CUSTOMER_SUPPORT_LEVEL}\n"
             f"- {subscription_plan.validity_days} {DAY_PLAN}\n"
-
         )
+
         if subscription_plan.call_transfer:
             plan_details+=(
                 f"{FULL_NODE_ACCESS} : {CALL_TRANSFER_INCLUDED}"
@@ -193,7 +212,7 @@ def check_wallet(call):
         bot.send_message(user_id, f"{WALLET_BALANCE}\n{balance} {currency}",
                          reply_markup=markup)
     except Exception as e:
-        bot.send_message(user_id, escape_markdown(f"{PROCESSING_ERROR}\n\nUnexpected error: {str(e)}"), parse_mode='MarkdownV2')
+        bot.send_message(user_id, escape_markdown(f"{PROCESSING_ERROR}\n\n{str(e)}"), parse_mode='MarkdownV2')
     return
 @bot.callback_query_handler(func=lambda call : call.data == 'back_to_billing')
 def back_to_billing(call):
@@ -425,7 +444,6 @@ def view_variables(message):
         button_text = f"Call ID: {call.call_id}"
         callback_data = f"variables_{call.call_id}"
         markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
-
     bot.send_message(user_id, f"{VIEW_VARIABLES_PROMPT}", reply_markup=markup)
 
 
@@ -433,42 +451,30 @@ def view_variables(message):
 def handle_call_selection_variable(call):
     try:
         call_id = call.data[len("variables_"):]
-
-        # Fetch variables
         variables = get_variables(call_id)
-
         if variables is None:
-            # Handle the case where get_variables returns None
             bot.send_message(call.message.chat.id, f"{NO_VARIABLES_FOUND} {call_id}",
                              parse_mode="MarkdownV2")
             return
-
         formatted_variables = []
         for key, value in variables.items():
             formatted_key = key.replace('_', '\\_')
             formatted_variables.append(f"{formatted_key}: {value}")
-
         variable_message = "\n".join(formatted_variables)
         bot.send_message(call.message.chat.id, variable_message, parse_mode="MarkdownV2")
-
     except Exception as e:
-        error_message = f"An error occurred: {str(e)}"
-        bot.send_message(call.message.chat.id, f"{PROCESSING_ERROR} {error_message}")
-
+        bot.send_message(call.message.chat.id, f"{PROCESSING_ERROR} {str(e)}")
 
 @bot.message_handler(func=lambda message: message.text == "View Feedback")
 def view_feedback(message):
+
     user_id = message.chat.id
-
     feedback_pathway_ids = FeedbackLogs.objects.values_list('pathway_id', flat=True)
-
     list_calls = CallLogsTable.objects.filter(user_id=user_id, pathway_id__in=feedback_pathway_ids)
-
     if not list_calls.exists():
         bot.send_message(user_id, f"{CALL_LOGS_NOT_FOUND}")
         return
     markup = types.InlineKeyboardMarkup()
-
     for call in list_calls:
         button_text = f"Call ID: {call.call_id}"
         callback_data = f"feedback_{call.call_id}"
@@ -591,8 +597,6 @@ def get_mobile(message):
         bot.send_message(user_id, f"{REQUEST_FAILED}\n{response['text']}")
     else:
         bot.send_message(user_id, f"🎉 {SETUP_COMPLETE}")
-        # TODO ths is the selection menu that has to come at step 1
-        # bot.send_message(user_id, f"{PROFILE_LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('language'))
         handle_terms_and_conditions(message)
 
 def validate_email(email):
@@ -617,6 +621,9 @@ def language_selection(message):
                                                                     defaults={'user_name': f'{user_id}'})
         if not created:
             bot.send_message(user_id, f"{EXISTING_USER_WELCOME}", reply_markup=get_main_menu())
+            selected_language = existing_user.language
+            load_language_module(selected_language)
+
             return
         bot.send_message(user_id, f"🌍 {PROFILE_LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('language'))
 
@@ -726,7 +733,7 @@ def handle_plan_selection(call):
     if plan.single_ivr_minutes == MAX_INFINITY_CONSTANT:
         single_calls = f"{UNLIMITED_SINGLE_IVR}"
     else:
-        single_calls = f"{plan.single_ivr_minutes:.4f} minutes of Single IVR Call"
+        single_calls = f"{plan.single_ivr_minutes:.4f} {SINGLE_IVR_MINUTES}"
     if plan.number_of_bulk_call_minutes is None:
         bulk_calls = NO_BULK_MINS_LEFT
     else:
@@ -824,7 +831,7 @@ def payment_through_cryptocurrency(message):
     plan_id = user_data[user_id]['subscription_id']
     response = set_details_for_user_table(user_id, plan_id)
     if response['status'] != 200:
-        bot.send_message(user_id, f"f{response['message']}")
+        bot.send_message(user_id, f"{response['message']}")
         return
     currency_selection(user_id)
 
@@ -860,10 +867,10 @@ def handle_top_up_wallet(call):
 
 def currency_selection(user_id):
     payment_methods = ['Bitcoin (BTC) ₿', 'Ethereum (ETH) Ξ', 'TRC-20 USDT 💵', 'ERC-20 USDT 💵',
-                       'Litecoin (LTC) Ł', 'Back ↩️']
+                       'Litecoin (LTC) Ł','DOGE (DOGE) Ɖ', 'Bitcoin Hash (BCH) Ƀ' , 'TRON (TRX)', 'Back ↩️']
     markup = types.InlineKeyboardMarkup()
     for method in payment_methods:
-        payment_button = types.InlineKeyboardButton(method, callback_data=f"topup_{method.lower().replace(' ', '_')}")
+        payment_button = types.InlineKeyboardButton(method, callback_data=f"topup_{method}")
         markup.add(payment_button)
     bot.send_message(user_id, f"{TOP_UP_PROMPT}", reply_markup=markup)
 
@@ -871,6 +878,7 @@ def currency_selection(user_id):
 def handle_account_topup(call):
     user_id = call.message.chat.id
     payment_method = call.data.split("_")[1]
+    print(payment_method)
     if payment_method == f'{back}':
         trigger_back(call.message)
         return
@@ -1006,7 +1014,7 @@ def create_flow(message):
     """
     user_id = message.chat.id
     user_data[user_id] = {'step': 'ask_name'}
-    bot.send_message(user_id, "Please enter the name of the pathway:", reply_markup=get_force_reply())
+    bot.send_message(user_id, ENTER_PATHWAY_NAME_PROMPT, reply_markup=get_force_reply())
 
 @bot.message_handler(commands=['delete_flow'])
 def delete_flow(message):
@@ -1030,7 +1038,7 @@ def add_node(message):
     user_data[user_id]['step'] = 'add_node'
     user_data[user_id]['node'] = message.text
     user_data[user_id]['select_pathway'] = pathway.pathway_id
-    bot.send_message(user_id, "Please enter the name of your custom node:", reply_markup=get_force_reply())
+    bot.send_message(user_id, ENTER_CUSTOM_NODE_NAME, reply_markup=get_force_reply())
 
 @bot.message_handler(commands=['view_flows'])
 def display_flows(message):
@@ -1053,7 +1061,7 @@ def display_flows(message):
         ]
         markup.add(*pathway_buttons)
     markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
-    bot.send_message(message.chat.id, "Here are your IVR flows:", reply_markup=markup)
+    bot.send_message(message.chat.id, DISPLAY_IVR_FLOWS , reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == 'back')
 def handle_back_button(call):
@@ -1081,9 +1089,9 @@ def handle_pathway_details(call):
         bot.send_message(user_id, f"{PROCESSING_ERROR} {pathway.get('error')}")
         return
 
-    pathway_info = f"Name: {pathway.get('name')}\nDescription: {pathway.get('description')}\n\nNodes:\n" + \
+    pathway_info = f"{NAME}: {pathway.get('name')}\n{DESCRIPTION}: {pathway.get('description')}\n\n{NODES}:\n" + \
                    "\n".join(
-                       [f"\n  Name: {node['data']['name']}\n"
+                       [f"\n  {NAME}: {node['data']['name']}\n"
                         for node in pathway['nodes']])
 
     bot.send_message(user_id, pathway_info, reply_markup=get_flow_node_menu())
@@ -1092,6 +1100,7 @@ def handle_pathway_details(call):
 def view_flows(message):
     """
     Handle '/list_flows' command to retrieve all pathways.
+
     """
     pathways, status_code = handle_view_flows()
     if status_code != 200:
@@ -1110,24 +1119,22 @@ def view_flows(message):
         markup.add(*pathway_buttons)
         markup.add(InlineKeyboardButton("Create IVR Flow ➕", callback_data="create_ivr_flow"))
         markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
-        bot.send_message(message.chat.id, "Please select an IVR Call Flow:", reply_markup=markup)
+        bot.send_message(message.chat.id, SELECT_IVR_FLOW, reply_markup=markup)
     else:
         markup.add(InlineKeyboardButton("Create IVR Flow ➕", callback_data="create_ivr_flow"))
         markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
-        bot.send_message(message.chat.id,
-                         "No IVR flows available!.\nPlease create a new IVR flow.",
-                         reply_markup=markup)
+        bot.send_message(message.chat.id,NO_IVR_FLOW_AVAILABLE ,reply_markup=markup)
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'ask_name')
 def handle_ask_name(message):
     user_id = message.chat.id
     text = message.text if message.content_type == 'text' else None
     if Pathways.objects.filter(pathway_name=text).exists():
-        bot.send_message(user_id, "A flow with similar name already exists. Please enter the name again:")
+        bot.send_message(user_id, SIMILAR_FLOW_NAME_EXISTS)
         return
     user_data[user_id]['pathway_name'] = text
     user_data[user_id]['step'] = 'ask_description'
-    bot.send_message(user_id, "Please enter the description of the pathway:", reply_markup=get_force_reply())
+    bot.send_message(user_id, ENTER_PATHWAY_DESCRIPTION_PROMPT, reply_markup=get_force_reply())
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'ask_description')
 def handle_ask_description(message):
@@ -1143,7 +1150,7 @@ def handle_ask_description(message):
         user_data[user_id]['first_node'] = True
         bot.send_message(user_id, f"IVR Flow '{pathway_name}' created! ✅ ")
 
-        bot.send_message(user_id, f"Now, please select the language for this flow:", reply_markup=get_language_markup('flowlanguage'))
+        bot.send_message(user_id, f"{LANGUAGE_SELECTION_FOR_FLOW}", reply_markup=get_language_markup('flowlanguage'))
 
     else:
         keyboard = check_user_has_active_free_plan(user_id)
@@ -1152,7 +1159,6 @@ def handle_ask_description(message):
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_start_node')
 def handle_add_start_node(message):
-    user_id = message.chat.id
     message.text = 'End Call 🛑'
     add_node(message)
 
@@ -1167,18 +1173,18 @@ def handle_add_flow_language(call):
         user_data[user_id]['message_type'] = 'Play Message'
         call.message.text = 'Play Message ▶️'
         user_data[user_id]['first_node'] = False
-        bot.send_message(user_id, "Add your greeting node!")
+        bot.send_message(user_id, ADD_GREETING_NODE)
         add_node(call.message)
 
     else:
         keyboard = check_user_has_active_free_plan(user_id)
-        bot.send_message(user_id, "Select the type of node that you want to add: ", reply_markup=keyboard)
+        bot.send_message(user_id, NODE_TYPE_SELECTION_PROMPT , reply_markup=keyboard)
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'show_error_node_type')
 def handle_show_error_node_type(message):
     user_id = message.chat.id
     keyboard = check_user_has_active_free_plan(user_id)
-    bot.send_message(user_id, "Select from the menu provided below:", reply_markup=keyboard)
+    bot.send_message(user_id, MENU_SELECT, reply_markup=keyboard)
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_batch_numbers',
                      content_types=['text', 'document'])
@@ -1210,11 +1216,11 @@ def get_batch_call_base_prompt(message):
 
     if calls_sent > max_contacts:
         bot.send_message(user_id,
-                         f"Only {max_contacts} calls are allowed. You provided {calls_sent}. "
-                         f"Please reduce the number of contacts and try again.", reply_markup=get_main_menu())
+                         f"{max_contacts}{REDUCE_NUMBER_OF_CONTACTS}"
+                         f"{ALLOWED_CONTACTS_PROMPT}", reply_markup=get_main_menu())
         return
     if calls_sent == 0:
-        bot.send_message(user_id,"Your subscription plan has expired!", reply_markup=get_main_menu())
+        bot.send_message(user_id, SUBSCRIPTION_EXPIRED, reply_markup=get_main_menu())
         return
 
     formatted_prompts = [{"phone_number": phone} for phone in base_prompts if phone]
@@ -1226,7 +1232,7 @@ def get_batch_call_base_prompt(message):
 
 
     if response.status_code == 200:
-        bot.send_message(user_id, "Successfully sent!", reply_markup=get_main_menu())
+        bot.send_message(user_id, SUCCESSFULLY_SENT, reply_markup=get_main_menu())
 
     else:
         bot.send_message(user_id, f"{PROCESSING_ERROR} {response.text}", reply_markup=get_main_menu())
@@ -1237,7 +1243,7 @@ def get_batch_call_base_prompt(message):
 def get_batch_call_numbers(message):
     user_id = message.chat.id
     user_data[user_id]['batch_numbers'] = message.text
-    bot.message_handler(user_id, "Do you want to add another number?")
+    bot.message_handler(user_id, ADD_ANOTHER_NUMBER_PROMPT)
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_pathway')
 def handle_get_pathway(message):
@@ -1247,7 +1253,7 @@ def handle_get_pathway(message):
     response, status_code = handle_delete_flow(pathway_id)
 
     if status_code == 200:
-        bot.send_message(user_id, "Flow deleted successfully! ✅", reply_markup=get_main_menu())
+        bot.send_message(user_id, FLOW_DELETED_SUCCESSFULLY, reply_markup=get_main_menu())
     else:
         bot.send_message(user_id, f"{PROCESSING_ERROR} {response}!", reply_markup=get_main_menu())
 
@@ -1264,20 +1270,21 @@ def handle_pathway_selection(call):
         step = None
     if step is None:
         user_data[user_id]['step'] = 'add_node'
-        bot.send_message(user_id, "Please enter the name of your custom node:", reply_markup=get_force_reply())
+        bot.send_message(user_id, ENTER_CUSTOM_NODE_NAME, reply_markup=get_force_reply())
     elif step == 'get_pathway':
-        bot.send_message(user_id, "Are you sure you want to delete this flow?",
+        bot.send_message(user_id, DELETE_FLOW_CONFIRMATION,
                          reply_markup=get_delete_confirmation_keyboard())
     elif step == 'phone_number_input':
         print("phone numbers ")
         user_data[user_id]['call_flow'] = pathway_id
         user_data[user_id]['step'] = 'initiate_call'
-        bot.send_message(user_id, "Please enter the phone number to call (include country code).")
+        msg = f"{ENTER_PHONE_NUMBER_PROMPT}:"
+        bot.send_message(user_id, msg)
     elif step == 'get_batch_numbers':
         print("get batch numbers")
         user_data[user_id]['call_flow_bulk'] = pathway_id
-        bot.send_message(user_id, "Please paste phone numbers (with country codes) or upload a file (TXT or CSV "
-                                  "format) with up to 50 phone numbers.")
+        msg = f"{ENTER_PHONE_NUMBER_PROMPT} OR {UPLOAD_TXT}"
+        bot.send_message(user_id, msg)
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_edges')
 def handle_add_edges(message):
@@ -1299,7 +1306,7 @@ def handle_add_edges(message):
 
     if not edges:
         if start_node:
-            bot.send_message(chat_id, "Edges list is empty.")
+            bot.send_message(chat_id, EDGES_LIST_EMPTY)
             markup = types.InlineKeyboardMarkup()
             for node in nodes:
                 if node['id'] != start_node['id']:
@@ -1307,18 +1314,18 @@ def handle_add_edges(message):
                                                           callback_data=f"target_node_{node['id']}"))
             user_data[chat_id]['source_node_id'] = f"{start_node['id']}"
             bot.send_message(chat_id,
-                             f"Start Node ID: {start_node['id']}\nStart Node Name: {start_node['data']['name']}\n"
-                             f"Please select another node to connect to the start node:",
+                             f"{START_NODE_ID} {start_node['id']}\n{START_NODE_NAME} {start_node['data']['name']}\n"
+                             f"{CONNECT_NODE}",
                              reply_markup=markup)
 
         else:
-            bot.send_message(chat_id, "No start node found.")
+            bot.send_message(chat_id, NO_START_NODE_FOUND)
     else:
         markup = types.InlineKeyboardMarkup()
         for node in nodes:
             markup.add(types.InlineKeyboardButton(f"{node['data']['name']} ({node['id']})",
                                                   callback_data=f"source_node_{node['id']}"))
-        bot.send_message(chat_id, "Select source node:", reply_markup=markup)
+        bot.send_message(chat_id, SELECT_SOURCE_NODE, reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("source_node_"))
 def handle_source_node(call):
@@ -1330,7 +1337,7 @@ def handle_source_node(call):
         if node['id'] != source_node_id:
             markup.add(types.InlineKeyboardButton(f"{node['data']['name']} ({node['id']})",
                                                   callback_data=f"target_node_{node['id']}"))
-    bot.send_message(call.message.chat.id, "Select target node:", reply_markup=markup)
+    bot.send_message(call.message.chat.id, SELECT_TARGET_NODE, reply_markup=markup)
     bot.answer_callback_query(call.id)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("target_node_"))
@@ -1341,8 +1348,7 @@ def handle_target_node(call):
     user_data[call.message.chat.id]['step'] = 'add_label'
     user_data[call.message.chat.id]['src'] = source_node_id
     user_data[call.message.chat.id]['target'] = target_node_id
-    bot.send_message(chat_id,
-                     "Enter Label: (Default: User Responds, For DTMF: User enters {your option}) ",
+    bot.send_message(chat_id,ENTER_LABEL_PROMPT,
                      reply_markup=get_force_reply())
 
 @bot.message_handler(func=lambda message: 'step' in user_data.get(message.chat.id, {}) and user_data[message.chat.id]['step'] == 'add_label')
@@ -1387,7 +1393,7 @@ def add_label(message):
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'error_edges_complete')
 def error_edges_complete(message):
     user_id = message.chat.id
-    bot.send_message(user_id, "Select from the menu provided below: ", reply_markup=edges_complete_menu())
+    bot.send_message(user_id, MENU_SELECT, reply_markup=edges_complete_menu())
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_node')
 def handle_add_node_t(message):
@@ -1399,8 +1405,7 @@ def handle_add_node_t(message):
         pathway_data = json.loads(pathway.pathway_payload).get('pathway_data', {})
         nodes = pathway_data.get('nodes', [])
         if any(node['data']['name'].lower() == node_name.lower() for node in nodes):
-            bot.send_message(user_id,
-                             'This name is already taken for another node. Please try again with a different name.')
+            bot.send_message(user_id, f'{NODE_NAME_ALREADY_TAKEN}')
             return
 
     user_data[user_id]['add_node'] = node_name
@@ -1417,7 +1422,7 @@ def handle_add_node_id(message):
         node_ids = [node['id'] for node in existing_nodes]
 
         if text in node_ids:
-            bot.send_message(user_id, "This number has already been assigned to another node. Please enter a different number.")
+            bot.send_message(user_id, NODE_NUMBER_ALREADY_ASSIGNED)
             return
 
         user_data[user_id]['add_node_id'] = int(text)
@@ -1456,7 +1461,7 @@ def handle_add_node_id(message):
             text_to_speech(message)
 
     else:
-        bot.send_message(user_id, "Invalid input. Please enter a valid number between 0 and 9.",
+        bot.send_message(user_id,INVALID_NUMBER_INPUT,
                          reply_markup=get_force_reply())
 
 
@@ -1466,7 +1471,7 @@ def get_menu(message):
     text = message.text
     user_data[user_id]['menu_message'] = text
     user_data[user_id]['step'] = 'get_action_list'
-    bot.send_message(user_id, "Please assign numbers (0-9) and corresponding actions for each option.",
+    bot.send_message(user_id, ASSIGN_NUMBERS_FOR_MENU,
                      reply_markup=get_force_reply())
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'get_action_list')
@@ -1496,7 +1501,7 @@ def error_nodes_complete(message):
 def text_to_speech(message):
     user_id = message.chat.id
     text = message.text
-    bot.send_message(user_id, "Would you like to use Text-to-Speech for the Greeting Message?",
+    bot.send_message(user_id, USE_TEXT_TO_SPEECH_PROMPT,
                      reply_markup=get_play_message_input_type())
     if message.text not in message_input_type:
         user_data[user_id]['step'] = 'error_message_input_type'
@@ -1564,8 +1569,7 @@ def handle_play_message(message):
 
     user_data[user_id]['play_message'] = text
     user_data[user_id]['step'] = 'select_voice_type'
-    bot.send_message(user_id,
-                     "Please select the type of voice.", reply_markup=get_voice_type_menu())
+    bot.send_message(user_id, SELECT_VOICE_TYPE_PROMPT, reply_markup=get_voice_type_menu())
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'select_voice_type')
 def handle_select_voice_type(message):
@@ -1599,7 +1603,7 @@ def handle_select_voice_type(message):
 def handle_call_failure(message):
     user_id = message.chat.id
     text = message.text
-    bot.send_message(user_id, "What should happen in case of failure?", reply_markup=get_call_failed_menu())
+    bot.send_message(user_id, CALL_FAILURE_PROMPT, reply_markup=get_call_failed_menu())
     if message.text not in call_failed_menu:
         user_data[user_id]['step'] = 'show_error_call_failed'
 
@@ -1617,7 +1621,7 @@ def transfer_to_agent(message):
                          reply_markup=get_reply_keyboard(['Yes', 'No']))
         user_data[user_id] = {'step': 'use_previous_number', 'phone_numbers': list(phone_numbers)}
     else:
-        bot.send_message(user_id, "Please enter the phone number to transfer to.", reply_markup=get_force_reply())
+        bot.send_message(user_id, ENTER_PHONE_NUMBER_TO_TRANSFER, reply_markup=get_force_reply())
         user_data[user_id] = {'step': 'enter_new_number'}
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'use_previous_number')
@@ -1641,8 +1645,8 @@ def handle_select_phone_number(call):
     user_id = call.message.chat.id
     phone_number = call.data
     user_data[user_id]['selected_phone_number'] = phone_number
-    bot.send_message(user_id, "Settings saved.")
-    bot.send_message(user_id, "Add another node or select 'Done' if you are finished.",
+    bot.send_message(user_id, SETTINGS_SAVED)
+    bot.send_message(user_id, ADD_NODE_OR_DONE_PROMPT,
                      reply_markup=get_reply_keyboard(['Add Another Node', 'Done']))
     user_data[user_id]['step'] = 'add_or_done'
 
@@ -1654,14 +1658,12 @@ def handle_enter_new_number(message):
     if validate_transfer_number(phone_number):
         TransferCallNumbers.objects.create(user_id=user_id, phone_number=phone_number)
         user_data[user_id]['selected_phone_number'] = phone_number
-        bot.send_message(user_id, "Settings saved.")
-        bot.send_message(user_id, "Add another node or select 'Done' if you are finished.",
+        bot.send_message(user_id, SETTINGS_SAVED)
+        bot.send_message(user_id, ADD_NODE_OR_DONE_PROMPT,
                          reply_markup=get_reply_keyboard(['Add Another Node', 'Done']))
         user_data[user_id]['step'] = 'add_or_done'
     else:
-        bot.send_message(user_id,
-                         "Invalid phone number. Please enter a valid number with a country code (e.g., +123456789).",
-                         reply_markup=get_force_reply())
+        bot.send_message(user_id, INVALID_PHONE_NUMBER, reply_markup=get_force_reply())
 
 @bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get('step') == 'add_or_done')
 def handle_add_or_done(message):
@@ -1673,7 +1675,7 @@ def handle_add_or_done(message):
         bot.send_message(user_id, "Please Select the type of node:", reply_markup=keyboard)
 
     elif text == 'Done':
-        bot.send_message(user_id, "You have finished adding nodes.", reply_markup=get_main_menu())
+        bot.send_message(user_id, FINISHED_ADDING_NODES, reply_markup=get_main_menu())
     else:
         bot.send_message(user_id, "Please choose 'Add Another Node' or 'Done'.",
                          reply_markup=get_reply_keyboard(['Add Another Node', 'Done']))
@@ -1696,7 +1698,7 @@ def handle_single_ivr_call_flow(message):
     phone_number = text
     response, status = send_call_through_pathway(pathway_id, phone_number, user_id)
     if status == 200:
-        bot.send_message(user_id, "Call successfully queued.")
+        bot.send_message(user_id, CALL_QUEUED_SUCCESSFULLY)
         return
     bot.send_message(user_id, f"{PROCESSING_ERROR} {response}")
 
@@ -1711,8 +1713,8 @@ def handle_language_selection(call):
     user = TelegramUser.objects.get(user_id = user_id)
     user.language = selected_language
     user.save()
+    load_language_module(selected_language)
     token = user.token
-    print("token from db: ", token)
     signup(call.message)
     # todo remove this step from here
     #view_terms_menu(call)
@@ -1742,12 +1744,10 @@ def handle_terms_response(call):
     user_id = call.message.chat.id
 
     if call.data == 'accept_terms':
-        bot.send_message(user_id, "✅ You've successfully accepted the Terms and Conditions! "
-                                  "🎉\nYou're all set to begin using Speechcad. Let's move to the fun part! 🎯"
+        bot.send_message(user_id, f"✅ {SUCCESSFULLY_ACCEPTED_TERMS_AND_CONDITIONS}"
+                                  f"🎉\n{BEGIN_USING_SPEECHCAD} 🎯"
         )
-        bot.send_message(user_id, "Tooltip: You can revisit the Terms and Conditions "
-                                       "anytime in your profile settings."
-        )
+        bot.send_message(user_id, TERMS_AND_CONDITIONS_TOOLTIP)
         handle_activate_subscription(call)
 
     elif call.data == 'decline_terms':
@@ -1756,9 +1756,8 @@ def handle_terms_response(call):
         exit_button = types.InlineKeyboardButton("❌ Exit Setup", callback_data='exit_setup')
 
         markup.add(view_terms_button, exit_button)
-
-        bot.send_message(user_id, "⚠️ You need to accept the Terms and Conditions to continue using Speechcad. "
-            "Please review them again when you're ready.", reply_markup=markup)
+        msg = f"⚠️ {ACCEPT_TERMS_AND_CONDITIONS}"
+        bot.send_message(user_id, msg , reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == 'view_terms_new')
 def handle_view_terms_again(call):
@@ -1770,13 +1769,12 @@ def handle_exit_setup(call):
     markup = InlineKeyboardMarkup()
     review_terms = InlineKeyboardButton("📜 View Terms and Conditions", callback_data="view_terms_new")
     markup.add(review_terms)
-    bot.send_message( user_id, "You have exited the setup process. You can start again by accepting the terms.",
-                      reply_markup=markup)
+    bot.send_message( user_id, EXIT_SETUP_PROMPT, reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == "view_terms")
 def handle_view_terms(call):
     user_id = call.from_user.id
-    bot.send_message(user_id, f"View the Terms and Conditions here: {TERMS_AND_CONDITIONS_URL}")
+    bot.send_message(user_id, f"{VIEW_TERMS_AND_CONDITIONS} {TERMS_AND_CONDITIONS_URL}")
     handle_activate_subscription(call)
 
 @bot.callback_query_handler(func=lambda call: call.data == "back_to_language")
@@ -1792,10 +1790,11 @@ def handle_acknowledge_and_proceed(call):
 @bot.callback_query_handler(func=lambda call: call.data == "main_menu")
 def handle_main_menu(call):
     user_id = call.from_user.id
-    bot.send_message(user_id, "This is the main menu.", reply_markup=get_main_menu())
+    bot.send_message(user_id, MAIN_MENU_PROMPT, reply_markup=get_main_menu())
 
 def start_bot():
     """
     Start the Telegram bot and initiate infinity polling.
     """
+    language_module = load_language_module('English')
     bot.infinity_polling()

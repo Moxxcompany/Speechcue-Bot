@@ -1,3 +1,4 @@
+import importlib
 import json
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -5,7 +6,8 @@ from TelegramBot.crypto_cache import *
 from bot.models import CallLogsTable, CallDuration, BatchCallLogs
 from TelegramBot.constants import BTC, ETH, LTC, TRON, MAX_INFINITY_CONSTANT, bitcoin, ethereum, erc20, trc20, \
     litecoin, STATUS_CODE_200, ACTIVE
-from TelegramBot.prompts import error
+from TelegramBot.English import error, CHECK_SUBSCRIPTION
+from bot.telegrambot import DEFAULT_LANGUAGE
 from payment.models import SubscriptionPlans, UserSubscription, \
     OveragePricingTable, UserTransactionLogs, TransactionType
 from user.models import TelegramUser
@@ -184,16 +186,18 @@ def set_plan(user_id, plan_id, auto_renewal):
         'message': "Subscription plan updated successfully."
     }
 
-
 price_cache = {
     'btc': {'price': None, 'timestamp': 0},
     'eth': {'price': None, 'timestamp': 0},
     'usdt_erc20': {'price': None, 'timestamp': 0},
     'usdt_trc20': {'price': None, 'timestamp': 0},
-    'ltc': {'price': None, 'timestamp': 0}
+    'ltc': {'price': None, 'timestamp': 0},
+    'bch': {'price': None, 'timestamp': 0},
+    'doge': {'price': None, 'timestamp': 0},
+    'trx': {'price': None, 'timestamp': 0},
 }
 
-CACHE_DURATION = 60  # Cache duration in seconds
+CACHE_DURATION = 60
 TATUM_API_URL = os.getenv("TATUM_API_URL")
 TATUM_API_KEY = os.getenv("x_api_tatum")
 
@@ -202,22 +206,16 @@ headers = {
     "x-api-key": TATUM_API_KEY
 }
 
-
-# Get cached prices
 def get_cached_price(crypto_type, fetch_price_function):
     current_time = time.time()
-
     if current_time - price_cache[crypto_type]['timestamp'] < CACHE_DURATION:
         return price_cache[crypto_type]['price']
 
     price = fetch_price_function()
     price_cache[crypto_type]['price'] = price
     price_cache[crypto_type]['timestamp'] = current_time
-
     return price
 
-
-# Fetch crypto price from Tatum API
 def fetch_crypto_price_from_tatum(crypto_symbol, base_pair='USD'):
     if crypto_symbol == 'USDT-ERC20':
         url = f"{TATUM_API_URL}/USDT?basePair={base_pair.upper()}"
@@ -225,11 +223,10 @@ def fetch_crypto_price_from_tatum(crypto_symbol, base_pair='USD'):
         url = f"{TATUM_API_URL}/USDT_TRON?basePair={base_pair.upper()}"
     else:
         url = f"{TATUM_API_URL}/{crypto_symbol.upper()}?basePair={base_pair.upper()}"
-
     try:
-        print(f"url : {url}")
+        print(f"url: {url}")
         response = requests.get(url, headers=headers)
-        response.raise_for_status()  # Raise an exception for HTTP errors
+        response.raise_for_status()
         data = response.json()
         if 'value' in data:
             return float(data['value'])
@@ -238,28 +235,31 @@ def fetch_crypto_price_from_tatum(crypto_symbol, base_pair='USD'):
     except requests.exceptions.RequestException as e:
         raise ValueError(f"Error fetching price for {crypto_symbol}: {str(e)}")
 
-# Fetch individual prices
 def get_btc_price():
     return fetch_crypto_price_from_tatum('BTC')
-
 
 def get_eth_price():
     return fetch_crypto_price_from_tatum('ETH')
 
-
 def get_usdt_erc20_price():
     return fetch_crypto_price_from_tatum('USDT-ERC20')
-
 
 def get_usdt_trc20_price():
     return fetch_crypto_price_from_tatum('USDT-TRC20')
 
-
 def get_ltc_price():
     return fetch_crypto_price_from_tatum('LTC')
 
+def get_bch_price():
+    return fetch_crypto_price_from_tatum('BCH')
 
-# Convert crypto to USD
+def get_doge_price():
+    return fetch_crypto_price_from_tatum('DOGE')
+
+
+def get_trx_price():
+    return fetch_crypto_price_from_tatum('TRX')
+
 def convert_crypto_to_usd(crypto_amount, crypto_type):
     try:
         if crypto_type.lower() == 'btc':
@@ -272,9 +272,14 @@ def convert_crypto_to_usd(crypto_amount, crypto_type):
             price_in_usd = get_cached_price('usdt_trc20', get_usdt_trc20_price)
         elif crypto_type.lower() == 'ltc':
             price_in_usd = get_cached_price('ltc', get_ltc_price)
+        elif crypto_type.lower() == 'bch':
+            price_in_usd = get_cached_price('bch', get_bch_price)
+        elif crypto_type.lower() == 'doge':
+            price_in_usd = get_cached_price('doge', get_doge_price)
+        elif crypto_type.lower() == 'trx':
+            price_in_usd = get_cached_price('trx', get_trx_price)
         else:
             raise ValueError(f"Unsupported cryptocurrency type: {crypto_type}")
-
         if price_in_usd <= 0:
             raise ValueError(f"Invalid price for {crypto_type}: {price_in_usd}")
 
@@ -284,12 +289,10 @@ def convert_crypto_to_usd(crypto_amount, crypto_type):
         raise ValueError(f"Error converting {crypto_type} to USD: {str(e)}")
 
 
-# Convert USD to cryptocurrency
 def convert_dollars_to_crypto(amount_in_usd, price_in_usd):
     return float(amount_in_usd) / float(price_in_usd)
 
 
-# Get the price of a plan in cryptocurrency
 def get_plan_price(payment_currency, plan_price):
     if payment_currency.upper() == 'BTC':
         btc_price = get_cached_price('btc', get_btc_price)
@@ -311,8 +314,19 @@ def get_plan_price(payment_currency, plan_price):
         ltc_price = get_cached_price('ltc', get_ltc_price)
         plan_price = convert_dollars_to_crypto(plan_price, ltc_price)
 
-    return plan_price
+    elif payment_currency.upper() == 'BCH':
+        bch_price = get_cached_price('bch', get_bch_price)
+        plan_price = convert_dollars_to_crypto(plan_price, bch_price)
 
+    elif payment_currency.upper() == 'DOGE':
+        doge_price = get_cached_price('doge', get_doge_price)
+        plan_price = convert_dollars_to_crypto(plan_price, doge_price)
+
+    elif payment_currency.upper() == 'TRX':
+        trx_price = get_cached_price('trx', get_trx_price)
+        plan_price = convert_dollars_to_crypto(plan_price, trx_price)
+
+    return plan_price
 
 def username_formating(username):
     username = username.lower()
@@ -320,18 +334,6 @@ def username_formating(username):
     username = username.replace(" ", "_")
     print("After replacing spaces ",username)
     return username
-
-def get_currency_symbol(currency):
-
-    if currency == f"{BTC}":
-        return '₿'
-    if currency == f"{ETH}":
-        return 'Ξ'
-    if currency == f"{LTC}":
-        return 'Ł'
-    if currency == f"ERC_20" or currency == f"TRC_20":
-        return '💵'
-
 
 #-------------- Decorator Functions ---------------#
 
@@ -344,8 +346,7 @@ def check_subscription_status(func):
             return func(call, *args, **kwargs)
         else:
             change_subscription_status(user_id)
-            bot.send_message(user_id, "Please check your subscription status! "
-                                      "You're currently not subscribed to any plan!")
+            bot.send_message(user_id, CHECK_SUBSCRIPTION)
             return None
     return wrapper
 
@@ -365,6 +366,20 @@ def change_subscription_status(user_id):
     except TelegramUser.DoesNotExist:
         pass
 
+def load_language_module(language):
+    """
+    This function dynamically imports the language module based on the user's selection.
+    If the selected language is not found, it defaults to English.
+    """
+
+    supported_languages = ['English', 'Hindi', 'Chinese', 'French']
+
+    language = language if language in supported_languages else DEFAULT_LANGUAGE
+
+    try:
+        return importlib.import_module(f'TelegramBot.{language}')
+    except ModuleNotFoundError:
+        return importlib.import_module(f'TelegramBot.{DEFAULT_LANGUAGE}')
 
 def check_validity(func):
     @wraps(func)
@@ -375,8 +390,7 @@ def check_validity(func):
             return func(message, *args, **kwargs)
         else:
             change_subscription_status(user_id)
-            bot.send_message(user_id, "Please check your subscription status! "
-                                      "You're currently not subscribed to any plan!")
+            bot.send_message(user_id, CHECK_SUBSCRIPTION)
             return None
 
     return wrapper
@@ -396,7 +410,6 @@ def check_expiry_date(user_id):
 
 #--------------------------------------------------#
 
-
 def get_user_subscription_by_call_id(call_id):
     try:
         try:
@@ -415,94 +428,23 @@ def get_user_subscription_by_call_id(call_id):
     except Exception as e:
         return {"status": f"An error occurred: {str(e)}", "user_subscription": None, "user_id" : None}
 
-# def charge_additional_mins(user_id, currency, available_balance):
-#     print("in charge function")
-#     calls_with_additional_minutes = CallDuration.objects.filter(additional_minutes__gt=0, charged=False, user_id=user_id)
-#
-#     if calls_with_additional_minutes.exists():
-#         print("found calls with additional minutes")
-#         currency = currency
-#         account = VirtualAccountsTable.objects.get(user_id=user_id, currency=currency)
-#         account_id = account.account_id
-#         acc_currency = currency.lower()
-#
-#
-#         price_in_usd = None
-#         if acc_currency == 'btc':
-#             price_in_usd = get_cached_crypto_price('btc', lambda: fetch_crypto_price_with_retry('BTC'))
-#         elif acc_currency == 'eth':
-#             price_in_usd = get_cached_crypto_price('eth', lambda: fetch_crypto_price_with_retry('ETH'))
-#         elif acc_currency == 'erc_20' or acc_currency == 'trc_20':
-#             price_in_usd = get_cached_crypto_price('usdt', lambda: fetch_crypto_price_with_retry('USDT'))
-#         elif acc_currency == 'ltc':
-#             price_in_usd = get_cached_crypto_price('ltc', lambda: fetch_crypto_price_with_retry('LTC'))
-#
-#         balance_in_usd = convert_crypto_to_usd(available_balance, acc_currency)
-#         print("balance in usd calculated", balance_in_usd)
-#
-#         overage_pricing = OveragePricingTable.objects.get(pricing_unit='MIN')
-#         price_per_min = float(overage_pricing.overage_pricing)
-#         user = TelegramUser.objects.get(user_id=user_id)
-#         for call in calls_with_additional_minutes:
-#             print("in call loop")
-#             total_charges = price_per_min *  call.additional_minutes
-#             if balance_in_usd >= total_charges:
-#                 print("balance is sufficient for payment.")
-#
-#                 crypto_charges = convert_dollars_to_crypto(total_charges, price_in_usd)
-#                 receiver_account = MainWalletTable.objects.get(currency=account.currency).virtual_account
-#                 payment_response = send_payment(account_id, receiver_account, crypto_charges)
-#
-#                 if payment_response.status_code == 200:
-#                     payment_reference = payment_response.json().get('reference', 'N/A')
-#
-#                     UserTransactionLogs.objects.create(
-#                         user_id=user,
-#                         reference=payment_reference,
-#                         transaction_type=TransactionType.Overage,
-#                     )
-#                     call.charged = True
-#                     call.save()
-#
-#                 else:
-#                     bot.send_message(user_id,f'Unable to process payment due to the following error: {payment_response.text}')
-#                 return
-#     return
-
 def get_batch_id(data):
     data = json.loads(data)
     batch_id = data['data']['batch_id']
     return batch_id
 
 def get_currency(payment_method):
+    mapping = {
+        'Bitcoin (BTC) ₿': f'{BTC}',
+        'Ethereum (ETH) Ξ': f'{ETH}',
+        'TRC-20 USDT 💵': 'USDT-TRC20',
+        'ERC-20 USDT 💵': 'USDT-ERC20',
+        'Litecoin (LTC) Ł': f'{LTC}',
+        'DOGE (DOGE) Ɖ': 'DOGE',
+        'Bitcoin Hash (BCH) Ƀ': 'BCH',
+        'TRON (TRX)': 'TRX',
+    }
+    payment_currency = mapping.get(payment_method, 'Unsupported')
+    return {'status': 400, 'text': payment_currency}
 
-    if payment_method == f'{bitcoin}':
-        payment_currency = f'{BTC}'
-        return {'status': 200, 'text': payment_currency}
-
-
-
-    elif payment_method == f'{ethereum}':
-        payment_currency = f'{ETH}'
-        return {'status': 200, 'text': payment_currency}
-
-
-    elif payment_method == f'{erc20}':
-        payment_currency = 'USDT-ERC20'
-        return {'status': 200, 'text': payment_currency}
-
-
-    elif payment_method == f'{trc20}':
-        payment_currency = f'USDT-TRC20'
-        return {'status': 200, 'text': payment_currency}
-
-
-
-    elif payment_method == f'{litecoin}':
-        payment_currency = f'{LTC}'
-        return {'status': 200, 'text': payment_currency}
-
-    else:
-        payment_currency = "Unsupported"
-        return {'status': 400, 'text': payment_currency}
 

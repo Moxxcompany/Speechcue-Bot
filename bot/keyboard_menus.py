@@ -1,7 +1,10 @@
 # :: MENUS ------------------------------------#
+
+
 from django.core.exceptions import ObjectDoesNotExist
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ForceReply
 
+from bot.telegrambot import DEFAULT_LANGUAGE
 from bot.views import get_voices
 from telebot import types
 
@@ -69,10 +72,11 @@ def get_gender_menu():
 
 languages_flag = [
     ("English", "🇬🇧"),
-    ("Indian Language", "🇮🇳"),
+    ("Hindi", "🇮🇳"),
     ("Chinese", "🇨🇳"),
     ("French", "🇫🇷")
 ]
+
 
 def get_language_markup(callback_query_string):
     markup = types.InlineKeyboardMarkup()
