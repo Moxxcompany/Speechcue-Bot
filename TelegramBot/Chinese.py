@@ -199,3 +199,9 @@ CONNECT_NODE = "请选择另一个节点与起始节点连接："
 SINGLE_IVR_MINUTES = "单次IVR通话分钟"
 ADD_GREETING_NODE = "添加您的问候节点！"
 CHECK_SUBSCRIPTION = "请检查您的订阅状态！您目前没有订阅任何计划！"
+WALLET_TOP_UP = "请充值您的钱包。"
+INSUFFICIENT_BALANCE_FOR_PAYMENT = "您的余额不足以支付"
+ADDITIONAL_MINUTES = "分钟的附加时间。"
+CHARGED_SUCCESSFULLY = "充值成功"
+
+

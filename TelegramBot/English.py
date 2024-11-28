@@ -199,6 +199,8 @@ CONNECT_NODE = "Please select another node to connect to the start node:"
 SINGLE_IVR_MINUTES = "Single IVR Call minutes"
 ADD_GREETING_NODE = "Add your greeting node!"
 CHECK_SUBSCRIPTION = "Please check your subscription status! You're currently not subscribed to any plan!"
-
-
+WALLET_TOP_UP = "Please top up your wallet."
+INSUFFICIENT_BALANCE_FOR_PAYMENT = "You have insufficient balance to pay"
+ADDITIONAL_MINUTES = "additional minutes"
+CHARGED_SUCCESSFULLY = "charged successfully"
 

@@ -198,3 +198,13 @@ CONNECT_NODE = "Veuillez sélectionner un autre nœud pour le connecter au nœud
 SINGLE_IVR_MINUTES = "Minutes d'appel IVR simples"
 ADD_GREETING_NODE = "Ajoutez votre nœud de bienvenue !"
 CHECK_SUBSCRIPTION = "Veuillez vérifier votre statut d'abonnement ! Vous n'êtes actuellement abonné à aucun plan !"
+WALLET_TOP_UP = "Veuillez recharger votre portefeuille."
+INSUFFICIENT_BALANCE_FOR_PAYMENT = "Vous avez un solde insuffisant pour payer"
+ADDITIONAL_MINUTES = "minutes supplémentaires."
+CHARGED_SUCCESSFULLY = "Chargement réussi"
+
+
+
+
+
+

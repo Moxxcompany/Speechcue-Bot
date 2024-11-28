@@ -199,3 +199,8 @@ CONNECT_NODE = "कृपया प्रारंभ नोड से कने
 SINGLE_IVR_MINUTES = "सिंगल IVR कॉल मिनट"
 ADD_GREETING_NODE = "अपना ग्रीटिंग नोड जोड़ें!"
 CHECK_SUBSCRIPTION = "कृपया अपनी सदस्यता स्थिति जांचें! आप वर्तमान में किसी भी योजना के लिए सदस्य नहीं हैं!"
+WALLET_TOP_UP = "Please top up your wallet."
+INSUFFICIENT_BALANCE_FOR_PAYMENT = "आपके पास"
+ADDITIONAL_MINUTES = " अतिरिक्त मिनटों के लिए भुगतान करने के लिए पर्याप्त शेष नहीं है।"
+CHARGED_SUCCESSFULLY= "सफलतापूर्वक चार्ज किया गया"
+
