@@ -1099,9 +1099,10 @@ def handle_pathway_details(call):
         bot.send_message(user_id, f"{bot.global_language_variable.PROCESSING_ERROR} {pathway.get('error')}")
         return
 
-    pathway_info = f"{bot.global_language_variable.NAME}: {pathway.get('name')}\n{DESCRIPTION}: {pathway.get('description')}\n\n{NODES}:\n" + \
+    pathway_info = (f"{bot.global_language_variable.NAME}: {pathway.get('name')}\n"
+                    f"{bot.global_language_variable.DESCRIPTION}: {pathway.get('description')}\n\n{NODES}:\n") + \
                    "\n".join(
-                       [f"\n  {NAME}: {node['data']['name']}\n"
+                       [f"\n  {bot.global_language_variable.NAME}: {node['data']['name']}\n"
                         for node in pathway['nodes']])
 
     bot.send_message(user_id, pathway_info, reply_markup=get_flow_node_menu())
