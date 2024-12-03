@@ -218,4 +218,5 @@ SOURCE_NODE = "源节点："
 TARGET_NODE = "目标节点："
 NODE_ADDED = "节点添加成功！"
 DTMF_PROMPT = "请输入DTMF输入的提示信息。"
+FLOW_CREATED = "IVR 流程已创建！"
 

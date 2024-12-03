@@ -217,6 +217,7 @@ SOURCE_NODE = "Nœud source :"
 TARGET_NODE = "Nœud cible :"
 NODE_ADDED = "Nœud ajouté avec succès !"
 DTMF_PROMPT = "Veuillez entrer le message d'invite pour l'entrée DTMF."
+FLOW_CREATED = "Flux IVR créé !"
 
 
 
