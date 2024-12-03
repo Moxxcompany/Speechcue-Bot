@@ -2,12 +2,12 @@ import importlib
 import json
 
 from django.core.exceptions import ObjectDoesNotExist
+
 from TelegramBot.crypto_cache import *
 from bot.models import CallLogsTable, CallDuration, BatchCallLogs
 from TelegramBot.constants import BTC, ETH, LTC, TRON, MAX_INFINITY_CONSTANT, bitcoin, ethereum, erc20, trc20, \
     litecoin, STATUS_CODE_200, ACTIVE
 from TelegramBot.English import error, CHECK_SUBSCRIPTION
-from bot.telegrambot import DEFAULT_LANGUAGE
 from payment.models import SubscriptionPlans, UserSubscription, \
     OveragePricingTable, UserTransactionLogs, TransactionType
 from user.models import TelegramUser
@@ -346,7 +346,7 @@ def check_subscription_status(func):
             return func(call, *args, **kwargs)
         else:
             change_subscription_status(user_id)
-            bot.send_message(user_id, CHECK_SUBSCRIPTION)
+            bot.send_message(user_id, bot.global_language_variable.CHECK_SUBSCRIPTION)
             return None
     return wrapper
 
@@ -371,11 +371,13 @@ def load_language_module(language):
     This function dynamically imports the language module based on the user's selection.
     If the selected language is not found, it defaults to English.
     """
+    DEFAULT_LANGUAGE = 'English'
 
     supported_languages = ['English', 'Hindi', 'Chinese', 'French']
+    print("received : ", language)
 
     language = language if language in supported_languages else DEFAULT_LANGUAGE
-
+    print("translated: ", language)
     try:
         return importlib.import_module(f'TelegramBot.{language}')
     except ModuleNotFoundError:
@@ -390,7 +392,7 @@ def check_validity(func):
             return func(message, *args, **kwargs)
         else:
             change_subscription_status(user_id)
-            bot.send_message(user_id, CHECK_SUBSCRIPTION)
+            bot.send_message(user_id, bot.global_language_variable.CHECK_SUBSCRIPTION)
             return None
 
     return wrapper

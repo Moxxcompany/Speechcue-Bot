@@ -4,7 +4,6 @@
 from django.core.exceptions import ObjectDoesNotExist
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ForceReply
 
-from bot.telegrambot import DEFAULT_LANGUAGE
 from bot.views import get_voices
 from telebot import types
 
@@ -94,7 +93,7 @@ def get_language_flag_menu():
 
 
 def get_voice_type_menu():
-    options = [voice['name'] for voice in voice_data['voices']]
+    options = [voice['name'] for voice in voice_data['voices']][:20]
     return get_reply_keyboard(options)
 
 

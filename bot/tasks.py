@@ -232,8 +232,6 @@ def call_status_free_plan():
             call.save()
 
 
-
-
 @shared_task
 def charge_user_for_additional_minutes():
     print("Charge_user_for_additional_minutes RUNNING..... ")
