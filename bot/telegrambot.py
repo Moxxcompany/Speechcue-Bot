@@ -998,10 +998,11 @@ def make_payment(user_id, amount):
     currency = user_data[user_id]['currency']
     top_up = False
     redirect_uri = f"{webhook_url}/webhook/webhook/crypto_deposit'"
+    auto_renewal = UserSubscription.objects.get(user_id=user_id).auto_renewal
     if user_data[user_id]['transaction_type'] == 'top_up':
         top_up = True
         redirect_uri = f"{webhook_url}/webhook/crypto_transaction"
-    crypto_payment = create_crypto_payment(user_id, amount, currency, top_up, redirect_uri)
+    crypto_payment = create_crypto_payment(user_id, amount, currency, redirect_uri, auto_renewal, top_up)
 
     if crypto_payment.status_code != 200:
         bot.send_message(user_id, f"{bot.global_language_variable.PROCESSING_ERROR}\n{crypto_payment.json()}")

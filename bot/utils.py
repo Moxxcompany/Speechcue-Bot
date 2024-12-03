@@ -447,6 +447,11 @@ def get_currency(payment_method):
         'TRON (TRX)': 'TRX',
     }
     payment_currency = mapping.get(payment_method, 'Unsupported')
-    return {'status': 400, 'text': payment_currency}
+    if payment_currency == 'Unsupported':
+        status = 400
+    else:
+        status = 200
+    print(payment_currency)
+    return {'status': status, 'text': payment_currency}
 
 
