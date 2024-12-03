@@ -446,14 +446,14 @@ def view_variables(message):
         markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
     bot.send_message(user_id, f"{bot.global_language_variable.VIEW_VARIABLES_PROMPT}", reply_markup=markup)
 
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith("variables_"))
 def handle_call_selection_variable(call):
     try:
         call_id = call.data[len("variables_"):]
         variables = get_variables(call_id)
         if variables is None:
-            bot.send_message(call.message.chat.id, f"{bot.global_language_variable.NO_VARIABLES_FOUND} {call_id}",
+            msg = f"{bot.global_language_variable.NO_VARIABLES_FOUND} {call_id}"
+            bot.send_message(call.message.chat.id, escape_markdown(msg),
                              parse_mode="MarkdownV2")
             return
         formatted_variables = []
@@ -461,9 +461,16 @@ def handle_call_selection_variable(call):
             formatted_key = key.replace('_', '\\_')
             formatted_variables.append(f"{formatted_key}: {value}")
         variable_message = "\n".join(formatted_variables)
-        bot.send_message(call.message.chat.id, bot.global_language_variable.variable_message, parse_mode="MarkdownV2")
+
+        if not variable_message:
+            msg = f"{bot.global_language_variable.NO_VARIABLES_FOUND} {call_id}"
+            bot.send_message(call.message.chat.id, escape_markdown(msg), parse_mode="MarkdownV2")
+        else:
+            bot.send_message(call.message.chat.id, variable_message, parse_mode="MarkdownV2")
+
     except Exception as e:
         bot.send_message(call.message.chat.id, f"{bot.global_language_variable.PROCESSING_ERROR} {str(e)}")
+
 
 @bot.message_handler(func=lambda message: message.text == "View Feedback")
 def view_feedback(message):
@@ -604,10 +611,8 @@ def validate_email(email):
     email_regex = r"^(?![.-])([A-Za-z0-9]+[.-_])*[A-Za-z0-9]+@[A-Za-z0-9-]+\.[A-Za-z]{2,}$"
     return re.match(email_regex, email) is not None
 
-
 def validate_mobile(mobile):
     try:
-        # Parse the mobile number
         number = phonenumbers.parse(mobile)
         region = geocoder.region_code_for_number(number)
         is_valid = phonenumbers.is_valid_number(number)
@@ -640,7 +645,6 @@ def language_selection(message):
             bot.send_message(user_id, f"{bot.global_language_variable.EXISTING_USER_WELCOME}", reply_markup=get_main_menu())
             return
         bot.send_message(user_id, f"🌍 {bot.global_language_variable.PROFILE_LANGUAGE_SELECTION_PROMPT}", reply_markup=get_language_markup('language'))
-
     except Exception as e:
         bot.reply_to(message, f"{PROCESSING_ERROR} {str(e)}", reply_markup=get_force_reply())
 
@@ -802,6 +806,7 @@ def handle_auto_renewal_choice(call):
         user_data[user_id]['auto_renewal'] = False
         bot.send_message(user_id, auto_renewal_disabled)
     send_payment_options(user_id)
+
 
 def send_payment_options(user_id):
     payment_message = f"💳 {SUBSCRIPTION_PAYMENT_METHOD_PROMPT}"
@@ -1330,7 +1335,6 @@ def handle_add_edges(message):
                              f"{bot.global_language_variable.START_NODE_NAME} {start_node['data']['name']}\n"
                              f"{bot.global_language_variable.CONNECT_NODE}",
                              reply_markup=markup)
-
         else:
             bot.send_message(chat_id, bot.global_language_variable.NO_START_NODE_FOUND)
     else:
@@ -1381,6 +1385,7 @@ def add_label(message):
         "source": f"{source_node_id}",
         "target": f"{target_node_id}"
     }
+
     edges.append(new_edge)
     updated_data = {
         "name": data.get("name"),

@@ -648,11 +648,13 @@ def get_variables(call_id):
 
     try:
         call_details = get_call_details(call_id)
-        variables = call_details.get('variables', {})
+        variables = call_details.get('variables')
+        if not variables:
+            return None
         user_input_variables = {}
-
         for key, value in variables.items():
             if key.endswith('user_input'):
+                print(value)
                 user_input_variables[key] = value
 
         return user_input_variables
