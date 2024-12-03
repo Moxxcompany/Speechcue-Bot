@@ -1723,7 +1723,8 @@ def handle_language_selection(call):
 def handle_terms_and_conditions(message):
     user_id = message.chat.id
     markup = InlineKeyboardMarkup()
-    url = f"{webhook_url}/terms-and-conditions/"
+    #url = f"{webhook_url}/terms-and-conditions/"
+    url = "https://www.termsfeed.com/blog/sample-terms-and-conditions-template/"
     web_app_info = types.WebAppInfo(url)
     view_terms_button = types.InlineKeyboardButton("📜 View Terms and Conditions", web_app=web_app_info)
     accept_button = InlineKeyboardButton("✅ Accept", callback_data="accept_terms")
