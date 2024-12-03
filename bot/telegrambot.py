@@ -9,6 +9,7 @@ import re
 import io
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from phonenumbers import geocoder
 
 import bot.bot_config
 from TelegramBot.constants import STATUS_CODE_200, MAX_INFINITY_CONSTANT
@@ -585,7 +586,7 @@ def get_email(message):
 def get_mobile(message):
     user_id = message.chat.id
     mobile = message.text
-    if not validate_transfer_number(mobile):
+    if not validate_mobile(mobile):
         bot.send_message(user_id, bot.global_language_variable.INVALID_NUMBER_PROMPT, reply_markup=get_force_reply())
         return
     name = user_data[user_id]['name']
@@ -604,12 +605,19 @@ def validate_email(email):
     return re.match(email_regex, email) is not None
 
 
-def validate_mobile(mobile, country_code="US"):
+def validate_mobile(mobile):
     try:
-        number = phonenumbers.parse(mobile, country_code)
-        return phonenumbers.is_valid_number(number)
-
-    except phonenumbers.phonenumberutil.NumberParseException:
+        # Parse the mobile number
+        number = phonenumbers.parse(mobile)
+        region = geocoder.region_code_for_number(number)
+        is_valid = phonenumbers.is_valid_number(number)
+        print(f"Parsed Number: {mobile}, Region: {region}, Valid: {is_valid}")
+        if not is_valid:
+            print(f"Number {mobile} is invalid based on region-specific rules.")
+            return False
+        return True
+    except phonenumbers.phonenumberutil.NumberParseException as e:
+        print(f"Error parsing number {mobile}: {e}")
         return False
 
 @bot.message_handler(commands=['cancel'])
@@ -1526,7 +1534,7 @@ def handle_get_dtmf_input(message):
     message_type = user_data[user_id]['message_type']
 
     if message_type == 'Transfer Call':
-        if not validate_transfer_number(text):
+        if not validate_mobile(text):
             bot.send_message(user_id, bot.global_language_variable.INVALID_NUMBER_PROMPT)
             return
 
@@ -1653,7 +1661,7 @@ def handle_enter_new_number(message):
     user_id = message.chat.id
     phone_number = message.text
 
-    if validate_transfer_number(phone_number):
+    if validate_mobile(phone_number):
         TransferCallNumbers.objects.create(user_id=user_id, phone_number=phone_number)
         user_data[user_id]['selected_phone_number'] = phone_number
         bot.send_message(user_id, bot.global_language_variable.SETTINGS_SAVED)
