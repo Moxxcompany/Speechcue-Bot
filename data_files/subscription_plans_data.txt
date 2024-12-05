@@ -7,4 +7,4 @@ Elite|35|600|True|Priority|30|
 Ultra|20|200|True|Premium|1|
 Ultra|30|400|True|Premium|7|
 Ultra|40|800|True|Premium|30|
-Free|0|0|True|24/7|1|2
+Free|0|0|True|24/7|2|2
