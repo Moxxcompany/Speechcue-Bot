@@ -19,7 +19,7 @@ def check_user_has_active_free_plan(user_id):
             subscription_status='active'
         )
 
-        free_plan = active_subscription.plan_id.plan_price == 0
+        free_plan = active_subscription.call_transfer
 
         if free_plan:
             return get_node_menu_free()
@@ -68,14 +68,12 @@ def get_gender_menu():
     options = ["Male", "Female"]
     return get_reply_keyboard(options)
 
-
 languages_flag = [
     ("English", "🇬🇧"),
     ("Hindi", "🇮🇳"),
     ("Chinese", "🇨🇳"),
     ("French", "🇫🇷")
 ]
-
 
 def get_language_markup(callback_query_string):
     markup = types.InlineKeyboardMarkup()

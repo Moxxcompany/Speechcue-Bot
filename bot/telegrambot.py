@@ -601,7 +601,13 @@ def get_mobile(message):
     email = user_data[user_id]['email']
     response = setup_user(user_id, email, mobile, name, username)
     if response['status'] != 200:
-        bot.send_message(user_id, f"{bot.global_language_variable.REQUEST_FAILED}\n{response['text']}")
+        if response['status']== 503:
+            bot.send_message(user_id, f"Account is already taken! Try it with a different email address!",
+                             reply_markup=get_force_reply())
+            user_data[user_id]['step'] = 'get_email'
+            return
+        else:
+            bot.send_message(user_id, f"{bot.global_language_variable.REQUEST_FAILED}\n{response['text']}")
     else:
         bot.send_message(user_id, f"🎉 {bot.global_language_variable.SETUP_COMPLETE}")
         user_data[user_id]['step'] = ''
@@ -825,7 +831,7 @@ def payment_through_wallet_balance(message):
     response = credit_wallet_balance(user_id, amount)
     if response.status_code != 200:
         msg = response.json().get('message')
-        bot.send_message(user_id, f"{msg}",
+        bot.send_message(user_id, f"{bot.global_language_variable.INSUFFICIENT_BALANCE}",
                          reply_markup=get_main_menu())
         return
     plan_id = user_data[user_id]['subscription_id']
@@ -1713,7 +1719,8 @@ def handle_single_ivr_call_flow(message):
 
         response, status = send_call_through_pathway(pathway_id, phone_number, user_id)
         if status == 200:
-            bot.send_message(user_id, bot.global_language_variable.CALL_QUEUED_SUCCESSFULLY)
+            bot.send_message(user_id, bot.global_language_variable.CALL_QUEUED_SUCCESSFULLY,
+                             reply_markup=get_main_menu())
             return
         bot.send_message(user_id, f"{bot.global_language_variable.PROCESSING_ERROR} {response}")
     else:

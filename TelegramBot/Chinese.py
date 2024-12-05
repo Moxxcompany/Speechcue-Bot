@@ -9,9 +9,9 @@ OUTGOING_CONNECTIONS_MISSING = "以下节点没有任何输出连接到其他节
 INCOMING_CONNECTIONS_MISSING = "以下节点没有连接到其他节点："
 ADD_ONE_EDGE = "至少为缺少的节点添加一条连接！"
 NO_VARIABLES_FOUND = "未找到此通话ID的变量："
-EMAIL_PROMPT = "请输入您的电子邮件地址："
+EMAIL_PROMPT = "👤 请输入您的电子邮件地址："
 INVALID_EMAIL_FORMAT = "无效的电子邮件格式。请输入有效的电子邮件地址："
-MOBILE_NUMBER_PROMPT = "请输入您的手机号码："
+MOBILE_NUMBER_PROMPT = "👤 请输入您的手机号码："
 INVALID_NUMBER_PROMPT = "无效的手机号码格式。请输入有效的手机号码："
 REQUEST_FAILED = "请求失败，原因如下："
 ACTION_CANCELLED = "您已取消当前操作。"
@@ -219,4 +219,6 @@ TARGET_NODE = "目标节点："
 NODE_ADDED = "节点添加成功！"
 DTMF_PROMPT = "请输入DTMF输入的提示信息。"
 FLOW_CREATED = "IVR 流程已创建！"
+ACCOUNT_TAKEN = "账户已被占用！请尝试使用其他电子邮件地址！"
+
 
