@@ -791,3 +791,24 @@ def get_call_list_from_batch(batch_id, user_id):
     except Exception as e:
         logging.exception("An error occurred during processing")
         return JsonResponse({'error': f'An error occurred: {str(e)}'}, status=500)
+
+
+def check_pathway_block(pathway_id):
+    """
+    Checks if the pathway retrieved by the handle_view_single_flow function contains any nodes.
+
+    Args:
+        pathway_id (str): The ID of the pathway to be checked.
+
+    Returns:
+        bool: True if nodes are present in the pathway, False otherwise.
+    """
+    pathway_data, status_code = handle_view_single_flow(pathway_id)
+
+    if status_code == 200:
+        nodes = pathway_data.get("nodes", [])
+        return bool(nodes)  # Returns True if nodes list is not empty, otherwise False
+    else:
+        # Log the error or handle it as needed
+        print("Error retrieving pathway:", pathway_data)
+        return False

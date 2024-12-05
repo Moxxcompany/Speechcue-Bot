@@ -57,7 +57,7 @@ from bot.utils import generate_random_id, check_validity, \
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
-    empty_nodes, bulk_ivr_flow, get_transcript, question_type, get_variables
+    empty_nodes, bulk_ivr_flow, get_transcript, question_type, get_variables, check_pathway_block
 
 from payment.models import SubscriptionPlans
 from payment.views import  setup_user, check_user_balance, create_crypto_payment, credit_wallet_balance
@@ -1287,6 +1287,10 @@ def handle_pathway_selection(call):
     pathway_id = UUID(pathway_id)
     user_data[user_id] = user_data.get(user_id, {})
     user_data[user_id]['select_pathway'] = pathway_id
+    if not check_pathway_block(str(pathway_id)):
+        bot.send_message(user_id, "This pathway has no blocks.")
+        view_flows(call.message)
+        return
     if 'step' in user_data.get(user_id, {}):
         step = user_data[user_id]['step']
     else:
