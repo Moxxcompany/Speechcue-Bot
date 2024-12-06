@@ -219,7 +219,7 @@ NODE_ADDED = "Nœud ajouté avec succès !"
 DTMF_PROMPT = "Veuillez entrer le message d'invite pour l'entrée DTMF."
 FLOW_CREATED = "Flux IVR créé !"
 ACCOUNT_TAKEN = "Le compte est déjà pris ! Essayez avec une autre adresse e-mail !"
-
+NO_BLOCKS = "Ce chemin n'a pas de blocages."
 
 
 

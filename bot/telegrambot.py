@@ -47,7 +47,7 @@ from TelegramBot.English import SUCCESSFUL_FREE_TRIAL_ACTIVATION, AVAILABLE_COMM
     SELECT_TARGET_NODE, NODE_NUMBER_ALREADY_ASSIGNED, SINGLE_IVR_MINUTES, ADD_GREETING_NODE, PROMPT_MESSAGE_FOR_MENU, \
     ENTER_MESSAGE_PROMPT, SELECT_FROM_MENU, SELECT_PHONE_NUMBER, SELECT_NODE_TYPE, \
     ENTER_FLOW_NAME, ADD_ANOTHER_OR_DONE_PROMPT, REVIEW_TERMS_AND_CONDITIONS, EDGE_ADDED, SOURCE_NODE, TARGET_NODE, \
-    NODE_ADDED, FLOW_CREATED
+    NODE_ADDED, FLOW_CREATED, NO_BLOCKS
 
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable, CallDuration
 
@@ -1288,7 +1288,7 @@ def handle_pathway_selection(call):
     user_data[user_id] = user_data.get(user_id, {})
     user_data[user_id]['select_pathway'] = pathway_id
     if not check_pathway_block(str(pathway_id)):
-        bot.send_message(user_id, "This pathway has no blocks.")
+        bot.send_message(user_id, bot.global_language_variable.NO_BLOCKS)
         view_flows(call.message)
         return
     if 'step' in user_data.get(user_id, {}):

@@ -220,5 +220,5 @@ NODE_ADDED = "节点添加成功！"
 DTMF_PROMPT = "请输入DTMF输入的提示信息。"
 FLOW_CREATED = "IVR 流程已创建！"
 ACCOUNT_TAKEN = "账户已被占用！请尝试使用其他电子邮件地址！"
-
+NO_BLOCKS = "这条路径没有障碍。"
 
