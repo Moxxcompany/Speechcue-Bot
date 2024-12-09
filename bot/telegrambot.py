@@ -932,7 +932,7 @@ def send_qr_code(user_id, address, qr_code_base64=None, ):
             img.save("qr_code.png", "PNG")
     with open("qr_code.png", "rb") as img_file:
         bot.send_photo(user_id, img_file,
-                       caption=f"{bot.global_language_variable.SCAN_ADDRESS_PROMPT}\n\n`{address}`",
+                       caption=f"{bot.global_language_variable.SCAN_ADDRESS_PROMPT}",
                        parse_mode='Markdown', reply_markup=get_main_menu())
         amount = user_data[user_id]['amount']
         payment_currency = user_data[user_id]['currency']
