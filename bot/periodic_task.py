@@ -23,7 +23,7 @@ def create_periodic_task():
         task='bot.tasks.charge_user_for_additional_minutes',
     )
     schedule_notify_user, created = IntervalSchedule.objects.get_or_create(
-        every=1,
+        every=720,
         period=IntervalSchedule.MINUTES,
     )
 
