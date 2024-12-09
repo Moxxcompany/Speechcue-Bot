@@ -892,14 +892,16 @@ def currency_selection(user_id):
     for method in payment_methods:
         payment_button = types.InlineKeyboardButton(method, callback_data=f"topup_{method}")
         markup.add(payment_button)
+
     bot.send_message(user_id, f"{bot.global_language_variable.TOP_UP_PROMPT}", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("topup_"))
 def handle_account_topup(call):
     user_id = call.message.chat.id
     payment_method = call.data.split("_")[1]
-    print(payment_method)
-    if payment_method == f'{back}':
+    print(f"payment methoddd : {payment_method}")
+    if payment_method == f'Back ↩️':
+        print("going back to the main menu")
         trigger_back(call.message)
         return
     make_crypto_payment(user_id, payment_method)
@@ -930,7 +932,7 @@ def send_qr_code(user_id, address, qr_code_base64=None, ):
     with open("qr_code.png", "rb") as img_file:
         bot.send_photo(user_id, img_file,
                        caption=f"{bot.global_language_variable.SCAN_ADDRESS_PROMPT}\n\n`{address}`",
-                       parse_mode='Markdown')
+                       parse_mode='Markdown', reply_markup=get_main_menu())
     return
 
 @csrf_exempt
