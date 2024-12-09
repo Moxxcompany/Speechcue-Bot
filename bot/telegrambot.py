@@ -920,6 +920,7 @@ def make_crypto_payment(user_id, payment_method):
         bot.send_message(user_id, bot.global_language_variable.TOP_UP_AMOUNT_PROMPT, reply_markup=get_force_reply())
     else:
         amount = user_data[user_id]['subscription_price']
+        user_data[user_id]['amount'] = amount
         make_payment(user_id, amount)
 
 def send_qr_code(user_id, address, qr_code_base64=None, ):
@@ -933,6 +934,13 @@ def send_qr_code(user_id, address, qr_code_base64=None, ):
         bot.send_photo(user_id, img_file,
                        caption=f"{bot.global_language_variable.SCAN_ADDRESS_PROMPT}\n\n`{address}`",
                        parse_mode='Markdown', reply_markup=get_main_menu())
+        amount = user_data[user_id]['amount']
+        payment_currency = user_data[user_id]['currency']
+        bot.send_message(user_id, f"{bot.global_language_variable.PART1_SCAN_PAYMENT_INFO} {amount} {bot.global_language_variable.PART2_SCAN_PAYMENT_INFO} {payment_currency} to {address}.\n\n"
+                                  f"{bot.global_language_variable.PART3_SCAN_PAYMENT_INFO} "
+                                  f"{bot.global_language_variable.PART4_SCAN_PAYMENT_INFO}\n\n"
+                                  f"{bot.global_language_variable.PART5_SCAN_PAYMENT_INFO}\n"
+                                  f"{bot.global_language_variable.PART6_SCAN_PAYMENT_INFO}", reply_markup=get_main_menu())
     return
 
 @csrf_exempt
@@ -1029,6 +1037,15 @@ def make_payment(user_id, amount):
 def get_top_up_amount(message):
     user_id = message.chat.id
     amount = message.text
+    try:
+        amount = float(amount)
+        user_data[user_id]['amount'] = amount
+    except ValueError:
+        bot.send_message(user_id, "Amount should be a number. Please enter amount again: ",
+                         reply_markup=get_force_reply())
+        user_data[user_id]["step"] = 'get_amount'
+        return
+
     make_payment(user_id, amount)
 
 @bot.message_handler(commands=['create_flow'])

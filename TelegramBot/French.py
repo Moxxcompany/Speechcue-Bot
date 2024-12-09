@@ -125,7 +125,7 @@ WALLET_BALANCE_PAYMENT = "Payer avec le solde du portefeuille"
 CRYPTO_PAYMENT = "Payer avec la cryptomonnaie"
 UNSUPPORTED_CURRENCY = "Devise non prise en charge"
 TOP_UP_AMOUNT_PROMPT = "Entrez le montant pour recharger votre portefeuille :"
-SCAN_ADDRESS_PROMPT = "Scannez ce code QR ou utilisez l'adresse ci-dessous pour effectuer le paiement :"
+SCAN_ADDRESS_PROMPT = "Voici votre code QR!"
 AMOUNT_NEEDED = "Montant nécessaire pour l'abonnement :"
 AMOUNT_DEPOSITED = "Montant déposé :"
 TABLE_UPDATE_FAILED = "Échec de la mise à jour des tables utilisateur en raison du problème suivant :"
@@ -220,7 +220,12 @@ DTMF_PROMPT = "Veuillez entrer le message d'invite pour l'entrée DTMF."
 FLOW_CREATED = "Flux IVR créé !"
 ACCOUNT_TAKEN = "Le compte est déjà pris ! Essayez avec une autre adresse e-mail !"
 NO_BLOCKS = "Ce chemin n'a pas de blocages."
-
+PART1_SCAN_PAYMENT_INFO = "Veuillez envoyer"
+PART2_SCAN_PAYMENT_INFO = "à"
+PART3_SCAN_PAYMENT_INFO = "Veuillez noter que les transactions en crypto-monnaie peuvent prendre jusqu'à 30 minutes."
+PART4_SCAN_PAYMENT_INFO = "Une fois la transaction confirmée, vous serez rapidement notifié(e), et votre portefeuille sera mis à jour."
+PART5_SCAN_PAYMENT_INFO = "Cordialement,"
+PART6_SCAN_PAYMENT_INFO = "Speechcad Bot"
 
 
 
