@@ -13,7 +13,7 @@ def create_periodic_task():
     )
 
     schedule_charge_user, created = IntervalSchedule.objects.get_or_create(
-        every=1,
+        every=720,
         period=IntervalSchedule.MINUTES,
     )
 
