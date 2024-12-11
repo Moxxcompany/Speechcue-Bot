@@ -188,6 +188,10 @@ def handle_view_subscription(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'update_subscription')
 def update_subscription(call):
+    user_id = call.message.chat.id
+    if user_id not in user_data:
+        user_data[user_id] = {'step': None}
+    user_data[user_id]['step'] = 'update_subscription'
     handle_activate_subscription(call)
 
 def escape_markdown(text):
@@ -697,7 +701,12 @@ def handle_activate_subscription(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'back_to_view_terms')
 def back_to_view_terms(call):
-    view_terms_menu(call)
+    user_id = call.message.chat.id
+    if user_data[user_id]['step'] == 'check_terms_and_conditions':
+        view_terms_menu(call)
+    else:
+        trigger_billing_and_subscription(call.message)
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("plan_name_"))
 def view_plan_validity(call):
@@ -1781,6 +1790,7 @@ def handle_terms_and_conditions(message):
     markup.add(decline_terms)
     bot.send_message(user_id, bot.global_language_variable.REVIEW_TERMS_AND_CONDITIONS,
                      reply_markup=markup)
+    user_data[user_id]['step'] = 'check_terms_and_conditions'
 
 
 def view_terms_menu(call):
