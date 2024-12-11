@@ -1,0 +1,41 @@
+from TelegramBot.English import SINGLE_IVR_MINUTES
+
+JOIN_CHANNEL = "Join Channel 🔗"
+PROFILE = "Profile 👤"
+END_CALL = "End Call 🛑"
+CALL_TRANSFER = "Call Transfer 🔄"
+GET_DTMF_INPUT = "Get DTMF Input 📞"
+PLAY_MESSAGE = "Play Message ▶️"
+MENU = "Menu 📋"
+FEEDBACK_NODE = "Feedback Node"
+QUESTION =  "Question"
+HELP = "Help ℹ️"
+BULK_CALL = "Bulk IVR Call 📞📞"
+BILLING_AND_SUBSCRIPTION = "Billing and Subscription 📅"
+ADD_ANOTHER_PHONE_NUMBER = "Add Another Phone Numbers"
+TEXT_TO_SPEECH = "Text-to-Speech 🗣️"
+SINGLE_IVR = "Single IVR Call ☎️"
+DONE_ADDING_NODES = "Done Adding Nodes"
+CONTINUE_ADDING_EDGES = "Continue Adding Edges ▶️"
+CONFIRM_DELETE = "Confirm Delete"
+DELETE_NODE = "Delete Node"
+RETRY_NODE = "Retry Node 🔄"
+SKIP_NODE = "Skip Node ⏭️"
+TRANSFER_TO_LIVE_AGENT = "Transfer to Live Agent 👤"
+DONE_ADDING_EDGES = "Done Adding Edges"
+CONTINUE_TO_NEXT_NODE = "Continue to Next Node ▶️"
+REPEAT_MESSAGE = "Repeat Message 🔁"
+BACK_TO_MAIN_MENU = "Back to Main Menu ↩️"
+VIEW_VARIABLES = "View Variables"
+VIEW_FEEDBACK = "View Feedback"
+CREATE_IVR_FLOW = "Create IVR Flow ➕"
+VIEW_FLOWS = "View Flows 📂"
+DELETE_FLOW = "Delete Flow ❌"
+ADD_NODE = "Add Node"
+PAY_FROM_WALLET_BALANCE = "💼 Pay from Wallet Balance"
+PAY_FROM_CRYPTOCURRENCY = "💰 Pay with Cryptocurrency"
+
+
+
+
+

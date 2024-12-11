@@ -53,7 +53,7 @@ from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTabl
 
 from bot.utils import generate_random_id, check_validity, \
     check_subscription_status, username_formating, convert_crypto_to_usd, validate_transfer_number, validate_edges, \
-    get_currency, set_user_subscription, set_plan, set_details_for_user_table, load_language_module
+    get_currency, set_user_subscription, set_plan, set_details_for_user_table, load_language_module, get_plan_price
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
@@ -689,7 +689,7 @@ def handle_activate_subscription(call):
             markup.add(plan_button)
     back_button = types.InlineKeyboardButton(f"Back ↩️", callback_data="back_to_view_terms")
     markup.add(back_button)
-    msg = f"💡 {SUBSCRIPTION_PLAN_OPTIONS}"
+    msg = f"💡 {bot.global_language_variable.SUBSCRIPTION_PLAN_OPTIONS}"
     bot.send_message(
         user_id, msg,
         reply_markup=markup
@@ -936,7 +936,9 @@ def send_qr_code(user_id, address, qr_code_base64=None, ):
                        parse_mode='Markdown', reply_markup=get_main_menu())
         amount = user_data[user_id]['amount']
         payment_currency = user_data[user_id]['currency']
-        bot.send_message(user_id, f"{bot.global_language_variable.PART1_SCAN_PAYMENT_INFO} {amount} {bot.global_language_variable.PART2_SCAN_PAYMENT_INFO} {payment_currency} to {address}.\n\n"
+        balance_in_crypto = get_plan_price(payment_currency, amount)
+        print(f"Balance in crypto : {balance_in_crypto}")
+        bot.send_message(user_id, f"{bot.global_language_variable.PART1_SCAN_PAYMENT_INFO} {balance_in_crypto:.4f} {bot.global_language_variable.PART2_SCAN_PAYMENT_INFO} {payment_currency} to {address}.\n\n"
                                   f"{bot.global_language_variable.PART3_SCAN_PAYMENT_INFO} "
                                   f"{bot.global_language_variable.PART4_SCAN_PAYMENT_INFO}\n\n"
                                   f"{bot.global_language_variable.PART5_SCAN_PAYMENT_INFO}\n"
@@ -1024,6 +1026,7 @@ def make_payment(user_id, amount):
         top_up = True
         redirect_uri = f"{webhook_url}/webhook/crypto_transaction"
     crypto_payment = create_crypto_payment(user_id, amount, currency, redirect_uri, auto_renewal, top_up)
+    print(f"make_crypto_payment response: {crypto_payment.text}")
 
     if crypto_payment.status_code != 200:
         bot.send_message(user_id, f"{bot.global_language_variable.PROCESSING_ERROR}\n{crypto_payment.json()}")
@@ -1764,7 +1767,6 @@ def handle_language_selection(call):
     signup(call.message)
 
 
-
 def handle_terms_and_conditions(message):
     user_id = message.chat.id
     markup = InlineKeyboardMarkup()
@@ -1793,7 +1795,7 @@ def handle_terms_response(call):
         bot.send_message(user_id, f"✅ {bot.global_language_variable.SUCCESSFULLY_ACCEPTED_TERMS_AND_CONDITIONS}"
                                   f"🎉\n{bot.global_language_variable.BEGIN_USING_SPEECHCAD} 🎯"
         )
-        bot.send_message(user_id, TERMS_AND_CONDITIONS_TOOLTIP)
+        bot.send_message(user_id, bot.global_language_variable.TERMS_AND_CONDITIONS_TOOLTIP)
         handle_activate_subscription(call)
 
     elif call.data == 'decline_terms':
