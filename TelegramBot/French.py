@@ -226,6 +226,3 @@ PART3_SCAN_PAYMENT_INFO = "Veuillez noter que les transactions en crypto-monnaie
 PART4_SCAN_PAYMENT_INFO = "Une fois la transaction confirmée, vous serez rapidement notifié(e), et votre portefeuille sera mis à jour."
 PART5_SCAN_PAYMENT_INFO = "Cordialement,"
 PART6_SCAN_PAYMENT_INFO = "Speechcad Bot"
-
-
-
