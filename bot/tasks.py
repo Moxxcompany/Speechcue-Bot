@@ -136,7 +136,6 @@ def check_call_status():
 @shared_task
 def call_status_free_plan():
     bland_api_key = os.getenv('BLAND_API_KEY')
-
     tracked_calls = ManageFreePlanSingleIVRCall.objects.filter(call_status__in=['new', 'queued', 'started'])
     for call in tracked_calls:
         headers = {"authorization": f"{bland_api_key}"}

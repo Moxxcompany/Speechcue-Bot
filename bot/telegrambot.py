@@ -1,18 +1,14 @@
 import base64
 from io import BytesIO
-
 import phonenumbers
 from PIL import Image
 import json
 from uuid import UUID
 import re
 import io
-
-from django.contrib.auth import get_user
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from phonenumbers import geocoder
-
+from phonenumbers import geocode
 import bot.bot_config
 from TelegramBot.constants import STATUS_CODE_200, MAX_INFINITY_CONSTANT
 from payment.decorator_functions import check_validity, check_subscription_status
@@ -50,8 +46,6 @@ webhook_url = os.getenv('webhook_url')
 call_data = []
 TERMS_AND_CONDITIONS_URL = os.getenv('TERMS_AND_CONDITIONS_URL')
 CHANNEL_LINK = os.getenv('CHANNEL_LINK')
-
-# :: TRIGGERS ------------------------------------#
 
 @bot.message_handler(func=lambda message: message.text == 'Join Channel 🔗')
 def handle_join_channel(message):
