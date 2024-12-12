@@ -812,7 +812,7 @@ def handle_plan_selection(call):
     invoice_message = (
 
         f"{PLAN_SELECTED[lg]}\n"
-        f"📌 {PLAN_NAMEp[lg]}  {plan.name}\n"
+        f"📌 {PLAN_NAME[lg]}  {plan.name}\n"
         f"🕛 {VALIDITY[lg]}   {plan.validity_days}"
         f"💲 {PRICE[lg]} {plan.plan_price:.2f}\n"
         f"📝 *{FEATURES[lg]}\n"
