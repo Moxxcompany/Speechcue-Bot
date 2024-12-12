@@ -227,3 +227,5 @@ PART3_SCAN_PAYMENT_INFO  = "कृपया ध्यान दें, क्र
 PART4_SCAN_PAYMENT_INFO  = "जैसे ही लेनदेन की पुष्टि हो जाएगी, आपको तुरंत सूचित किया जाएगा, और आपका वॉलेट अप्डेट कर दिया जाएगा।"
 PART5_SCAN_PAYMENT_INFO  = "सादर,"
 PART6_SCAN_PAYMENT_INFO  = "स्पीचकैड बॉट"
+UPDATE_LANGUAGE_PROMPT = "अपनी भाषा अपडेट करने के लिए, नीचे दिए गए विकल्पों में से एक चुनें:"
+LANGUAGE_CHANGED_SUCCESSFULLY = "भाषा सफलतापूर्वक बदल दी गई! ✅"

@@ -227,4 +227,6 @@ PART3_SCAN_PAYMENT_INFO = "Please note, crypto transactions can take up to 30 mi
 PART4_SCAN_PAYMENT_INFO = "Once the transaction has been confirmed, you will be promptly notified, and your wallet will be updated."
 PART5_SCAN_PAYMENT_INFO = "Best regards,"
 PART6_SCAN_PAYMENT_INFO = "Speechcad Bot"
+UPDATE_LANGUAGE_PROMPT = "To update your language, select one from the options given below:"
+LANGUAGE_CHANGED_SUCCESSFULLY = "Language Changed Successfully! ✅"
 

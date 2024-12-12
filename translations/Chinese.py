@@ -227,3 +227,5 @@ PART3_SCAN_PAYMENT_INFO = "请注意，加密交易可能需要最多 30 分钟�
 PART4_SCAN_PAYMENT_INFO = "一旦交易确认，您将会接到通知，您的钱包将被更新。"
 PART5_SCAN_PAYMENT_INFO = "此致，"
 PART6_SCAN_PAYMENT_INFO = "Speechcad 机器人"
+UPDATE_LANGUAGE_PROMPT = "要更新您的语言，请从以下选项中选择一个："
+LANGUAGE_CHANGED_SUCCESSFULLY = "语言更改成功！✅"

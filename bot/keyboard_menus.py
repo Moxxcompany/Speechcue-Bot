@@ -1,5 +1,5 @@
 # :: MENUS ------------------------------------#
-
+from pickletools import markobject
 
 from django.core.exceptions import ObjectDoesNotExist
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ForceReply
@@ -57,7 +57,7 @@ def get_force_reply():
 
 def get_main_menu():
     options = ["Create IVR Flow ➕", "View Flows 📂", "Delete Flow ❌", "Help ℹ️", 'Single IVR Call ☎️',
-               'Bulk IVR Call 📞📞', 'Billing and Subscription 📅', 'Join Channel 🔗', 'Profile 👤', 'View Feedback',
+               'Bulk IVR Call 📞📞', 'Billing and Subscription 📅', 'Join Channel 🔗', 'Profile 👤','Settings ⚙' ,'View Feedback',
                'View Variables']
     return get_reply_keyboard(options)
 
@@ -158,6 +158,14 @@ def get_currency_keyboard():
         payment_button = types.InlineKeyboardButton(method, callback_data=f"pay_{method.lower().replace(' ', '_')}")
         markup.add(payment_button)
 
+    return markup
+
+def get_setting_keyboard():
+    markup = types.InlineKeyboardMarkup()
+    change_language_btn = types.InlineKeyboardButton("Change Language", callback_data="change_language")
+    back_btn = types.InlineKeyboardButton("Back ↩️", callback_data="back_to_welcome_message")
+    markup.add(change_language_btn)
+    markup.add(back_btn)
     return markup
 
 def get_terms_and_conditions():

@@ -494,3 +494,6 @@ def get_user_language(user_id):
         redis_client.set(f"user_language:{user_id}", language)
 
         return language
+
+def reset_user_language(user_id):
+    redis_client.delete(f"user_language:{user_id}")

@@ -7,6 +7,8 @@ import json
 from uuid import UUID
 import re
 import io
+
+from django.contrib.auth import get_user
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from phonenumbers import geocoder
@@ -21,7 +23,7 @@ from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTabl
 from bot.utils import generate_random_id, check_validity, \
     check_subscription_status, username_formating, convert_crypto_to_usd, validate_transfer_number, validate_edges, \
     get_currency, set_user_subscription, set_plan, set_details_for_user_table, load_language_module, get_plan_price, \
-    get_user_language
+    get_user_language, reset_user_language
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
     handle_view_single_flow, handle_dtmf_input_node, handle_menu_node, send_call_through_pathway, \
@@ -112,6 +114,37 @@ def trigger_billing_and_subscription(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(user_id, f"{SELECTION_PROMPT[lg]}", reply_markup=get_billing_and_subscription_keyboard())
+
+
+@bot.message_handler(func=lambda message: message.text == 'Settings ⚙')
+def trigger_settings(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    bot.send_message(user_id, SELECTION_PROMPT[lg], reply_markup=get_setting_keyboard())
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'change_language')
+def handle_change_user_language(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    bot.send_message(user_id, UPDATE_LANGUAGE_PROMPT[lg] ,
+                     reply_markup = get_language_markup('updatelanguage'))
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("updatelanguage:"))
+def handle_language_selection(call):
+    user_id = call.from_user.id
+    selected_language = call.data.split(":")[1]
+    print("language : ", {selected_language})
+    user = TelegramUser.objects.get(user_id=user_id)
+    user.language = selected_language
+    user.save()
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    reset_user_language(user_id)
+    lg = get_user_language(user_id)
+    bot.send_message(user_id, LANGUAGE_CHANGED_SUCCESSFULLY[lg], reply_markup=get_setting_keyboard())
+
 
 @bot.callback_query_handler(func=lambda call: call.data == 'view_subscription')
 @check_subscription_status
