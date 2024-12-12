@@ -8,7 +8,8 @@ import re
 import io
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from phonenumbers import geocode
+from phonenumbers import geocoder
+
 import bot.bot_config
 from TelegramBot.constants import STATUS_CODE_200, MAX_INFINITY_CONSTANT
 from payment.decorator_functions import check_validity, check_subscription_status
@@ -41,9 +42,13 @@ available_commands = {
     '/add_node': 'Add a node to the pathway'
 }
 webhook_url = os.getenv('webhook_url')
+
+
 call_data = []
 TERMS_AND_CONDITIONS_URL = os.getenv('TERMS_AND_CONDITIONS_URL')
 CHANNEL_LINK = os.getenv('CHANNEL_LINK')
+
+# :: TRIGGERS ------------------------------------#
 
 @bot.message_handler(func=lambda message: message.text == 'Join Channel 🔗')
 def handle_join_channel(message):
