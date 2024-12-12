@@ -21,6 +21,7 @@ def check_user_has_active_free_plan(user_id):
 
         call_transfer = active_subscription.call_transfer
 
+
         if call_transfer:
             return get_node_menu()
         else:

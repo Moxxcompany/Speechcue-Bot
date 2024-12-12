@@ -36,7 +36,9 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 
 # settings.py
-
+REDIS_HOST = 'localhost'  # Or the host where your Redis server is running
+REDIS_PORT = 6379         # Default Redis port
+REDIS_DB = 0
 # Redis as the broker
 CELERY_BROKER_URL = 'redis://localhost:6379/0'
 CELERY_ACCEPT_CONTENT = ['json']

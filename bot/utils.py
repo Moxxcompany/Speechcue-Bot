@@ -1,13 +1,12 @@
 import importlib
 import json
-
+from translations.translations import *
 from django.core.exceptions import ObjectDoesNotExist
 
+from TelegramBot import settings
 from TelegramBot.crypto_cache import *
 from bot.models import CallLogsTable, CallDuration, BatchCallLogs
-from TelegramBot.constants import BTC, ETH, LTC, TRON, MAX_INFINITY_CONSTANT, bitcoin, ethereum, erc20, trc20, \
-    litecoin, STATUS_CODE_200, ACTIVE
-from TelegramBot.English import error, CHECK_SUBSCRIPTION
+from TelegramBot.constants import BTC, ETH, LTC, STATUS_CODE_200, ACTIVE
 from payment.models import SubscriptionPlans, UserSubscription, \
     OveragePricingTable, UserTransactionLogs, TransactionType
 from user.models import TelegramUser
@@ -20,6 +19,11 @@ import random
 import string
 import re
 import time
+import redis
+
+redis_client = redis.StrictRedis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB)
+
+
 valid_phone_number_pattern = re.compile(r'^[\d\+\-\(\)\s]+$')
 
 def validate_edges(data):
@@ -341,12 +345,13 @@ def check_subscription_status(func):
     @wraps(func)
     def wrapper(call, *args, **kwargs):
         user_id = call.message.chat.id
+        lg = get_user_language(user_id)
 
         if check_expiry_date(user_id):
             return func(call, *args, **kwargs)
         else:
             change_subscription_status(user_id)
-            bot.send_message(user_id, bot.global_language_variable.CHECK_SUBSCRIPTION)
+            bot.send_message(user_id, CHECK_SUBSCRIPTION[lg])
             return None
     return wrapper
 
@@ -366,33 +371,54 @@ def change_subscription_status(user_id):
     except TelegramUser.DoesNotExist:
         pass
 
-def load_language_module(language):
+# def load_language_module(language):
+#     """
+#     This function dynamically imports the language module based on the user's selection.
+#     If the selected language is not found, it defaults to English.
+#     """
+#     DEFAULT_LANGUAGE = 'English'
+#
+#     supported_languages = ['English', 'Hindi', 'Chinese', 'French']
+#     print("received : ", language)
+#
+#     language = language if language in supported_languages else DEFAULT_LANGUAGE
+#     print("translated: ", language)
+#     try:
+#         return importlib.import_module(f'TelegramBot.{language}')
+#     except ModuleNotFoundError:
+#         return importlib.import_module(f'TelegramBot.{DEFAULT_LANGUAGE}')
+
+def load_language_module(user_id):
     """
-    This function dynamically imports the language module based on the user's selection.
+    Dynamically imports the language module based on the user's selection.
+    Language is stored per user to ensure isolation between users.
     If the selected language is not found, it defaults to English.
     """
     DEFAULT_LANGUAGE = 'English'
-
     supported_languages = ['English', 'Hindi', 'Chinese', 'French']
-    print("received : ", language)
 
-    language = language if language in supported_languages else DEFAULT_LANGUAGE
-    print("translated: ", language)
+    # Check the user's language preference first, otherwise use provided language
+    language = user_data[user_id]['set_language']
+
+    if language not in supported_languages:
+        language = DEFAULT_LANGUAGE
+
     try:
         return importlib.import_module(f'TelegramBot.{language}')
     except ModuleNotFoundError:
         return importlib.import_module(f'TelegramBot.{DEFAULT_LANGUAGE}')
 
+
 def check_validity(func):
     @wraps(func)
     def wrapper(message, *args, **kwargs):
         user_id = message.chat.id
-
+        lg = get_user_language(user_id)
         if check_expiry_date(user_id):
             return func(message, *args, **kwargs)
         else:
             change_subscription_status(user_id)
-            bot.send_message(user_id, bot.global_language_variable.CHECK_SUBSCRIPTION)
+            bot.send_message(user_id, CHECK_SUBSCRIPTION[lg])
             return None
 
     return wrapper
@@ -455,3 +481,16 @@ def get_currency(payment_method):
     return {'status': status, 'text': payment_currency}
 
 
+def get_user_language(user_id):
+    cached_language = redis_client.get(f"user_language:{user_id}")
+    print(f"for user id : {user_id}")
+    if cached_language:
+        lg = cached_language.decode('utf-8')
+        print(f"Returning cached language: {lg}")
+        return lg
+    else:
+        language = TelegramUser.objects.get(user_id=user_id).language
+        print(f"Returning language from database: {language}")
+        redis_client.set(f"user_language:{user_id}", language)
+
+        return language
