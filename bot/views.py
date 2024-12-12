@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from TelegramBot.English import base_url, invalid_data, error
 from bot.models import Pathways, CallLogsTable, FeedbackDetails, FeedbackLogs, BatchCallLogs
-from bot.utils import add_node, get_pathway_data, get_batch_id
+from bot.utils import add_node, get_pathway_data
 from payment.models import UserSubscription, SubscriptionPlans, ManageFreePlanSingleIVRCall
 from user.models import TelegramUser
 

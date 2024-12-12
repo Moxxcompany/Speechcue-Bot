@@ -15,14 +15,14 @@ from phonenumbers import geocoder
 
 import bot.bot_config
 from TelegramBot.constants import STATUS_CODE_200, MAX_INFINITY_CONSTANT
+from payment.decorator_functions import check_validity, check_subscription_status
 
 from translations.translations import *
 
 from bot.models import Pathways, TransferCallNumbers, FeedbackLogs, CallLogsTable, CallDuration
 
-from bot.utils import generate_random_id, check_validity, \
-    check_subscription_status, username_formating, convert_crypto_to_usd, validate_transfer_number, validate_edges, \
-    get_currency, set_user_subscription, set_plan, set_details_for_user_table, load_language_module, get_plan_price, \
+from bot.utils import generate_random_id, username_formating, convert_crypto_to_usd,validate_edges, \
+    get_currency, set_user_subscription, set_plan, set_details_for_user_table, get_plan_price, \
     get_user_language, reset_user_language
 
 from bot.views import handle_create_flow, handle_view_flows, handle_delete_flow, handle_add_node, play_message, \
@@ -81,11 +81,16 @@ def get_user_profile(message):
         balance = wallet.json()['data']['amount']
         bot.send_message(user_id, f"{BALANCE_IN_USD[lg]}{balance}", reply_markup=get_main_menu())
 
+
 @bot.message_handler(func=lambda message: message.text == 'Help ℹ️')
 def handle_help(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(user_id, f"{AVAILABLE_COMMANDS_PROMPT[lg]}", reply_markup=get_available_commands())
+
+@bot.message_handler(commands=['help'])
+def show_available_commands(message):
+    handle_help(message)
 
 @bot.message_handler(func=lambda message: message.text == 'Bulk IVR Call 📞📞')
 @check_validity
@@ -683,7 +688,6 @@ def language_selection(message):
             if user_id not in user_data:
                 user_data[user_id] = {}
             user_data[user_id]['set_language'] = selected_language
-            bot.global_language_variable = load_language_module(user_id)
             bot.send_message(user_id, f"{EXISTING_USER_WELCOME[lg]}", reply_markup=get_main_menu())
             return
         bot.send_message(user_id, f"🌍 {PROFILE_LANGUAGE_SELECTION_PROMPT['English']}", reply_markup=get_language_markup('language'))
@@ -922,7 +926,6 @@ def handle_payment_method(call):
     payment_currency = currency_response.text
     if user_id not in user_data:
         user_data[user_id] = {}
-
     user_data[user_id]['payment_currency'] = payment_currency
 
 @bot.callback_query_handler(func=lambda call: call.data == 'back_to_handle_payment')
@@ -953,7 +956,6 @@ def currency_selection(user_id):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("topup_"))
 def handle_account_topup(call):
     user_id = call.message.chat.id
-
     payment_method = call.data.split("_")[1]
     print(f"payment methoddd : {payment_method}")
     if payment_method == f'Back ↩️':
@@ -1460,6 +1462,7 @@ def handle_add_edges(message):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("source_node_"))
 def handle_source_node(call):
     user_id = call.message.chat.id
+    lg = get_user_language(user_id)
     nodes = user_data[call.message.chat.id]['node_info']
     source_node_id = call.data.split("_")[2]
     user_data[call.message.chat.id]['source_node_id'] = source_node_id
@@ -1588,7 +1591,7 @@ def handle_add_node_id(message):
 
     elif node == 'Menu 📋':
         user_data[user_id]['step'] = 'get_menu'
-        bot.send_message(user_id, PROMPT_MESSAGE_FOR_MENUT[lg], reply_markup=get_force_reply())
+        bot.send_message(user_id, PROMPT_MESSAGE_FOR_MENU[lg], reply_markup=get_force_reply())
 
     elif node == 'Feedback Node':
         user_data[user_id]['message_type'] = 'Feedback Node'
@@ -1870,8 +1873,6 @@ def handle_language_selection(call):
     if user_id not in user_data:
         user_data[user_id] = {}
     user_data[user_id]['set_language'] = selected_language
-    bot.global_language_variable= load_language_module(user_id)
-    lg = get_user_language(user_id)
     token = user.token
     signup(call.message)
 

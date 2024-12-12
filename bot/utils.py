@@ -1,5 +1,6 @@
 import importlib
 import json
+
 from translations.translations import *
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -7,12 +8,10 @@ from TelegramBot import settings
 from TelegramBot.crypto_cache import *
 from bot.models import CallLogsTable, CallDuration, BatchCallLogs
 from TelegramBot.constants import BTC, ETH, LTC, STATUS_CODE_200, ACTIVE
-from payment.models import SubscriptionPlans, UserSubscription, \
-    OveragePricingTable, UserTransactionLogs, TransactionType
+from payment.models import SubscriptionPlans, UserSubscription
 from user.models import TelegramUser
 from datetime import timedelta
 from django.utils import timezone
-from functools import wraps
 from bot.bot_config import *
 crypto_conversion_base_url = os.getenv('crypto_conversion_base_url')
 import random
@@ -339,102 +338,6 @@ def username_formating(username):
     print("After replacing spaces ",username)
     return username
 
-#-------------- Decorator Functions ---------------#
-
-def check_subscription_status(func):
-    @wraps(func)
-    def wrapper(call, *args, **kwargs):
-        user_id = call.message.chat.id
-        lg = get_user_language(user_id)
-
-        if check_expiry_date(user_id):
-            return func(call, *args, **kwargs)
-        else:
-            change_subscription_status(user_id)
-            bot.send_message(user_id, CHECK_SUBSCRIPTION[lg])
-            return None
-    return wrapper
-
-def change_subscription_status(user_id):
-    try:
-        subscription = UserSubscription.objects.get(user_id__user_id=user_id)
-        if subscription.subscription_status != 'inactive':
-            subscription.subscription_status = 'inactive'
-            subscription.save()
-    except UserSubscription.DoesNotExist:
-        pass
-    try:
-        user = TelegramUser.objects.get(user_id=user_id)
-        if user.subscription_status != 'inactive':
-            user.subscription_status = 'inactive'
-            user.save()
-    except TelegramUser.DoesNotExist:
-        pass
-
-# def load_language_module(language):
-#     """
-#     This function dynamically imports the language module based on the user's selection.
-#     If the selected language is not found, it defaults to English.
-#     """
-#     DEFAULT_LANGUAGE = 'English'
-#
-#     supported_languages = ['English', 'Hindi', 'Chinese', 'French']
-#     print("received : ", language)
-#
-#     language = language if language in supported_languages else DEFAULT_LANGUAGE
-#     print("translated: ", language)
-#     try:
-#         return importlib.import_module(f'TelegramBot.{language}')
-#     except ModuleNotFoundError:
-#         return importlib.import_module(f'TelegramBot.{DEFAULT_LANGUAGE}')
-
-def load_language_module(user_id):
-    """
-    Dynamically imports the language module based on the user's selection.
-    Language is stored per user to ensure isolation between users.
-    If the selected language is not found, it defaults to English.
-    """
-    DEFAULT_LANGUAGE = 'English'
-    supported_languages = ['English', 'Hindi', 'Chinese', 'French']
-
-    # Check the user's language preference first, otherwise use provided language
-    language = user_data[user_id]['set_language']
-
-    if language not in supported_languages:
-        language = DEFAULT_LANGUAGE
-
-    try:
-        return importlib.import_module(f'TelegramBot.{language}')
-    except ModuleNotFoundError:
-        return importlib.import_module(f'TelegramBot.{DEFAULT_LANGUAGE}')
-
-
-def check_validity(func):
-    @wraps(func)
-    def wrapper(message, *args, **kwargs):
-        user_id = message.chat.id
-        lg = get_user_language(user_id)
-        if check_expiry_date(user_id):
-            return func(message, *args, **kwargs)
-        else:
-            change_subscription_status(user_id)
-            bot.send_message(user_id, CHECK_SUBSCRIPTION[lg])
-            return None
-
-    return wrapper
-
-def check_expiry_date(user_id):
-    try:
-        user = TelegramUser.objects.get(user_id=user_id)
-        user_subscription = UserSubscription.objects.get(user_id=user)
-    except TelegramUser.DoesNotExist:
-        return False
-    except UserSubscription.DoesNotExist:
-        return False
-
-    current_date = timezone.now().date()
-    print(current_date, " ", user_subscription.date_of_expiry)
-    return user_subscription.date_of_expiry and current_date < user_subscription.date_of_expiry
 
 #--------------------------------------------------#
 
