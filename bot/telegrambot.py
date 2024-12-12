@@ -41,8 +41,6 @@ available_commands = {
     '/add_node': 'Add a node to the pathway'
 }
 webhook_url = os.getenv('webhook_url')
-
-
 call_data = []
 TERMS_AND_CONDITIONS_URL = os.getenv('TERMS_AND_CONDITIONS_URL')
 CHANNEL_LINK = os.getenv('CHANNEL_LINK')
