@@ -15,8 +15,7 @@ from bot.views import stop_single_active_call
 from payment.views import check_user_balance, credit_wallet_balance, get_user_single_transaction
 from user.models import TelegramUser
 from .models import  CallDuration, BatchCallLogs
-from .utils import get_user_subscription_by_call_id, convert_crypto_to_usd, convert_dollars_to_crypto, \
-    load_language_module
+from .utils import get_user_subscription_by_call_id, convert_crypto_to_usd, convert_dollars_to_crypto
 from .bot_config import *
 from .views import stop_active_batch_calls
 
@@ -240,7 +239,6 @@ def charge_user_for_additional_minutes():
 
     for call_duration in calls_with_additional_minutes:
         user = TelegramUser.objects.get(user_id=call_duration.user_id)
-        language = load_language_module(user.language)
         overage_pricing = OveragePricingTable.objects.get(pricing_unit='MIN')
         price_per_min = float(overage_pricing.overage_pricing)
         total_charges = price_per_min * call_duration.additional_minutes
@@ -249,11 +247,12 @@ def charge_user_for_additional_minutes():
         print(f"wallet balance for user {call_duration.user_id} : {wallet_balance}")
         wallet = wallet_balance.json()
         available_balance = wallet['data']['amount']
+        lg = user.language
         if float(total_charges) < float(available_balance):
             response = credit_wallet_balance(call_duration.user_id, total_charges)
             if response.status_code != 200:
                 bot.send_message(call_duration.user_id,
-                                 f"{PROCESSING_ERROR}\n"
+                                 f"{PROCESSING_ERROR[lg]}\n"
                                  f"{response.text}")
                 return
             print("response 200 crediting user wallet ")
@@ -290,17 +289,16 @@ def notify_users():
     for user in users_with_paid_minutes:
 
         user_id = user['user_id']
-        language = TelegramUser.objects.get(user_id=user_id)
-        load_language_module(language)
+        lg = TelegramUser.objects.get(user_id=user_id).language
+
         paid_minutes = user['total_paid_minutes']
-        bot.send_message(user_id, f"{CHARGED_SUCCESSFULLY} {paid_minutes:.4f} ")
+        bot.send_message(user_id, f"{CHARGED_SUCCESSFULLY[lg]} {paid_minutes:.4f} ")
         CallDuration.objects.filter(user_id=user_id, charged=True, notified=False).update(notified=True)
 
     for user in users_with_unpaid_minutes:
         user_id = user['user_id']
-        language = TelegramUser.objects.get(user_id=user_id)
-        load_language_module(language)
+        lg = TelegramUser.objects.get(user_id=user_id).language
         unpaid_minutes = user['total_unpaid_minutes']
         if unpaid_minutes > 0:
-            bot.send_message(user_id, f"{INSUFFICIENT_BALANCE_FOR_PAYMENT} {unpaid_minutes:.4f} {ADDITIONAL_MINUTES}"
-                                      f"{WALLET_TOP_UP}")
+            bot.send_message(user_id, f"{INSUFFICIENT_BALANCE_FOR_PAYMENT[lg]} {unpaid_minutes:.4f} {ADDITIONAL_MINUTES[lg]}"
+                                      f"{WALLET_TOP_UP[lg]}")
