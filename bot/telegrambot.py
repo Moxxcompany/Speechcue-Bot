@@ -388,6 +388,10 @@ def trigger_flow_single(call):
 def trigger_back_flow(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
+    step = user_data[user_id]["step"]
+    if step == "display_flows":
+        display_flows(message)
+        return
     bot.send_message(user_id, f"{WELCOME_PROMPT[lg]}", reply_markup=get_main_menu())
 
 
@@ -491,6 +495,7 @@ def delete_node(call):
     pathway.pathway_payload = updated.text
     pathway.save()
     bot.send_message(user_id, f"{node_name} {EDGES_DELETED[lg]}")
+    user_data[user_id]["step"] = "delete_node"
 
 
 @bot.message_handler(func=lambda message: message.text == "Retry Node 🔄")
@@ -1228,6 +1233,7 @@ def make_crypto_payment(user_id, payment_method):
 def send_qr_code(
     user_id,
     address,
+    crypto_amount,
     qr_code_base64=None,
 ):
     lg = get_user_language(user_id)
@@ -1245,13 +1251,10 @@ def send_qr_code(
             parse_mode="Markdown",
             reply_markup=get_main_menu(),
         )
-        amount = user_data[user_id]["amount"]
         payment_currency = user_data[user_id]["currency"]
-        balance_in_crypto = get_plan_price(payment_currency, amount)
-        print(f"Balance in crypto : {balance_in_crypto}")
         bot.send_message(
             user_id,
-            f"{PART1_SCAN_PAYMENT_INFO[lg]} {balance_in_crypto:.4f} "
+            f"{PART1_SCAN_PAYMENT_INFO[lg]} {crypto_amount} "
             f"{PART2_SCAN_PAYMENT_INFO[lg]} {payment_currency} to {address}.\n\n"
             f"{PART3_SCAN_PAYMENT_INFO[lg]} "
             f"{PART4_SCAN_PAYMENT_INFO[lg]}\n\n"
@@ -1383,7 +1386,8 @@ def make_payment(user_id, amount):
     response_data = crypto_payment.json().get("data", {})
     qr_code_base64 = response_data.get("qr_code")
     address = response_data.get("address")
-    send_qr_code(user_id, address, qr_code_base64)
+    crypto_amount = response_data.get("crypto_amount")
+    send_qr_code(user_id, address, crypto_amount, qr_code_base64)
 
 
 @bot.message_handler(
@@ -1509,11 +1513,11 @@ def handle_pathway_details(call):
 
     pathway_info = (
         f"{NAME[lg]}: {pathway.get('name')}\n"
-        f"{DESCRIPTION[lg]}: {pathway.get('description')}\n\n{NODES}:\n"
+        f"{DESCRIPTION[lg]}: {pathway.get('description')}\n\n"
     ) + "\n".join(
         [f"\n  {NAME[lg]}: {node['data']['name']}\n" for node in pathway["nodes"]]
     )
-
+    user_data[user_id]["step"] = "display_flows"
     bot.send_message(user_id, pathway_info, reply_markup=get_flow_node_menu())
 
 
@@ -1747,9 +1751,8 @@ def handle_get_pathway(message):
     response, status_code = handle_delete_flow(pathway_id)
 
     if status_code == 200:
-        bot.send_message(
-            user_id, FLOW_DELETED_SUCCESSFULLY[lg], reply_markup=get_main_menu()
-        )
+        bot.send_message(user_id, FLOW_DELETED_SUCCESSFULLY[lg])
+        delete_flow(message)
     else:
         bot.send_message(
             user_id, f"{PROCESSING_ERROR[lg]} {response}!", reply_markup=get_main_menu()
