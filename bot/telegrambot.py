@@ -1049,8 +1049,8 @@ def handle_plan_selection(call):
         )
         return
     auto_renewal = escape_markdown(AUTO_RENEWAL_PROMPT[lg])
-    yes = f"✅ {YES}"
-    no = f"❌ {NO}"
+    yes = f"✅ Yes"
+    no = f"❌ No"
     markup = types.InlineKeyboardMarkup()
     yes_button = types.InlineKeyboardButton(
         yes, callback_data="enable_auto_renewal_yes"
@@ -1077,6 +1077,7 @@ def handle_plan_selection(call):
 def handle_auto_renewal_choice(call):
     user_id = call.message.chat.id
     lg = get_user_language(user_id)
+    print(f"lg in handle auto_renewal {lg}")
     if call.data == "enable_auto_renewal_yes":
         user_data[user_id]["auto_renewal"] = True
         auto_renewal_enabled = f"{AUTO_RENEWAL_ENABLED[lg]}" f" {PROCEED_PAYMENT[lg]}"
@@ -1089,10 +1090,11 @@ def handle_auto_renewal_choice(call):
 
 
 def send_payment_options(user_id):
-    payment_message = f"💳 {SUBSCRIPTION_PAYMENT_METHOD_PROMPT}"
+    lg = get_user_language(user_id)
+    payment_message = f"💳 {SUBSCRIPTION_PAYMENT_METHOD_PROMPT[lg]}"
     markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
-    wallet_balance = f"💼 {WALLET_BALANCE_PAYMENT}"
-    crypto = f"💰 {CRYPTO_PAYMENT}"
+    wallet_balance = f"💼 Pay from Wallet Balance"
+    crypto = f"💰 Pay with Cryptocurrency"
     wallet_button = types.KeyboardButton(wallet_balance)
     crypto_button = types.KeyboardButton(crypto)
     markup.add(wallet_button, crypto_button)

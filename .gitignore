@@ -4,3 +4,4 @@ telebotvenv/
 .git
 .idea
 dump.rdb
+*.rdb
