@@ -3,4 +3,4 @@ __pycache__/
 telebotvenv/
 .git
 .idea
-
+dump.rdb
