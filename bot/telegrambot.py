@@ -1239,12 +1239,14 @@ def send_qr_code(
     qr_code_base64=None,
 ):
     lg = get_user_language(user_id)
+
     if qr_code_base64:
         qr_code_data = qr_code_base64.split(",")[1]
         qr_code_image = base64.b64decode(qr_code_data)
         with BytesIO(qr_code_image) as qr_image:
             img = Image.open(qr_image)
             img.save("qr_code.png", "PNG")
+
     with open("qr_code.png", "rb") as img_file:
         bot.send_photo(
             user_id,
@@ -1253,17 +1255,18 @@ def send_qr_code(
             parse_mode="Markdown",
             reply_markup=get_main_menu(),
         )
-        payment_currency = user_data[user_id]["currency"]
-        bot.send_message(
-            user_id,
-            f"{PART1_SCAN_PAYMENT_INFO[lg]} {crypto_amount} "
-            f"{payment_currency} to {address}.\n\n"
-            f"{PART3_SCAN_PAYMENT_INFO[lg]} "
-            f"{PART4_SCAN_PAYMENT_INFO[lg]}\n\n"
-            f"{PART5_SCAN_PAYMENT_INFO[lg]}\n"
-            f"{PART6_SCAN_PAYMENT_INFO[lg]}",
-            reply_markup=get_main_menu(),
-        )
+    payment_currency = user_data[user_id]["currency"]
+    bot.send_message(
+        user_id,
+        f"{PART1_SCAN_PAYMENT_INFO[lg]} {crypto_amount} "
+        f"{payment_currency} to <code>{address}</code>.\n\n"
+        f"{PART3_SCAN_PAYMENT_INFO[lg]} "
+        f"{PART4_SCAN_PAYMENT_INFO[lg]}\n\n"
+        f"{PART5_SCAN_PAYMENT_INFO[lg]}\n"
+        f"{PART6_SCAN_PAYMENT_INFO[lg]}",
+        reply_markup=get_main_menu(),
+        parse_mode="HTML",
+    )
     return
 
 

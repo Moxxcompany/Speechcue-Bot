@@ -5,3 +5,4 @@ telebotvenv/
 .idea
 dump.rdb
 *.rdb
+qr_code.png

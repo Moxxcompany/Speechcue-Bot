@@ -14,20 +14,29 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
 from django.urls import path
 from bot import views as bot_views
 from bot.telegrambot import crypto_transaction_webhook, payment_deposit_webhook
 from django.conf.urls.static import static
 from django.conf import settings
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('create_flow/', bot_views.create_flow, name='create_flow'),
-    path('view_flows/', bot_views.view_flows, name='view_flows'),
-    # path('webhook', handle_webhook, name='handle_webhook'),
-    # path('webhook_deposit', handle_deposit_webhook, name='handle_deposit_webhook'),
-    path('webhook/crypto_transaction', crypto_transaction_webhook, name='crypto_transaction_webhook'),
-    path('webhook/crypto_deposit', payment_deposit_webhook, name='crypto_deposit_webhook'),
-    path('terms-and-conditions/', bot_views.terms_and_conditions, name='terms_and_conditions'),
 
-]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("create_flow/", bot_views.create_flow, name="create_flow"),
+    path("view_flows/", bot_views.view_flows, name="view_flows"),
+    path(
+        "webhook/crypto_transaction",
+        crypto_transaction_webhook,
+        name="crypto_transaction_webhook",
+    ),
+    path(
+        "webhook/crypto_deposit", payment_deposit_webhook, name="crypto_deposit_webhook"
+    ),
+    path(
+        "terms-and-conditions/",
+        bot_views.terms_and_conditions,
+        name="terms_and_conditions",
+    ),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
