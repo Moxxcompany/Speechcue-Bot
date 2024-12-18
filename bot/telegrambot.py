@@ -1089,6 +1089,25 @@ def handle_auto_renewal_choice(call):
     send_payment_options(user_id)
 
 
+@bot.callback_query_handler(func=lambda call: call.data == "payment_option")
+def payment_option_callback(call):
+    user_id = call.message.chat.id
+    send_payment_options(user_id)
+
+
+def insufficient_balance_markup():
+    markup = types.InlineKeyboardMarkup()
+    top_up_wallet_button = types.InlineKeyboardButton(
+        "Top Up Wallet 💳", callback_data="top_up_wallet"
+    )
+    payment_option_btn = types.InlineKeyboardButton(
+        "Choose Other Payment Option", callback_data="payment_option"
+    )
+    back_button = types.InlineKeyboardButton("Back", callback_data="back_to_billing")
+    markup.add(top_up_wallet_button, payment_option_btn, back_button)
+    return markup
+
+
 def send_payment_options(user_id):
     lg = get_user_language(user_id)
     payment_message = f"💳 {SUBSCRIPTION_PAYMENT_METHOD_PROMPT[lg]}"
@@ -1110,7 +1129,9 @@ def payment_through_wallet_balance(message):
     if response.status_code != 200:
         msg = response.json().get("message")
         bot.send_message(
-            user_id, f"{INSUFFICIENT_BALANCE[lg]}", reply_markup=get_main_menu()
+            user_id,
+            f"{INSUFFICIENT_BALANCE[lg]}",
+            reply_markup=insufficient_balance_markup(),
         )
         return
     plan_id = user_data[user_id]["subscription_id"]
