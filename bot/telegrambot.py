@@ -242,12 +242,18 @@ def handle_view_subscription(call):
         plan = user.plan
 
         subscription_plan = SubscriptionPlans.objects.get(plan_id=plan)
+        if subscription_plan.single_ivr_minutes == MAX_INFINITY_CONSTANT:
+            single_calls = f"{UNLIMITED_SINGLE_IVR[lg]}"
+        else:
+            single_calls = (
+                f"{subscription_plan.single_ivr_minutes:.4f} {SINGLE_IVR_MINUTES[lg]}"
+            )
 
         plan_details = (
             f"{PLAN_NAME[lg]} {subscription_plan.name}\n"
             f"{PRICE[lg]} ${subscription_plan.plan_price}\n\n"
             f"{FEATURES[lg]}\n"
-            f"- '{UNLIMITED_SINGLE_IVR[lg]}'\n"
+            f"- '{single_calls}'\n"
             f"- {subscription_plan.number_of_bulk_call_minutes:.2f} {BULK_IVR_CALLS[lg]}\n"
             f"- {subscription_plan.customer_support_level} {CUSTOMER_SUPPORT_LEVEL[lg]}\n"
             f"- {subscription_plan.validity_days} {DAY_PLAN[lg]}\n"
