@@ -575,7 +575,14 @@ def trigger_repeat_message(message):
     or message.text == "Back ↩️"
 )
 def trigger_back(message):
-    send_welcome(message)
+    user_id = message.chat.id
+    try:
+        if user_data[user_id]["step"] == "back_delete_flow":
+            delete_flow(message)
+        else:
+            send_welcome(message)
+    except KeyError:
+        send_welcome(message)
 
 
 @bot.message_handler(
@@ -1227,7 +1234,7 @@ def handle_account_topup(call):
     print(f"payment methoddd : {payment_method}")
     if payment_method == "Back ↩️":
         print("going back to the main menu")
-        trigger_back(call.message)
+        trigger_billing_and_subscription(call.message)
         return
     make_crypto_payment(user_id, payment_method)
 
@@ -1807,6 +1814,7 @@ def handle_pathway_selection(call):
             user_id, ENTER_CUSTOM_NODE_NAME[lg], reply_markup=get_force_reply()
         )
     elif step == "get_pathway":
+        user_data[user_id]["step"] = "back_delete_flow"
         bot.send_message(
             user_id,
             DELETE_FLOW_CONFIRMATION[lg],
