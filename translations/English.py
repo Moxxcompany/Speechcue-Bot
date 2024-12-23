@@ -274,3 +274,5 @@ UPDATE_LANGUAGE_PROMPT = (
     "To update your language, select one from the options given below:"
 )
 LANGUAGE_CHANGED_SUCCESSFULLY = "Language Changed Successfully! ✅"
+FLOW_OPERATIONS_SELECTION_PROMPT = "Select your flow operation:"
+IVR_CALL_SELECTION_PROMPT = "Select the type of ivr call that you want to send:"

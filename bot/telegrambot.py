@@ -135,7 +135,7 @@ def get_user_profile(message):
         )
         bot.send_message(
             user_id,
-            "Select from the following options:",
+            SELECTION_PROMPT[lg],
             reply_markup=account_keyboard(),
         )
 
@@ -143,16 +143,18 @@ def get_user_profile(message):
 @bot.message_handler(func=lambda message: message.text == "Back 📞")
 def handle_back_ivr_flow(message):
     user_id = message.chat.id
+    lg = get_user_language(user_id)
     bot.send_message(
-        user_id, "Select your flow operation:", reply_markup=ivr_flow_keyboard()
+        user_id, FLOW_OPERATIONS_SELECTION_PROMPT[lg], reply_markup=ivr_flow_keyboard()
     )
 
 
 @bot.message_handler(func=lambda message: message.text == "Back 📲")
 def handle_back_ivr_call(message):
     user_id = message.chat.id
+    lg = get_user_language(user_id)
     bot.send_message(
-        user_id, "Select your flow operation:", reply_markup=ivr_call_keyboard()
+        user_id, FLOW_OPERATIONS_SELECTION_PROMPT[lg], reply_markup=ivr_call_keyboard()
     )
 
 
@@ -906,9 +908,8 @@ def cancel_actions(message):
 @bot.message_handler(commands=["support"])
 def display_support_menu(message):
     user_id = message.chat.id
-    bot.send_message(
-        user_id, "Select from the following options: ", reply_markup=support_keyboard()
-    )
+    lg = get_user_language(user_id)
+    bot.send_message(user_id, SELECTION_PROMPT[lg], reply_markup=support_keyboard())
 
 
 @bot.message_handler(commands=["start"])
@@ -922,27 +923,26 @@ def display_main_menu(message):
 @bot.message_handler(func=lambda message: message.text == "IVR Flow 📞")
 def display_ivr_flow_menu(message):
     user_id = message.chat.id
+    lg = get_user_language(user_id)
     bot.send_message(
-        user_id, "Select your flow operation:", reply_markup=ivr_flow_keyboard()
+        user_id, FLOW_OPERATIONS_SELECTION_PROMPT[lg], reply_markup=ivr_flow_keyboard()
     )
 
 
 @bot.message_handler(func=lambda message: message.text == "IVR Calls 📲")
 def display_ivr_calls_menu(message):
     user_id = message.chat.id
+    lg = get_user_language(user_id)
     bot.send_message(
-        user_id,
-        "Select the ivr call that you want to send: ",
-        reply_markup=ivr_call_keyboard(),
+        user_id, IVR_CALL_SELECTION_PROMPT[lg], reply_markup=ivr_call_keyboard()
     )
 
 
 @bot.message_handler(func=lambda message: message.text == "Account 👤")
 def display_account_menu(message):
     user_id = message.chat.id
-    bot.send_message(
-        user_id, "Select your options given below:", reply_markup=account_keyboard()
-    )
+    lg = get_user_language(user_id)
+    bot.send_message(user_id, SELECTION_PROMPT[lg], reply_markup=account_keyboard())
 
 
 @bot.message_handler(commands=["sign_up"])
@@ -1628,17 +1628,19 @@ def display_flows(message):
 @bot.callback_query_handler(func=lambda call: call.data == "back_ivr_flow")
 def trigger_back_ivr_flow(call):
     user_id = call.message.chat.id
+    lg = get_user_language(user_id)
     bot.send_message(
-        user_id, "Select your flow operation:", reply_markup=ivr_flow_keyboard()
+        user_id, FLOW_OPERATIONS_SELECTION_PROMPT[lg], reply_markup=ivr_flow_keyboard()
     )
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "back_ivr_call")
 def trigger_back_ivr_call(call):
     user_id = call.message.chat.id
+    lg = get_user_language(user_id)
     bot.send_message(
         user_id,
-        "Select the ivr call that you want to send:",
+        IVR_CALL_SELECTION_PROMPT[lg],
         reply_markup=ivr_call_keyboard(),
     )
 
@@ -1646,9 +1648,8 @@ def trigger_back_ivr_call(call):
 @bot.callback_query_handler(func=lambda call: call.data == "back_account")
 def trigger_back_account(call):
     user_id = call.message.chat.id
-    bot.send_message(
-        user_id, "Select from the following options: ", reply_markup=account_keyboard()
-    )
+    lg = get_user_language(user_id)
+    bot.send_message(user_id, SELECTION_PROMPT[lg], reply_markup=account_keyboard())
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "back")

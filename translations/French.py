@@ -302,3 +302,7 @@ PART5_SCAN_PAYMENT_INFO = "Cordialement,"
 PART6_SCAN_PAYMENT_INFO = "Speechcad Bot"
 UPDATE_LANGUAGE_PROMPT = "Pour mettre à jour votre langue, sélectionnez-en une parmi les options ci-dessous :"
 LANGUAGE_CHANGED_SUCCESSFULLY = "Langue changée avec succès ! ✅"
+FLOW_OPERATIONS_SELECTION_PROMPT = "Sélectionnez votre opération de flux :"
+IVR_CALL_SELECTION_PROMPT = (
+    "Sélectionnez le type d'appel IVR que vous souhaitez envoyer"
+)
