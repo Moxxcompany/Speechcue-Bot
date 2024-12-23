@@ -1507,7 +1507,7 @@ def make_payment(user_id, amount):
     lg = get_user_language(user_id)
     currency = user_data[user_id]["currency"]
     top_up = False
-    redirect_uri = f"{webhook_url}/webhook/crypto_deposit'"
+    redirect_uri = f"{webhook_url}/webhook/crypto_deposit"
     auto_renewal = UserSubscription.objects.get(user_id=user_id).auto_renewal
     if user_data[user_id]["transaction_type"] == "top_up":
         top_up = True
