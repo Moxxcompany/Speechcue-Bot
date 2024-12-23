@@ -1,13 +1,15 @@
-#-------------- Decorator Functions ---------------#
+# -------------- Decorator Functions ---------------#
 from django.utils import timezone
 
-from bot.keyboard_menus import get_main_menu
+from bot.keyboard_menus import get_main_menu, get_billing_and_subscription_keyboard
 from bot.utils import get_user_language
 from payment.models import UserSubscription
 from user.models import TelegramUser
 from functools import wraps
 from translations.translations import *
 from bot.bot_config import *
+
+
 def check_subscription_status(func):
     @wraps(func)
     def wrapper(call, *args, **kwargs):
@@ -18,22 +20,28 @@ def check_subscription_status(func):
             return func(call, *args, **kwargs)
         else:
             change_subscription_status(user_id)
-            bot.send_message(user_id, CHECK_SUBSCRIPTION[lg], reply_markup=get_main_menu())
+            bot.send_message(
+                user_id,
+                CHECK_SUBSCRIPTION[lg],
+                reply_markup=get_billing_and_subscription_keyboard(),
+            )
             return None
+
     return wrapper
+
 
 def change_subscription_status(user_id):
     try:
         subscription = UserSubscription.objects.get(user_id__user_id=user_id)
-        if subscription.subscription_status != 'inactive':
-            subscription.subscription_status = 'inactive'
+        if subscription.subscription_status != "inactive":
+            subscription.subscription_status = "inactive"
             subscription.save()
     except UserSubscription.DoesNotExist:
         pass
     try:
         user = TelegramUser.objects.get(user_id=user_id)
-        if user.subscription_status != 'inactive':
-            user.subscription_status = 'inactive'
+        if user.subscription_status != "inactive":
+            user.subscription_status = "inactive"
             user.save()
     except TelegramUser.DoesNotExist:
         pass
@@ -48,10 +56,15 @@ def check_validity(func):
             return func(message, *args, **kwargs)
         else:
             change_subscription_status(user_id)
-            bot.send_message(user_id, CHECK_SUBSCRIPTION[lg], reply_markup=get_main_menu())
+            bot.send_message(
+                user_id,
+                CHECK_SUBSCRIPTION[lg],
+                reply_markup=get_billing_and_subscription_keyboard(),
+            )
             return None
 
     return wrapper
+
 
 def check_expiry_date(user_id):
     try:
@@ -64,4 +77,7 @@ def check_expiry_date(user_id):
 
     current_date = timezone.now().date()
     print(current_date, " ", user_subscription.date_of_expiry)
-    return user_subscription.date_of_expiry and current_date < user_subscription.date_of_expiry
+    return (
+        user_subscription.date_of_expiry
+        and current_date < user_subscription.date_of_expiry
+    )

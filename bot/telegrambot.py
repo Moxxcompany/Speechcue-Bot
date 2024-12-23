@@ -102,7 +102,7 @@ def handle_join_channel(message):
     bot.send_message(
         user_id,
         f"{JOIN_CHANNEL_PROMPT[lg]}\n {CHANNEL_LINK}",
-        reply_markup=get_main_menu(),
+        reply_markup=support_keyboard(),
     )
 
 
@@ -131,8 +131,29 @@ def get_user_profile(message):
         wallet = check_user_balance(user_id)
         balance = wallet.json()["data"]["amount"]
         bot.send_message(
-            user_id, f"{BALANCE_IN_USD[lg]}{balance}", reply_markup=get_main_menu()
+            user_id, f"{BALANCE_IN_USD[lg]}{balance}", reply_markup=account_keyboard()
         )
+        bot.send_message(
+            user_id,
+            "Select from the following options:",
+            reply_markup=account_keyboard(),
+        )
+
+
+@bot.message_handler(func=lambda message: message.text == "Back 📞")
+def handle_back_ivr_flow(message):
+    user_id = message.chat.id
+    bot.send_message(
+        user_id, "Select your flow operation:", reply_markup=ivr_flow_keyboard()
+    )
+
+
+@bot.message_handler(func=lambda message: message.text == "Back 📲")
+def handle_back_ivr_call(message):
+    user_id = message.chat.id
+    bot.send_message(
+        user_id, "Select your flow operation:", reply_markup=ivr_call_keyboard()
+    )
 
 
 @bot.message_handler(func=lambda message: message.text == "Help ℹ️")
@@ -140,9 +161,7 @@ def handle_help(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(
-        user_id,
-        f"{AVAILABLE_COMMANDS_PROMPT[lg]}",
-        reply_markup=get_available_commands(),
+        user_id, f"{AVAILABLE_COMMANDS_PROMPT[lg]}", reply_markup=support_keyboard()
     )
 
 
@@ -167,7 +186,7 @@ def trigger_bulk_ivr_call(message):
                 bot.send_message(
                     user_id,
                     f"{UNPAID_MINUTES_PROMPT[lg]}",
-                    reply_markup=get_main_menu(),
+                    reply_markup=get_main_menu_keyboard(),
                 )
                 return
         user_data[user_id] = {"step": "get_batch_numbers"}
@@ -398,7 +417,9 @@ def trigger_back_flow(message):
     if step == "display_flows":
         display_flows(message)
         return
-    bot.send_message(user_id, f"{WELCOME_PROMPT[lg]}", reply_markup=get_main_menu())
+    bot.send_message(
+        user_id, f"{WELCOME_PROMPT[lg]}", reply_markup=get_main_menu_keyboard()
+    )
 
 
 @bot.message_handler(
@@ -649,7 +670,7 @@ def handle_call_selection_variable(call):
         bot.send_message(call.message.chat.id, f"{PROCESSING_ERROR[lg]} {str(e)}")
 
 
-@bot.message_handler(func=lambda message: message.text == "View Feedback")
+@bot.message_handler(func=lambda message: message.text == "User Feedback")
 def view_feedback(message):
 
     user_id = message.chat.id
@@ -666,6 +687,8 @@ def view_feedback(message):
         button_text = f"Call ID: {call.call_id}"
         callback_data = f"feedback_{call.call_id}"
         markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
+    markup.add(types.InlineKeyboardButton("Back ↩️", callback_data="back_account"))
+
     bot.send_message(user_id, f"{VIEW_TRANSCRIPT_PROMPT[lg]}", reply_markup=markup)
 
 
@@ -758,7 +781,9 @@ def send_welcome(message):
     """
     user_id = message.chat.id
     lg = get_user_language(user_id)
-    bot.send_message(user_id, f"{WELCOME_PROMPT[lg]}", reply_markup=get_main_menu())
+    bot.send_message(
+        user_id, f"{WELCOME_PROMPT[lg]}", reply_markup=get_main_menu_keyboard()
+    )
 
 
 @bot.message_handler(commands=["help"])
@@ -777,7 +802,7 @@ def show_commands(message):
     bot.send_message(
         message.chat.id,
         f"{AVAILABLE_COMMANDS_PROMPT[lg]}\n{formatted_commands}",
-        reply_markup=get_main_menu(),
+        reply_markup=get_main_menu_keyboard(),
     )
 
 
@@ -875,10 +900,52 @@ def cancel_actions(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     msg = f"{ACTION_CANCELLED[lg]}\n{MAIN_MENU_REDIRECTION[lg]}"
-    bot.send_message(user_id, msg, reply_markup=get_main_menu())
+    bot.send_message(user_id, msg, reply_markup=get_main_menu_keyboard())
 
 
-@bot.message_handler(commands=["sign_up", "start"])
+@bot.message_handler(commands=["support"])
+def display_support_menu(message):
+    user_id = message.chat.id
+    bot.send_message(
+        user_id, "Select from the following options: ", reply_markup=support_keyboard()
+    )
+
+
+@bot.message_handler(commands=["start"])
+def display_main_menu(message):
+    user_id = message.chat.id
+    bot.send_message(
+        user_id, "Welcome to the main menu!", reply_markup=get_main_menu_keyboard()
+    )
+
+
+@bot.message_handler(func=lambda message: message.text == "IVR Flow 📞")
+def display_ivr_flow_menu(message):
+    user_id = message.chat.id
+    bot.send_message(
+        user_id, "Select your flow operation:", reply_markup=ivr_flow_keyboard()
+    )
+
+
+@bot.message_handler(func=lambda message: message.text == "IVR Calls 📲")
+def display_ivr_calls_menu(message):
+    user_id = message.chat.id
+    bot.send_message(
+        user_id,
+        "Select the ivr call that you want to send: ",
+        reply_markup=ivr_call_keyboard(),
+    )
+
+
+@bot.message_handler(func=lambda message: message.text == "Account 👤")
+def display_account_menu(message):
+    user_id = message.chat.id
+    bot.send_message(
+        user_id, "Select your options given below:", reply_markup=account_keyboard()
+    )
+
+
+@bot.message_handler(commands=["sign_up"])
 def language_selection(message):
     user_id = message.chat.id
     try:
@@ -894,7 +961,9 @@ def language_selection(message):
                 user_data[user_id] = {}
             user_data[user_id]["set_language"] = selected_language
             bot.send_message(
-                user_id, f"{EXISTING_USER_WELCOME[lg]}", reply_markup=get_main_menu()
+                user_id,
+                f"{EXISTING_USER_WELCOME[lg]}",
+                reply_markup=get_main_menu_keyboard(),
             )
             return
         bot.send_message(
@@ -1058,7 +1127,9 @@ def handle_plan_selection(call):
             bot.send_message(user_id, set_subscription)
             return
         bot.send_message(
-            user_id, SUCCESSFUL_FREE_TRIAL_ACTIVATION[lg], reply_markup=get_main_menu()
+            user_id,
+            SUCCESSFUL_FREE_TRIAL_ACTIVATION[lg],
+            reply_markup=get_main_menu_keyboard(),
         )
         return
     auto_renewal = escape_markdown(AUTO_RENEWAL_PROMPT[lg])
@@ -1153,7 +1224,9 @@ def payment_through_wallet_balance(message):
     if response["status"] != 200:
         bot.send_message(user_id, f"{response['message']}")
         return
-    bot.send_message(user_id, PAYMENT_SUCCESSFUL[lg], reply_markup=get_main_menu())
+    bot.send_message(
+        user_id, PAYMENT_SUCCESSFUL[lg], reply_markup=get_main_menu_keyboard()
+    )
 
 
 @bot.message_handler(func=lambda message: message.text == "💰 Pay with Cryptocurrency")
@@ -1181,7 +1254,7 @@ def handle_payment_method(call):
     currency_response = get_currency(payment_method)
     if currency_response != 200:
         bot.send_message(
-            user_id, UNSUPPORTED_CURRENCY[lg], reply_markup=get_main_menu()
+            user_id, UNSUPPORTED_CURRENCY[lg], reply_markup=get_main_menu_keyboard()
         )
         return
     payment_currency = currency_response.text
@@ -1201,13 +1274,32 @@ def handle_back_to_handle_payment(call):
     )
 
 
-@bot.callback_query_handler(func=lambda call: call.data == "top_up_wallet")
-def handle_top_up_wallet(call):
-    user_id = call.message.chat.id
+@bot.message_handler(func=lambda message: message.text == "Top Up Wallet 💳")
+def top_up_keyboard(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]["topup_option_type"] = "keyboard"
+    top_up(message)
+
+
+def top_up(message):
+    user_id = message.chat.id
     if user_id not in user_data:
         user_data[user_id] = {}
     user_data[user_id]["transaction_type"] = "top_up"
     currency_selection(user_id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "top_up_wallet")
+def handle_top_up_wallet(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]["topup_option_type"] = "callback_query"
+    top_up(call.message)
 
 
 def currency_selection(user_id):
@@ -1239,8 +1331,12 @@ def handle_account_topup(call):
     payment_method = call.data.split("_")[1]
     print(f"payment methoddd : {payment_method}")
     if payment_method == "Back ↩️":
-        print("going back to the main menu")
-        trigger_billing_and_subscription(call.message)
+        topup_type = user_data[user_id]["topup_option_type"]
+
+        if topup_type == "callback_query":
+            trigger_billing_and_subscription(call.message)
+        else:
+            send_welcome(call.message)
         return
     make_crypto_payment(user_id, payment_method)
 
@@ -1287,7 +1383,7 @@ def send_qr_code(
             img_file,
             caption=f"{SCAN_ADDRESS_PROMPT[lg]}",
             parse_mode="Markdown",
-            reply_markup=get_main_menu(),
+            reply_markup=get_main_menu_keyboard(),
         )
     payment_currency = user_data[user_id]["currency"]
     bot.send_message(
@@ -1298,7 +1394,7 @@ def send_qr_code(
         f"{PART4_SCAN_PAYMENT_INFO[lg]}\n\n"
         f"{PART5_SCAN_PAYMENT_INFO[lg]}\n"
         f"{PART6_SCAN_PAYMENT_INFO[lg]}",
-        reply_markup=get_main_menu(),
+        reply_markup=get_main_menu_keyboard(),
         parse_mode="HTML",
     )
     return
@@ -1378,7 +1474,9 @@ def get_webhook_data(request):
     else:
         auto_renewal = False
     bot.send_message(
-        user_id, f"{TRANSACTION_DETAILS[lg]}\n{message}", reply_markup=get_main_menu()
+        user_id,
+        f"{TRANSACTION_DETAILS[lg]}\n{message}",
+        reply_markup=get_main_menu_keyboard(),
     )
     return {
         "user_id": user_id,
@@ -1502,7 +1600,11 @@ def display_flows(message):
     lg = get_user_language(user_id)
     pathways, status_code = handle_view_flows()
     if status_code != 200:
-        bot.send_message(user_id, f"{PROCESSING_ERROR[lg]} {pathways.get('error')}")
+        bot.send_message(
+            user_id,
+            f"{PROCESSING_ERROR[lg]} {pathways.get('error')}",
+            reply_markup=ivr_flow_keyboard(),
+        )
         return
 
     current_users_pathways = Pathways.objects.filter(pathway_user_id=message.chat.id)
@@ -1519,8 +1621,34 @@ def display_flows(message):
             for pathway in filtered_pathways
         ]
         markup.add(*pathway_buttons)
-    markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
+    markup.add(InlineKeyboardButton("Back ↩️", callback_data="back_ivr_flow"))
     bot.send_message(message.chat.id, DISPLAY_IVR_FLOWS[lg], reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "back_ivr_flow")
+def trigger_back_ivr_flow(call):
+    user_id = call.message.chat.id
+    bot.send_message(
+        user_id, "Select your flow operation:", reply_markup=ivr_flow_keyboard()
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "back_ivr_call")
+def trigger_back_ivr_call(call):
+    user_id = call.message.chat.id
+    bot.send_message(
+        user_id,
+        "Select the ivr call that you want to send:",
+        reply_markup=ivr_call_keyboard(),
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "back_account")
+def trigger_back_account(call):
+    user_id = call.message.chat.id
+    bot.send_message(
+        user_id, "Select from the following options: ", reply_markup=account_keyboard()
+    )
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "back")
@@ -1547,7 +1675,11 @@ def handle_pathway_details(call):
     pathway, status_code = handle_view_single_flow(pathway_id)
 
     if status_code != 200:
-        bot.send_message(user_id, f"{PROCESSING_ERROR[lg]} {pathway.get('error')}")
+        bot.send_message(
+            user_id,
+            f"{PROCESSING_ERROR[lg]} {pathway.get('error')}",
+            reply_markup=ivr_flow_keyboard(),
+        )
         return
 
     pathway_info = (
@@ -1570,8 +1702,13 @@ def view_flows(message):
     lg = get_user_language(user_id)
     pathways, status_code = handle_view_flows()
     if status_code != 200:
-        bot.send_message(user_id, f"{PROCESSING_ERROR[lg]} {pathways.get('error')}")
+        bot.send_message(
+            user_id,
+            f"{PROCESSING_ERROR[lg]} {pathways.get('error')}",
+            reply_markup=ivr_flow_keyboard(),
+        )
         return
+    step = user_data[user_id]["step"]
 
     current_users_pathways = Pathways.objects.filter(pathway_user_id=message.chat.id)
     user_pathway_ids = set(p.pathway_id for p in current_users_pathways)
@@ -1590,13 +1727,21 @@ def view_flows(message):
         markup.add(
             InlineKeyboardButton("Create IVR Flow ➕", callback_data="create_ivr_flow")
         )
-        markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
+        if step == "phone_number_input":
+            callback = "back_ivr_call"
+        else:
+            callback = "back_ivr_flow"
+        markup.add(InlineKeyboardButton("Back ↩️", callback_data=callback))
         bot.send_message(message.chat.id, SELECT_IVR_FLOW[lg], reply_markup=markup)
     else:
         markup.add(
             InlineKeyboardButton("Create IVR Flow ➕", callback_data="create_ivr_flow")
         )
-        markup.add(InlineKeyboardButton("Back ↩️", callback_data="back"))
+        if step == "phone_number_input":
+            callback = "back_ivr_call"
+        else:
+            callback = "back_ivr_flow"
+        markup.add(InlineKeyboardButton("Back ↩️", callback_data=callback))
         bot.send_message(
             message.chat.id, NO_IVR_FLOW_AVAILABLE[lg], reply_markup=markup
         )
@@ -1730,7 +1875,7 @@ def get_batch_call_base_prompt(message):
             bot.send_message(
                 user_id,
                 f"{PROCESSING_ERROR[lg]} {str(e)}",
-                reply_markup=get_main_menu(),
+                reply_markup=get_main_menu_keyboard(),
             )
 
             return
@@ -1741,12 +1886,12 @@ def get_batch_call_base_prompt(message):
             user_id,
             f"{max_contacts}{REDUCE_NUMBER_OF_CONTACTS[lg]}"
             f"{ALLOWED_CONTACTS_PROMPT[lg]}",
-            reply_markup=get_main_menu(),
+            reply_markup=get_main_menu_keyboard(),
         )
         return
     if calls_sent == 0:
         bot.send_message(
-            user_id, SUBSCRIPTION_EXPIRED[lg], reply_markup=get_main_menu()
+            user_id, SUBSCRIPTION_EXPIRED[lg], reply_markup=get_main_menu_keyboard()
         )
         return
 
@@ -1758,13 +1903,15 @@ def get_batch_call_base_prompt(message):
     response = bulk_ivr_flow(formatted_prompts, pathway_id, user_id)
 
     if response.status_code == 200:
-        bot.send_message(user_id, SUCCESSFULLY_SENT[lg], reply_markup=get_main_menu())
+        bot.send_message(
+            user_id, SUCCESSFULLY_SENT[lg], reply_markup=get_main_menu_keyboard()
+        )
 
     else:
         bot.send_message(
             user_id,
             f"{PROCESSING_ERROR[lg]} {response.text}",
-            reply_markup=get_main_menu(),
+            reply_markup=get_main_menu_keyboard(),
         )
 
 
@@ -1794,7 +1941,9 @@ def handle_get_pathway(message):
         delete_flow(message)
     else:
         bot.send_message(
-            user_id, f"{PROCESSING_ERROR[lg]} {response}!", reply_markup=get_main_menu()
+            user_id,
+            f"{PROCESSING_ERROR[lg]} {response}!",
+            reply_markup=ivr_flow_keyboard(),
         )
 
 
@@ -1851,7 +2000,9 @@ def handle_add_edges(message):
 
     if status != 200:
         bot.send_message(
-            chat_id, f"{PROCESSING_ERROR[lg]} {response}", reply_markup=get_main_menu()
+            chat_id,
+            f"{PROCESSING_ERROR[lg]} {response}",
+            reply_markup=get_main_menu_keyboard(),
         )
         return
 
@@ -2413,7 +2564,7 @@ def handle_add_or_done(message):
 
     elif text == "Done":
         bot.send_message(
-            user_id, FINISHED_ADDING_NODES[lg], reply_markup=get_main_menu()
+            user_id, FINISHED_ADDING_NODES[lg], reply_markup=ivr_flow_keyboard()
         )
     else:
         bot.send_message(
@@ -2453,7 +2604,9 @@ def handle_single_ivr_call_flow(message):
         response, status = send_call_through_pathway(pathway_id, phone_number, user_id)
         if status == 200:
             bot.send_message(
-                user_id, CALL_QUEUED_SUCCESSFULLY[lg], reply_markup=get_main_menu()
+                user_id,
+                CALL_QUEUED_SUCCESSFULLY[lg],
+                reply_markup=get_main_menu_keyboard(),
             )
             return
         bot.send_message(user_id, f"{PROCESSING_ERROR[lg]} {response}")
@@ -2576,7 +2729,9 @@ def handle_acknowledge_and_proceed(call):
 def handle_main_menu(call):
     user_id = call.message.chat.id
     lg = get_user_language(user_id)
-    bot.send_message(user_id, MAIN_MENU_PROMPT[lg], reply_markup=get_main_menu())
+    bot.send_message(
+        user_id, MAIN_MENU_PROMPT[lg], reply_markup=get_main_menu_keyboard()
+    )
 
 
 def start_bot():
