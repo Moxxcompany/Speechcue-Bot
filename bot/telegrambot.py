@@ -912,7 +912,6 @@ def display_support_menu(message):
     bot.send_message(user_id, SELECTION_PROMPT[lg], reply_markup=support_keyboard())
 
 
-@bot.message_handler(commands=["start"])
 def display_main_menu(message):
     user_id = message.chat.id
     bot.send_message(
@@ -945,7 +944,7 @@ def display_account_menu(message):
     bot.send_message(user_id, SELECTION_PROMPT[lg], reply_markup=account_keyboard())
 
 
-@bot.message_handler(commands=["sign_up"])
+@bot.message_handler(commands=["sign_up", "start"])
 def language_selection(message):
     user_id = message.chat.id
     try:
