@@ -306,3 +306,5 @@ FLOW_OPERATIONS_SELECTION_PROMPT = "Sélectionnez votre opération de flux :"
 IVR_CALL_SELECTION_PROMPT = (
     "Sélectionnez le type d'appel IVR que vous souhaitez envoyer"
 )
+VIEW_COMMANDS_IN_MAIN_MENU = "Vous pouvez voir ces commandes dans le menu principal."
+REQUIRED_TO_SIGN_UP = "Pour y accéder, vous devez être connecté au bot."

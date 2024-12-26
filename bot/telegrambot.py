@@ -162,9 +162,19 @@ def handle_back_ivr_call(message):
 def handle_help(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
+    commands = "- Create IVR Flow ➕\n- View Flows 📂\n- Delete Flow ❌\n"
     bot.send_message(
-        user_id, f"{AVAILABLE_COMMANDS_PROMPT[lg]}", reply_markup=support_keyboard()
+        user_id,
+        f"{AVAILABLE_COMMANDS_PROMPT[lg]}\n"
+        f"{VIEW_COMMANDS_IN_MAIN_MENU[lg]}\n"
+        f"{REQUIRED_TO_SIGN_UP[lg]}\n{commands}",
+        reply_markup=support_keyboard(),
     )
+
+
+@bot.message_handler(func=lambda message: message.text == "Back 👤")
+def back_support(message):
+    display_support_menu(message)
 
 
 @bot.message_handler(commands=["help"])

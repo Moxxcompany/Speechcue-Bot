@@ -276,3 +276,5 @@ UPDATE_LANGUAGE_PROMPT = (
 LANGUAGE_CHANGED_SUCCESSFULLY = "Language Changed Successfully! ✅"
 FLOW_OPERATIONS_SELECTION_PROMPT = "Select your flow operation:"
 IVR_CALL_SELECTION_PROMPT = "Select the type of ivr call that you want to send:"
+VIEW_COMMANDS_IN_MAIN_MENU = "You can view these commands in the main menu."
+REQUIRED_TO_SIGN_UP = "To access them, you must be signed in the bot."

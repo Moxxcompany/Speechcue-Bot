@@ -264,3 +264,5 @@ UPDATE_LANGUAGE_PROMPT = "अपनी भाषा अपडेट करने
 LANGUAGE_CHANGED_SUCCESSFULLY = "भाषा सफलतापूर्वक बदल दी गई! ✅"
 FLOW_OPERATIONS_SELECTION_PROMPT = "अपना प्रवाह संचालन चुनें:"
 IVR_CALL_SELECTION_PROMPT = "वह IVR कॉल प्रकार चुनें जिसे आप भेजना चाहते हैं:"
+VIEW_COMMANDS_IN_MAIN_MENU = "आप इन कमांड्स को मुख्य मेनू में देख सकते हैं।"
+REQUIRED_TO_SIGN_UP = "इन तक पहुँचने के लिए, आपको बोट में साइन इन होना चाहिए।"

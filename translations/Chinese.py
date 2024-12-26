@@ -239,3 +239,5 @@ UPDATE_LANGUAGE_PROMPT = "要更新您的语言，请从以下选项中选择一
 LANGUAGE_CHANGED_SUCCESSFULLY = "语言更改成功！✅"
 FLOW_OPERATIONS_SELECTION_PROMPT = "选择您的流程操作："
 IVR_CALL_SELECTION_PROMPT = "选择您要发送的 IVR 呼叫类型："
+VIEW_COMMANDS_IN_MAIN_MENU = "您可以在主菜单中查看这些命令。"
+REQUIRED_TO_SIGN_UP = "要访问它们，您必须登录到机器人。"
