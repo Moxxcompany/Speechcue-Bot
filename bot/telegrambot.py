@@ -13,7 +13,11 @@ from phonenumbers import geocoder
 
 import bot.bot_config
 from TelegramBot.constants import STATUS_CODE_200, MAX_INFINITY_CONSTANT
-from payment.decorator_functions import check_validity, check_subscription_status
+from payment.decorator_functions import (
+    check_validity,
+    check_subscription_status,
+    check_expiry_date,
+)
 
 from translations.translations import *  # noqa
 
@@ -1038,6 +1042,55 @@ def signup(message):
 def handle_activate_subscription(call):
     user_id = call.message.chat.id
     lg = get_user_language(user_id)
+    user = TelegramUser.objects.get(user_id=user_id)
+
+    try:
+        user_subscription = UserSubscription.objects.get(user_id=user_id)
+        subscription_status = user_subscription.subscription_status
+
+    except UserSubscription.DoesNotExist:
+
+        UserSubscription.objects.create(user_id=user, subscription_status="inactive")
+        subscription_status = "inactive"
+
+    if subscription_status == "active":
+        print(check_expiry_date(user_id))
+        if check_expiry_date(user_id):
+            active_plan = user_subscription.plan_id_id
+            invoice = generate_invoice(active_plan, user_id)
+            message = (
+                f"{SUBSCRIPTION_WARNING_PT_1[lg]} \n"
+                f"{invoice}\n\n"
+                f"{SUBSCRIPTION_WARNING_PT_3[lg]} {SUBSCRIPTION_WARNING_PT_4[lg]} \n"
+                f"{SUBSCRIPTION_WARNING_PT_5[lg]}\n"
+                f"{SUBSCRIPTION_WARNING_PT_6[lg]}"
+            )
+            markup = InlineKeyboardMarkup()
+            yes_btn = InlineKeyboardButton(
+                YES[lg], callback_data="continue_plan_upgrade"
+            )
+            no_btn = InlineKeyboardButton(NO[lg], callback_data="cancel_plan_upgrade")
+            markup.add(yes_btn, no_btn)
+
+            bot.send_message(
+                user_id,
+                escape_markdown(message),
+                reply_markup=markup,
+                parse_mode="MarkdownV2",
+            )
+            return
+    upgrade_plan_menu(call)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "cancel_plan_upgrade")
+def handle_cancel_plan_upgrade(call):
+    send_welcome(call.message)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "continue_plan_upgrade")
+def upgrade_plan_menu(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
     plans = SubscriptionPlans.objects.all()
     plan_icons = {"Free": "🎉", "Prime": "🌟", "Elite": "💎", "Ultra": "🚀"}
     markup = types.InlineKeyboardMarkup()
@@ -1182,7 +1235,7 @@ def handle_plan_selection(call):
                 reply_markup=get_main_menu_keyboard(user_id),
             )
         else:
-            bot.send_message(user_id, "You are not eligible for free trial!")
+            bot.send_message(user_id, NOT_ELIGIBLE_FOR_FREE_TRIAL[lg])
             handle_activate_subscription(call)
         return
     auto_renewal = escape_markdown(AUTO_RENEWAL_PROMPT[lg])
