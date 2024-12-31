@@ -59,6 +59,7 @@ from bot.views import (
     question_type,
     get_variables,
     check_pathway_block,
+    handle_transfer_call_node,
 )
 
 from payment.models import SubscriptionPlans
@@ -2208,9 +2209,9 @@ def handle_target_node(call):
     chat_id = call.message.chat.id
     lg = get_user_language(chat_id)
     source_node_id = user_data[call.message.chat.id]["source_node_id"]
-    user_data[call.message.chat.id]["step"] = "add_label"
-    user_data[call.message.chat.id]["src"] = source_node_id
-    user_data[call.message.chat.id]["target"] = target_node_id
+    user_data[chat_id]["step"] = "add_label"
+    user_data[chat_id]["src"] = source_node_id
+    user_data[chat_id]["target"] = target_node_id
     bot.send_message(chat_id, ENTER_LABEL_PROMPT[lg], reply_markup=get_force_reply())
 
 
@@ -2330,11 +2331,11 @@ def handle_add_node_id(message):
         bot.send_message(user_id, DTMF_PROMPT[lg], reply_markup=get_force_reply())
 
     elif node in CALL_TRANSFER.values():
-        user_data[user_id]["step"] = "get_dtmf_input"
+        user_data[user_id]["step"] = "get_transfer_call_prompt"
         user_data[user_id]["message_type"] = "Transfer Call"
         bot.send_message(
             user_id,
-            ENTER_PHONE_NUMBER_FOR_CALL_TRANSFER[lg],
+            f"{ENTER_MESSAGE_PROMPT[lg]} Transfer Call: ",
             reply_markup=get_force_reply(),
         )
 
@@ -2351,6 +2352,23 @@ def handle_add_node_id(message):
     elif node in QUESTION.values():
         user_data[user_id]["message_type"] = "Question"
         text_to_speech(message)
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step")
+    == "get_transfer_call_prompt"
+)
+def handle_get_transfer_call_prompt(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    user_data[user_id]["transfer_call_text"] = message.text
+    message_type = user_data[user_id]["message_type"]
+    user_data[user_id]["step"] = "get_dtmf_input"
+    bot.send_message(
+        user_id,
+        ENTER_PHONE_NUMBER_FOR_CALL_TRANSFER[lg],
+        reply_markup=get_force_reply(),
+    )
 
 
 @bot.message_handler(
@@ -2459,10 +2477,12 @@ def handle_get_dtmf_input(message):
         if not validate_mobile(text):
             bot.send_message(user_id, INVALID_NUMBER_PROMPT[lg])
             return
-
-    response = handle_dtmf_input_node(
-        pathway_id, node_id, prompt, node_name, message_type
-    )
+        message = user_data[user_id]["transfer_call_text"]
+        response = handle_transfer_call_node(
+            pathway_id, node_id, prompt, node_name, message
+        )
+    else:
+        response = handle_dtmf_input_node(pathway_id, node_id, prompt, node_name)
 
     if response.status_code == 200:
         bot.send_message(

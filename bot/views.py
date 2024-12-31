@@ -157,7 +157,6 @@ def handle_end_call(
 ) -> requests.Response:
     pathway = Pathways.objects.get(pathway_id=pathway_id)
 
-    # Load existing pathway data, nodes, and edges
     if pathway.pathway_payload:
         pathway_data = json.loads(pathway.pathway_payload).get("pathway_data", {})
         existing_nodes = pathway_data.get("nodes", [])
@@ -166,7 +165,6 @@ def handle_end_call(
         existing_nodes = []
         existing_edges = []
 
-    # Define the new node
     node = {
         "id": f"{node_id}",
         "type": "End Call",
@@ -243,11 +241,10 @@ def handle_menu_node(
 
 
 def handle_dtmf_input_node(
-    pathway_id: int, node_id: int, prompt, node_name, message_type: str
+    pathway_id: int, node_id: int, prompt, node_name
 ) -> requests.Response:
     pathway = Pathways.objects.get(pathway_id=pathway_id)
 
-    # Load existing pathway data, nodes, and edges
     if pathway.pathway_payload:
         pathway_data = json.loads(pathway.pathway_payload).get("pathway_data", {})
         existing_nodes = pathway_data.get("nodes", [])
@@ -256,46 +253,73 @@ def handle_dtmf_input_node(
         existing_nodes = []
         existing_edges = []
 
-    # Determine node type and text based on message_type
-    if message_type == "DTMF Input":
-        node_type = "Default"
-        text = "text"
-    else:
-        node_type = "Transfer Call"
-        text = "transferNumber"
-
-    # Define the new node
     node = {
         "id": f"{node_id}",
-        "type": node_type,
+        "type": "Default",
         "data": {
             "name": node_name,
-            f"{text}": prompt,
+            "text": prompt,
         },
     }
-
-    # Add global properties for Transfer Call node
-    if node_type == "Transfer Call" and not any(
-        n["type"] == "Transfer Call" for n in existing_nodes
-    ):
-        # node["data"]["isGlobal"] = True
-        # node["data"]["globalPrompt"] = "User says transfer call"
-        node["data"]["active"] = True
-        node["data"]["text"] = "Transferring your call"
-
     if existing_nodes:
         nodes = add_node(pathway.pathway_payload, new_node=node)
     else:
         node["data"]["isStart"] = True
         nodes = [node]
 
-    # Prepare the data with both nodes and existing edges
     pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
     data = {
         "name": pathway_name,
         "description": pathway_description,
         "nodes": nodes,
         "edges": existing_edges,  # Keep the previous edges
+    }
+    print("Node Data for the payload : ", nodes)
+    response = handle_add_node(pathway_id, data)
+
+    if response.status_code == 200:
+        pathway.pathway_payload = response.text
+        pathway.save()
+
+    return response
+
+
+def handle_transfer_call_node(
+    pathway_id: int, node_id: int, transfer_number, node_name, prompt: str
+) -> requests.Response:
+    pathway = Pathways.objects.get(pathway_id=pathway_id)
+
+    if pathway.pathway_payload:
+        pathway_data = json.loads(pathway.pathway_payload).get("pathway_data", {})
+        existing_nodes = pathway_data.get("nodes", [])
+        existing_edges = pathway_data.get("edges", [])
+    else:
+        existing_nodes = []
+        existing_edges = []
+
+    # Define the new node
+    node = {
+        "id": f"{node_id}",
+        "type": "Transfer Call",
+        "data": {
+            "name": node_name,
+            "transferNumber": transfer_number,
+            "active": True,
+            "text": prompt,
+        },
+    }
+
+    if existing_nodes:
+        nodes = add_node(pathway.pathway_payload, new_node=node)
+    else:
+        node["data"]["isStart"] = True
+        nodes = [node]
+    pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
+    data = {
+        "name": pathway_name,
+        "description": pathway_description,
+        "nodes": nodes,
+        "edges": existing_edges,
     }
     print("Node Data for the payload : ", nodes)
     response = handle_add_node(pathway_id, data)
