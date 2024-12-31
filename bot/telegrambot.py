@@ -1104,6 +1104,44 @@ def handle_back_message(call):
     send_welcome(call.message)
 
 
+def generate_invoice(plan_id, user_id):
+    lg = get_user_language(user_id)
+
+    try:
+        plan = SubscriptionPlans.objects.get(plan_id=plan_id)
+    except SubscriptionPlans.DoesNotExist:
+        bot.send_message(user_id, f"{PLAN_DOESNT_EXIST[lg]}")
+        return
+
+    node_access = (
+        f"{FULL_NODE_ACCESS[lg]}"
+        if plan.call_transfer
+        else f"{PARTIAL_NODE_ACCESS[lg]}"
+    )
+    call_transfer_node = "✅" if plan.call_transfer else "❌"
+
+    if plan.single_ivr_minutes == MAX_INFINITY_CONSTANT:
+        single_calls = f"{UNLIMITED_SINGLE_IVR[lg]}"
+    else:
+        single_calls = f"{plan.single_ivr_minutes:.4f} {SINGLE_IVR_MINUTES[lg]}"
+    if plan.number_of_bulk_call_minutes is None:
+        bulk_calls = NO_BULK_MINS_LEFT[lg]
+    else:
+        bulk_calls = f"{plan.number_of_bulk_call_minutes:.2f} {BULK_IVR_CALLS[lg]}"
+    invoice_message = (
+        f"{PLAN_SELECTED[lg]}\n"
+        f"📌 {PLAN_NAME[lg]}  {plan.name}\n"
+        f"🕛 {VALIDITY[lg]}   {plan.validity_days}"
+        f"💲 {PRICE[lg]} {plan.plan_price:.2f}\n"
+        f"📝 *{FEATURES[lg]}\n"
+        f"🎧 {single_calls} & {bulk_calls}\n"
+        f"🔗 {node_access}\n"
+        f"📞 {CALL_TRANSFER_NODE[lg]} {call_transfer_node}\n"
+        f"📞 {CUSTOMER_SUPPORT_LEVEL[lg]}: {plan.customer_support_level}\n\n"
+    )
+    return invoice_message
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("plan_"))
 def handle_plan_selection(call):
     user_id = call.message.chat.id
@@ -1119,56 +1157,33 @@ def handle_plan_selection(call):
     if user_id not in user_data:
         user_data[user_id] = {}
 
-    node_access = (
-        f"{FULL_NODE_ACCESS[lg]}"
-        if plan.call_transfer
-        else f"{PARTIAL_NODE_ACCESS[lg]}"
-    )
-    call_transfer_node = "✅" if plan.call_transfer else "❌"
-
     user_data[user_id]["selected_plan"] = plan
     user_data[user_id]["subscription_price"] = plan.plan_price
     user_data[user_id]["subscription_name"] = plan.name
     user_data[user_id]["subscription_id"] = plan.plan_id
-    if plan.single_ivr_minutes == MAX_INFINITY_CONSTANT:
-        single_calls = f"{UNLIMITED_SINGLE_IVR[lg]}"
-    else:
-        single_calls = f"{plan.single_ivr_minutes:.4f} {SINGLE_IVR_MINUTES[lg]}"
-    if plan.number_of_bulk_call_minutes is None:
-        bulk_calls = NO_BULK_MINS_LEFT[lg]
-    else:
-        bulk_calls = f"{plan.number_of_bulk_call_minutes:.2f} {BULK_IVR_CALLS[lg]}"
-
-    invoice_message = (
-        f"{PLAN_SELECTED[lg]}\n"
-        f"📌 {PLAN_NAME[lg]}  {plan.name}\n"
-        f"🕛 {VALIDITY[lg]}   {plan.validity_days}"
-        f"💲 {PRICE[lg]} {plan.plan_price:.2f}\n"
-        f"📝 *{FEATURES[lg]}\n"
-        f"🎧 {single_calls} & {bulk_calls}\n"
-        f"🔗 {node_access}\n"
-        f"📞 {CALL_TRANSFER_NODE[lg]} {call_transfer_node}\n"
-        f"📞 {CUSTOMER_SUPPORT_LEVEL[lg]}: {plan.customer_support_level}\n\n"
-    )
+    invoice_message = generate_invoice(plan.plan_id, user_id)
 
     if plan.plan_price == 0:
-        bot.send_message(
-            user_id, escape_markdown(invoice_message), parse_mode="MarkdownV2"
-        )
         user = TelegramUser.objects.get(user_id=user_id)
-        user.subscription_status = "active"
-        user.plan = plan.plan_id
-        user.save()
-
-        set_subscription = set_user_subscription(user, plan.plan_id)
-        if set_subscription != f"{STATUS_CODE_200}":
-            bot.send_message(user_id, set_subscription)
-            return
-        bot.send_message(
-            user_id,
-            SUCCESSFUL_FREE_TRIAL_ACTIVATION[lg],
-            reply_markup=get_main_menu_keyboard(user_id),
-        )
+        if user.free_plan:
+            user.subscription_status = "active"
+            user.plan = plan.plan_id
+            user.save()
+            bot.send_message(
+                user_id, escape_markdown(invoice_message), parse_mode="MarkdownV2"
+            )
+            set_subscription = set_user_subscription(user, plan.plan_id)
+            if set_subscription != f"{STATUS_CODE_200}":
+                bot.send_message(user_id, set_subscription)
+                return
+            bot.send_message(
+                user_id,
+                SUCCESSFUL_FREE_TRIAL_ACTIVATION[lg],
+                reply_markup=get_main_menu_keyboard(user_id),
+            )
+        else:
+            bot.send_message(user_id, "You are not eligible for free trial!")
+            handle_activate_subscription(call)
         return
     auto_renewal = escape_markdown(AUTO_RENEWAL_PROMPT[lg])
     yes = f"{YES[lg]} ✅"
@@ -1262,11 +1277,20 @@ def payment_through_wallet_balance(message):
     plan_id = user_data[user_id]["subscription_id"]
     auto_renewal = user_data[user_id]["auto_renewal"]
     response = set_plan(user_id, plan_id, auto_renewal)
+
     if response["status"] != 200:
         bot.send_message(user_id, f"{response['message']}")
         return
+    plan = SubscriptionPlans.objects.get(plan_id=plan_id)
+    message = (
+        f"{PLAN_SELECTED[lg]}\n"
+        f"📌 {PLAN_NAME[lg]}  {plan.name}\n"
+        f"🕛 {VALIDITY[lg]}   {plan.validity_days}"
+    )
     bot.send_message(
-        user_id, PAYMENT_SUCCESSFUL[lg], reply_markup=get_main_menu_keyboard(user_id)
+        user_id,
+        f"{message}\n\n{PAYMENT_SUCCESSFUL[lg]}",
+        reply_markup=get_main_menu_keyboard(user_id),
     )
 
 
