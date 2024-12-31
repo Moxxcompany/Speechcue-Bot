@@ -135,6 +135,7 @@ def set_user_subscription(user, plan_id):
         },
     )
     user.free_plan = False
+    user.save()
     return "200"
 
 
