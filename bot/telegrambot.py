@@ -72,13 +72,13 @@ from bot.bot_config import *  # noqa
 from bot.callback_query_handlers import *  # noqa
 
 VALID_NODE_TYPES = [
-    "End Call 🛑",
-    "Call Transfer 🔄",
-    "Get DTMF Input 📞",
-    "Play Message ▶️",
-    "Menu 📋",
-    "Feedback Node",
-    "Question",
+    f"End Call 🛑",
+    f"Call Transfer 🔄",
+    f"Get DTMF Input 📞",
+    f"Play Message ▶️",
+    f"Menu 📋",
+    f"Feedback Node",
+    f"Question",
 ]
 available_commands = {
     "/create_flow": "Create a new pathway",
@@ -95,18 +95,18 @@ CHANNEL_LINK = os.getenv("CHANNEL_LINK")
 # :: TRIGGERS ------------------------------------#
 
 
-@bot.message_handler(func=lambda message: message.text == "Join Channel 🔗")
+@bot.message_handler(func=lambda message: message.text in JOIN_CHANNEL.values())
 def handle_join_channel(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(
         user_id,
         f"{JOIN_CHANNEL_PROMPT[lg]}\n {CHANNEL_LINK}",
-        reply_markup=support_keyboard(),
+        reply_markup=support_keyboard(user_id),
     )
 
 
-@bot.message_handler(func=lambda message: message.text == "Profile 👤")
+@bot.message_handler(func=lambda message: message.text in PROFILE.values())
 def get_user_profile(message):
     user_id = message.chat.id
     user = TelegramUser.objects.get(user_id=message.chat.id)
@@ -131,12 +131,14 @@ def get_user_profile(message):
         wallet = check_user_balance(user_id)
         balance = wallet.json()["data"]["amount"]
         bot.send_message(
-            user_id, f"{BALANCE_IN_USD[lg]}{balance}", reply_markup=account_keyboard()
+            user_id,
+            f"{BALANCE_IN_USD[lg]}{balance}",
+            reply_markup=account_keyboard(user_id),
         )
         bot.send_message(
             user_id,
             SELECTION_PROMPT[lg],
-            reply_markup=account_keyboard(),
+            reply_markup=account_keyboard(user_id),
         )
 
 
@@ -145,7 +147,9 @@ def handle_back_ivr_flow(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(
-        user_id, FLOW_OPERATIONS_SELECTION_PROMPT[lg], reply_markup=ivr_flow_keyboard()
+        user_id,
+        FLOW_OPERATIONS_SELECTION_PROMPT[lg],
+        reply_markup=ivr_flow_keyboard(user_id),
     )
 
 
@@ -154,21 +158,23 @@ def handle_back_ivr_call(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(
-        user_id, FLOW_OPERATIONS_SELECTION_PROMPT[lg], reply_markup=ivr_call_keyboard()
+        user_id,
+        FLOW_OPERATIONS_SELECTION_PROMPT[lg],
+        reply_markup=ivr_call_keyboard(user_id),
     )
 
 
-@bot.message_handler(func=lambda message: message.text == "Help ℹ️")
+@bot.message_handler(func=lambda message: message.text in HELP.values())
 def handle_help(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
-    commands = "- Create IVR Flow ➕\n- View Flows 📂\n- Delete Flow ❌\n"
+    commands = f"- {CREATE_IVR_FLOW[lg]}\n- {VIEW_FLOWS[lg]}\n- {DELETE_FLOW[lg]}\n"
     bot.send_message(
         user_id,
         f"{AVAILABLE_COMMANDS_PROMPT[lg]}\n"
         f"{VIEW_COMMANDS_IN_MAIN_MENU[lg]}\n"
         f"{REQUIRED_TO_SIGN_UP[lg]}\n{commands}",
-        reply_markup=support_keyboard(),
+        reply_markup=support_keyboard(user_id),
     )
 
 
@@ -182,7 +188,7 @@ def show_available_commands(message):
     handle_help(message)
 
 
-@bot.message_handler(func=lambda message: message.text == "Bulk IVR Call 📞📞")
+@bot.message_handler(func=lambda message: message.text in BULK_CALL.values())
 @check_validity
 def trigger_bulk_ivr_call(message):
     user_id = message.chat.id
@@ -198,7 +204,7 @@ def trigger_bulk_ivr_call(message):
                 bot.send_message(
                     user_id,
                     f"{UNPAID_MINUTES_PROMPT[lg]}",
-                    reply_markup=get_main_menu_keyboard(),
+                    reply_markup=get_main_menu_keyboard(user_id),
                 )
                 return
         user_data[user_id] = {"step": "get_batch_numbers"}
@@ -207,7 +213,7 @@ def trigger_bulk_ivr_call(message):
         bot.send_message(
             user_id,
             f"{BULK_IVR_SUBSCRIPTION_PROMPT[lg]}",
-            reply_markup=get_subscription_activation_markup(),
+            reply_markup=get_subscription_activation_markup(user_id),
         )
 
 
@@ -216,22 +222,26 @@ def handle_help_callback(call):
     handle_help(call.message)
 
 
-@bot.message_handler(func=lambda message: message.text == "Billing and Subscription 📅")
+@bot.message_handler(
+    func=lambda message: message.text in BILLING_AND_SUBSCRIPTION.values()
+)
 def trigger_billing_and_subscription(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(
         user_id,
         f"{SELECTION_PROMPT[lg]}",
-        reply_markup=get_billing_and_subscription_keyboard(),
+        reply_markup=get_billing_and_subscription_keyboard(user_id),
     )
 
 
-@bot.message_handler(func=lambda message: message.text == "Settings ⚙")
+@bot.message_handler(func=lambda message: message.text in SETTINGS.values())
 def trigger_settings(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
-    bot.send_message(user_id, SELECTION_PROMPT[lg], reply_markup=get_setting_keyboard())
+    bot.send_message(
+        user_id, SELECTION_PROMPT[lg], reply_markup=get_setting_keyboard(user_id)
+    )
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "change_language")
@@ -258,7 +268,9 @@ def handle_language_selection(call):
     reset_user_language(user_id)
     lg = get_user_language(user_id)
     bot.send_message(
-        user_id, LANGUAGE_CHANGED_SUCCESSFULLY[lg], reply_markup=get_setting_keyboard()
+        user_id,
+        LANGUAGE_CHANGED_SUCCESSFULLY[lg],
+        reply_markup=get_setting_keyboard(user_id),
     )
 
 
@@ -298,21 +310,21 @@ def handle_view_subscription(call):
         bot.send_message(
             user_id,
             f"{ACTIVE_SUBSCRIPTION_PLAN_PROMPT[lg]}\n\n{plan_details}",
-            reply_markup=get_billing_and_subscription_keyboard(),
+            reply_markup=get_billing_and_subscription_keyboard(user_id),
         )
 
     except TelegramUser.DoesNotExist:
         bot.send_message(
             user_id,
             f"{SUBSCRIPTION_PLAN_NOT_FOUND[lg]}",
-            reply_markup=get_billing_and_subscription_keyboard(),
+            reply_markup=get_billing_and_subscription_keyboard(user_id),
         )
 
     except SubscriptionPlans.DoesNotExist:
         bot.send_message(
             user_id,
             f"{NO_SUBSCRIPTION_PLAN[lg]}",
-            reply_markup=get_billing_and_subscription_keyboard(),
+            reply_markup=get_billing_and_subscription_keyboard(user_id),
         )
 
 
@@ -345,10 +357,10 @@ def check_wallet(call):
         currency = wallet.json()["data"]["currency"]
         markup = InlineKeyboardMarkup()
         top_up_wallet_button = types.InlineKeyboardButton(
-            "Top Up Wallet 💳", callback_data="top_up_wallet"
+            TOP_UP[lg], callback_data="top_up_wallet"
         )
         back_button = types.InlineKeyboardButton(
-            "Back", callback_data="back_to_billing"
+            BACK[lg], callback_data="back_to_billing"
         )
         markup.add(top_up_wallet_button)
         markup.add(back_button)
@@ -371,11 +383,13 @@ def back_to_billing(call):
     bot.send_message(
         user_id,
         f"{SELECTION_PROMPT[lg]}",
-        reply_markup=get_billing_and_subscription_keyboard(),
+        reply_markup=get_billing_and_subscription_keyboard(user_id),
     )
 
 
-@bot.message_handler(func=lambda message: message.text == "Add Another Phone Numbers")
+@bot.message_handler(
+    func=lambda message: message.text in ADD_ANOTHER_PHONE_NUMBER.values()
+)
 def trigger_yes(message):
     user_id = message.chat.id
     number = user_data[user_id]["batch_numbers"]
@@ -383,12 +397,12 @@ def trigger_yes(message):
     call_data.append(data)
 
 
-@bot.message_handler(func=lambda message: message.text == "Text-to-Speech 🗣️")
+@bot.message_handler(func=lambda message: message.text in TEXT_TO_SPEECH.values())
 def trigger_text_to_speech(message):
     handle_get_node_type(message)
 
 
-@bot.message_handler(func=lambda message: message.text == "Single IVR Call ☎️")
+@bot.message_handler(func=lambda message: message.text in SINGLE_IVR.values())
 @check_validity
 def trigger_single_ivr_call(message):
     """
@@ -410,7 +424,7 @@ def trigger_single_ivr_call(message):
         bot.send_message(
             user_id,
             f"{ACTIVATE_SUBSCRIPTION[lg]}",
-            reply_markup=get_subscription_activation_markup(),
+            reply_markup=get_subscription_activation_markup(user_id),
         )
 
 
@@ -421,7 +435,7 @@ def trigger_flow_single(call):
     view_flows(call.message)
 
 
-@bot.message_handler(func=lambda message: message.text == "Back")
+@bot.message_handler(func=lambda message: message.text in BACK.values())
 def trigger_back_flow(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
@@ -430,13 +444,13 @@ def trigger_back_flow(message):
         display_flows(message)
         return
     bot.send_message(
-        user_id, f"{WELCOME_PROMPT[lg]}", reply_markup=get_main_menu_keyboard()
+        user_id, f"{WELCOME_PROMPT[lg]}", reply_markup=get_main_menu_keyboard(user_id)
     )
 
 
 @bot.message_handler(
-    func=lambda message: message.text == "Done Adding Nodes"
-    or message.text == "Continue Adding Edges ▶️"
+    func=lambda message: message.text in DONE_ADDING_NODES.values()
+    or message.text in CONTINUE_ADDING_EDGES.values()
 )
 def trigger_add_edges(message):
     """
@@ -448,7 +462,7 @@ def trigger_add_edges(message):
     handle_add_edges(message)
 
 
-@bot.message_handler(func=lambda message: message.text == "Confirm Delete")
+@bot.message_handler(func=lambda message: message.text in CONFIRM_DELETE.values())
 def trigger_confirmation(message):
     """
     Handles the 'Confirm Delete' menu option to confirm deletion of a pathway.
@@ -458,7 +472,7 @@ def trigger_confirmation(message):
     handle_get_pathway(message)
 
 
-@bot.message_handler(func=lambda message: message.text == "Delete Node")
+@bot.message_handler(func=lambda message: message.text in DELETE_NODE.values())
 def trigger_delete_node(message):
     """
     Handles the 'Delete Node' menu option. Placeholder for future functionality.
@@ -537,7 +551,7 @@ def delete_node(call):
     user_data[user_id]["step"] = "delete_node"
 
 
-@bot.message_handler(func=lambda message: message.text == "Retry Node 🔄")
+@bot.message_handler(func=lambda message: message.text in RETRY_NODE.values())
 def trigger_retry_node(message):
     """
     Handles the 'Retry Node 🔄' menu option to retry a node.
@@ -548,7 +562,7 @@ def trigger_retry_node(message):
     bot.send_message(message.chat.id, "Retry node")
 
 
-@bot.message_handler(func=lambda message: message.text == "Skip Node ⏭️")
+@bot.message_handler(func=lambda message: message.text in SKIP_NODE.values())
 def trigger_skip_node(message):
     """
     Handles the 'Skip Node ⏭️' menu option to skip a node.
@@ -559,12 +573,14 @@ def trigger_skip_node(message):
     bot.send_message(message.chat.id, "Skip node")
 
 
-@bot.message_handler(func=lambda message: message.text == "Transfer to Live Agent 👤")
+@bot.message_handler(
+    func=lambda message: message.text in TRANSFER_TO_LIVE_AGENT.values()
+)
 def trigger_transfer_to_live_agent_node(message):
     transfer_to_agent(message)
 
 
-@bot.message_handler(func=lambda message: message.text == "Done Adding Edges")
+@bot.message_handler(func=lambda message: message.text in DONE_ADDING_EDGES.values())
 def trigger_end_call_option(message):
     chat_id = message.chat.id
     lg = get_user_language(chat_id)
@@ -594,7 +610,9 @@ def trigger_end_call_option(message):
         handle_call_failure(message)
 
 
-@bot.message_handler(func=lambda message: message.text == "Continue to Next Node ▶️")
+@bot.message_handler(
+    func=lambda message: message.text in CONTINUE_TO_NEXT_NODE.values()
+)
 def trigger_add_another_node(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
@@ -604,14 +622,14 @@ def trigger_add_another_node(message):
     )
 
 
-@bot.message_handler(func=lambda message: message.text == "Repeat Message 🔁")
+@bot.message_handler(func=lambda message: message.text in REPEAT_MESSAGE.values())
 def trigger_repeat_message(message):
     pass
 
 
 @bot.message_handler(
-    func=lambda message: message.text == "Back to Main Menu ↩️"
-    or message.text == "Back ↩️"
+    func=lambda message: message.text in BACK_TO_MAIN_MENU.values()
+    or message.text in BACK_BUTTON.values()
 )
 def trigger_back(message):
     user_id = message.chat.id
@@ -625,19 +643,19 @@ def trigger_back(message):
 
 
 @bot.message_handler(
-    func=lambda message: message.text == "End Call 🛑"
-    or message.text == "Call Transfer 🔄"
-    or message.text == "Get DTMF Input 📞"
-    or message.text == "Play Message ▶️"
-    or message.text == "Menu 📋"
-    or message.text == "Feedback Node"
-    or message.text == "Question"
+    func=lambda message: message.text in END_CALL.values()
+    or message.text in CALL_TRANSFER.values()
+    or message.text in GET_DTMF_INPUT.values()
+    or message.text in PLAY_MESSAGE.values()
+    or message.text in MENU.values()
+    or message.text in FEEDBACK_NODE.values()
+    or message.text in QUESTION.values()
 )
 def trigger_main_add_node(message):
     add_node(message)
 
 
-@bot.message_handler(func=lambda message: message.text == "View Variables")
+@bot.message_handler(func=lambda message: message.text in VIEW_VARIABLES.values())
 def view_variables(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
@@ -682,7 +700,7 @@ def handle_call_selection_variable(call):
         bot.send_message(call.message.chat.id, f"{PROCESSING_ERROR[lg]} {str(e)}")
 
 
-@bot.message_handler(func=lambda message: message.text == "User Feedback")
+@bot.message_handler(func=lambda message: message.text in USER_FEEDBACK.values())
 def view_feedback(message):
 
     user_id = message.chat.id
@@ -699,7 +717,9 @@ def view_feedback(message):
         button_text = f"Call ID: {call.call_id}"
         callback_data = f"feedback_{call.call_id}"
         markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
-    markup.add(types.InlineKeyboardButton("Back ↩️", callback_data="back_account"))
+    markup.add(
+        types.InlineKeyboardButton(BACK_BUTTON[lg], callback_data="back_account")
+    )
 
     bot.send_message(user_id, f"{VIEW_TRANSCRIPT_PROMPT[lg]}", reply_markup=markup)
 
@@ -727,7 +747,7 @@ def handle_call_selection(call):
         bot.send_message(call.message.chat.id, f"{PROCESSING_ERROR[lg]} {str(e)}")
 
 
-@bot.message_handler(func=lambda message: message.text == "Create IVR Flow ➕")
+@bot.message_handler(func=lambda message: message.text in CREATE_IVR_FLOW.values())
 def trigger_create_flow(message):
     """
     Handle 'Create IVR Flow ➕' menu option.
@@ -743,7 +763,7 @@ def callback_create_ivr_flow(call):
     create_flow(call.message)
 
 
-@bot.message_handler(func=lambda message: message.text == "View Flows 📂")
+@bot.message_handler(func=lambda message: message.text in VIEW_FLOWS.values())
 def trigger_view_flows(message):
     """
     Handle 'View Flows 📂' menu option.
@@ -751,7 +771,7 @@ def trigger_view_flows(message):
     display_flows(message)
 
 
-@bot.message_handler(func=lambda message: message.text == "Delete Flow ❌")
+@bot.message_handler(func=lambda message: message.text in DELETE_FLOW.values())
 def trigger_delete_flow(message):
     """
     Handle 'Delete Flow ❌' menu option.
@@ -759,7 +779,7 @@ def trigger_delete_flow(message):
     delete_flow(message)
 
 
-@bot.message_handler(func=lambda message: message.text == "Add Node")
+@bot.message_handler(func=lambda message: message.text in ADD_NODE.values())
 def view_main_menu(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
@@ -794,7 +814,7 @@ def send_welcome(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(
-        user_id, f"{WELCOME_PROMPT[lg]}", reply_markup=get_main_menu_keyboard()
+        user_id, f"{WELCOME_PROMPT[lg]}", reply_markup=get_main_menu_keyboard(user_id)
     )
 
 
@@ -814,7 +834,7 @@ def show_commands(message):
     bot.send_message(
         message.chat.id,
         f"{AVAILABLE_COMMANDS_PROMPT[lg]}\n{formatted_commands}",
-        reply_markup=get_main_menu_keyboard(),
+        reply_markup=get_main_menu_keyboard(user_id),
     )
 
 
@@ -912,46 +932,54 @@ def cancel_actions(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     msg = f"{ACTION_CANCELLED[lg]}\n{MAIN_MENU_REDIRECTION[lg]}"
-    bot.send_message(user_id, msg, reply_markup=get_main_menu_keyboard())
+    bot.send_message(user_id, msg, reply_markup=get_main_menu_keyboard(user_id))
 
 
 @bot.message_handler(commands=["support"])
 def display_support_menu(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
-    bot.send_message(user_id, SELECTION_PROMPT[lg], reply_markup=support_keyboard())
+    bot.send_message(
+        user_id, SELECTION_PROMPT[lg], reply_markup=support_keyboard(user_id)
+    )
 
 
 def display_main_menu(message):
     user_id = message.chat.id
     bot.send_message(
-        user_id, "Welcome to the main menu!", reply_markup=get_main_menu_keyboard()
+        user_id,
+        "Welcome to the main menu!",
+        reply_markup=get_main_menu_keyboard(user_id),
     )
 
 
-@bot.message_handler(func=lambda message: message.text == "IVR Flow 📞")
+@bot.message_handler(func=lambda message: message.text in IVR_FLOW.values())
 def display_ivr_flow_menu(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(
-        user_id, FLOW_OPERATIONS_SELECTION_PROMPT[lg], reply_markup=ivr_flow_keyboard()
+        user_id,
+        FLOW_OPERATIONS_SELECTION_PROMPT[lg],
+        reply_markup=ivr_flow_keyboard(user_id),
     )
 
 
-@bot.message_handler(func=lambda message: message.text == "IVR Calls 📲")
+@bot.message_handler(func=lambda message: message.text in IVR_CALL.values())
 def display_ivr_calls_menu(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(
-        user_id, IVR_CALL_SELECTION_PROMPT[lg], reply_markup=ivr_call_keyboard()
+        user_id, IVR_CALL_SELECTION_PROMPT[lg], reply_markup=ivr_call_keyboard(user_id)
     )
 
 
-@bot.message_handler(func=lambda message: message.text == "Account 👤")
+@bot.message_handler(func=lambda message: message.text in ACCOUNT.values())
 def display_account_menu(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
-    bot.send_message(user_id, SELECTION_PROMPT[lg], reply_markup=account_keyboard())
+    bot.send_message(
+        user_id, SELECTION_PROMPT[lg], reply_markup=account_keyboard(user_id)
+    )
 
 
 @bot.message_handler(commands=["sign_up", "start"])
@@ -972,7 +1000,7 @@ def language_selection(message):
             bot.send_message(
                 user_id,
                 f"{EXISTING_USER_WELCOME[lg]}",
-                reply_markup=get_main_menu_keyboard(),
+                reply_markup=get_main_menu_keyboard(user_id),
             )
             return
         bot.send_message(
@@ -1023,7 +1051,7 @@ def handle_activate_subscription(call):
             )
             markup.add(plan_button)
     back_button = types.InlineKeyboardButton(
-        "Back ↩️", callback_data="back_to_view_terms"
+        BACK_BUTTON[lg], callback_data="back_to_view_terms"
     )
     markup.add(back_button)
     msg = f"💡 {SUBSCRIPTION_PLAN_OPTIONS[lg]}"
@@ -1060,7 +1088,7 @@ def view_plan_validity(call):
         )
         markup.add(plan_button)
     back_button = types.InlineKeyboardButton(
-        "Back ↩️", callback_data="back_to_plan_names"
+        BACK_BUTTON[lg], callback_data="back_to_plan_names"
     )
     markup.add(back_button)
     bot.send_message(user_id, f"{message_text}\n\n", reply_markup=markup)
@@ -1138,19 +1166,19 @@ def handle_plan_selection(call):
         bot.send_message(
             user_id,
             SUCCESSFUL_FREE_TRIAL_ACTIVATION[lg],
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(user_id),
         )
         return
     auto_renewal = escape_markdown(AUTO_RENEWAL_PROMPT[lg])
-    yes = f"✅ Yes"
-    no = f"❌ No"
+    yes = f"{YES[lg]} ✅"
+    no = f"{NO[lg]} ❌"
     markup = types.InlineKeyboardMarkup()
     yes_button = types.InlineKeyboardButton(
         yes, callback_data="enable_auto_renewal_yes"
     )
     no_button = types.InlineKeyboardButton(no, callback_data="enable_auto_renewal_no")
     back_button = types.InlineKeyboardButton(
-        "↩️ Back", callback_data="back_to_plan_names"
+        BACK_BUTTON[lg], callback_data="back_to_plan_names"
     )
 
     markup.add(yes_button, no_button)
@@ -1188,15 +1216,16 @@ def payment_option_callback(call):
     send_payment_options(user_id)
 
 
-def insufficient_balance_markup():
+def insufficient_balance_markup(user_id):
+    lg = get_user_language(user_id)
     markup = types.InlineKeyboardMarkup()
     top_up_wallet_button = types.InlineKeyboardButton(
-        "Top Up Wallet 💳", callback_data="top_up_wallet"
+        TOP_UP[lg], callback_data="top_up_wallet"
     )
     payment_option_btn = types.InlineKeyboardButton(
-        "Choose Other Payment Option", callback_data="payment_option"
+        CHOOSE_OTHER_PAYMENT_OPTION[lg], callback_data="payment_option"
     )
-    back_button = types.InlineKeyboardButton("Back", callback_data="back_to_billing")
+    back_button = types.InlineKeyboardButton(BACK[lg], callback_data="back_to_billing")
     markup.add(top_up_wallet_button, payment_option_btn, back_button)
     return markup
 
@@ -1205,15 +1234,17 @@ def send_payment_options(user_id):
     lg = get_user_language(user_id)
     payment_message = f"💳 {SUBSCRIPTION_PAYMENT_METHOD_PROMPT[lg]}"
     markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
-    wallet_balance = f"💼 Pay from Wallet Balance"
-    crypto = f"💰 Pay with Cryptocurrency"
+    wallet_balance = f"{PAY_FROM_WALLET_BALANCE[lg]}"
+    crypto = f"{PAY_FROM_CRYPTOCURRENCY[lg]}"
     wallet_button = types.KeyboardButton(wallet_balance)
     crypto_button = types.KeyboardButton(crypto)
     markup.add(wallet_button, crypto_button)
     bot.send_message(user_id, payment_message, reply_markup=markup)
 
 
-@bot.message_handler(func=lambda message: message.text == "💼 Pay from Wallet Balance")
+@bot.message_handler(
+    func=lambda message: message.text in PAY_FROM_WALLET_BALANCE.values()
+)
 def payment_through_wallet_balance(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
@@ -1224,7 +1255,7 @@ def payment_through_wallet_balance(message):
         bot.send_message(
             user_id,
             f"{INSUFFICIENT_BALANCE[lg]}",
-            reply_markup=insufficient_balance_markup(),
+            reply_markup=insufficient_balance_markup(user_id),
         )
         return
     plan_id = user_data[user_id]["subscription_id"]
@@ -1234,11 +1265,13 @@ def payment_through_wallet_balance(message):
         bot.send_message(user_id, f"{response['message']}")
         return
     bot.send_message(
-        user_id, PAYMENT_SUCCESSFUL[lg], reply_markup=get_main_menu_keyboard()
+        user_id, PAYMENT_SUCCESSFUL[lg], reply_markup=get_main_menu_keyboard(user_id)
     )
 
 
-@bot.message_handler(func=lambda message: message.text == "💰 Pay with Cryptocurrency")
+@bot.message_handler(
+    func=lambda message: message.text in PAY_FROM_CRYPTOCURRENCY.values()
+)
 def payment_through_cryptocurrency(message):
     user_id = message.chat.id
     if user_id not in user_data:
@@ -1249,6 +1282,7 @@ def payment_through_cryptocurrency(message):
     if response["status"] != 200:
         bot.send_message(user_id, f"{response['message']}")
         return
+    user_data[user_id]["method"] = "cryptocurrency"
     currency_selection(user_id)
 
 
@@ -1263,7 +1297,9 @@ def handle_payment_method(call):
     currency_response = get_currency(payment_method)
     if currency_response != 200:
         bot.send_message(
-            user_id, UNSUPPORTED_CURRENCY[lg], reply_markup=get_main_menu_keyboard()
+            user_id,
+            UNSUPPORTED_CURRENCY[lg],
+            reply_markup=get_main_menu_keyboard(user_id),
         )
         return
     payment_currency = currency_response.text
@@ -1279,11 +1315,11 @@ def handle_back_to_handle_payment(call):
     bot.send_message(
         user_id,
         f"{SUBSCRIPTION_PAYMENT_METHOD_PROMPT[lg]}",
-        reply_markup=get_currency_keyboard(),
+        reply_markup=get_currency_keyboard(user_id),
     )
 
 
-@bot.message_handler(func=lambda message: message.text == "Top Up Wallet 💳")
+@bot.message_handler(func=lambda message: message.text in TOP_UP.values())
 def top_up_keyboard(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
@@ -1322,7 +1358,7 @@ def currency_selection(user_id):
         "DOGE (DOGE) Ɖ",
         "Bitcoin Hash (BCH) Ƀ",
         "TRON (TRX)",
-        "Back ↩️",
+        f"{BACK_BUTTON[lg]}",
     ]
     markup = types.InlineKeyboardMarkup()
     for method in payment_methods:
@@ -1337,9 +1373,10 @@ def currency_selection(user_id):
 @bot.callback_query_handler(func=lambda call: call.data.startswith("topup_"))
 def handle_account_topup(call):
     user_id = call.message.chat.id
+    lg = get_user_language(user_id)
     payment_method = call.data.split("_")[1]
     print(f"payment methoddd : {payment_method}")
-    if payment_method == "Back ↩️":
+    if payment_method in BACK_BUTTON.values():
         topup_type = user_data[user_id]["topup_option_type"]
 
         if topup_type == "callback_query":
@@ -1392,7 +1429,7 @@ def send_qr_code(
             img_file,
             caption=f"{SCAN_ADDRESS_PROMPT[lg]}",
             parse_mode="Markdown",
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(user_id),
         )
     payment_currency = user_data[user_id]["currency"]
     bot.send_message(
@@ -1403,7 +1440,7 @@ def send_qr_code(
         f"{PART4_SCAN_PAYMENT_INFO[lg]}\n\n"
         f"{PART5_SCAN_PAYMENT_INFO[lg]}\n"
         f"{PART6_SCAN_PAYMENT_INFO[lg]}",
-        reply_markup=get_main_menu_keyboard(),
+        reply_markup=get_main_menu_keyboard(user_id),
         parse_mode="HTML",
     )
     return
@@ -1485,7 +1522,7 @@ def get_webhook_data(request):
     bot.send_message(
         user_id,
         f"{TRANSACTION_DETAILS[lg]}\n{message}",
-        reply_markup=get_main_menu_keyboard(),
+        reply_markup=get_main_menu_keyboard(user_id),
     )
     return {
         "user_id": user_id,
@@ -1612,7 +1649,7 @@ def display_flows(message):
         bot.send_message(
             user_id,
             f"{PROCESSING_ERROR[lg]} {pathways.get('error')}",
-            reply_markup=ivr_flow_keyboard(),
+            reply_markup=ivr_flow_keyboard(user_id),
         )
         return
 
@@ -1630,7 +1667,7 @@ def display_flows(message):
             for pathway in filtered_pathways
         ]
         markup.add(*pathway_buttons)
-    markup.add(InlineKeyboardButton("Back ↩️", callback_data="back_ivr_flow"))
+    markup.add(InlineKeyboardButton(BACK_BUTTON[lg], callback_data="back_ivr_flow"))
     bot.send_message(message.chat.id, DISPLAY_IVR_FLOWS[lg], reply_markup=markup)
 
 
@@ -1639,7 +1676,9 @@ def trigger_back_ivr_flow(call):
     user_id = call.message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(
-        user_id, FLOW_OPERATIONS_SELECTION_PROMPT[lg], reply_markup=ivr_flow_keyboard()
+        user_id,
+        FLOW_OPERATIONS_SELECTION_PROMPT[lg],
+        reply_markup=ivr_flow_keyboard(user_id),
     )
 
 
@@ -1650,7 +1689,7 @@ def trigger_back_ivr_call(call):
     bot.send_message(
         user_id,
         IVR_CALL_SELECTION_PROMPT[lg],
-        reply_markup=ivr_call_keyboard(),
+        reply_markup=ivr_call_keyboard(user_id),
     )
 
 
@@ -1658,7 +1697,9 @@ def trigger_back_ivr_call(call):
 def trigger_back_account(call):
     user_id = call.message.chat.id
     lg = get_user_language(user_id)
-    bot.send_message(user_id, SELECTION_PROMPT[lg], reply_markup=account_keyboard())
+    bot.send_message(
+        user_id, SELECTION_PROMPT[lg], reply_markup=account_keyboard(user_id)
+    )
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "back")
@@ -1688,7 +1729,7 @@ def handle_pathway_details(call):
         bot.send_message(
             user_id,
             f"{PROCESSING_ERROR[lg]} {pathway.get('error')}",
-            reply_markup=ivr_flow_keyboard(),
+            reply_markup=ivr_flow_keyboard(user_id),
         )
         return
 
@@ -1699,7 +1740,7 @@ def handle_pathway_details(call):
         [f"\n  {NAME[lg]}: {node['data']['name']}\n" for node in pathway["nodes"]]
     )
     user_data[user_id]["step"] = "display_flows"
-    bot.send_message(user_id, pathway_info, reply_markup=get_flow_node_menu())
+    bot.send_message(user_id, pathway_info, reply_markup=get_flow_node_menu(user_id))
 
 
 @bot.message_handler(commands=["list_flows"])
@@ -1715,7 +1756,7 @@ def view_flows(message):
         bot.send_message(
             user_id,
             f"{PROCESSING_ERROR[lg]} {pathways.get('error')}",
-            reply_markup=ivr_flow_keyboard(),
+            reply_markup=ivr_flow_keyboard(user_id),
         )
         return
     step = user_data[user_id]["step"]
@@ -1735,23 +1776,23 @@ def view_flows(message):
         ]
         markup.add(*pathway_buttons)
         markup.add(
-            InlineKeyboardButton("Create IVR Flow ➕", callback_data="create_ivr_flow")
+            InlineKeyboardButton(CREATE_IVR_FLOW[lg], callback_data="create_ivr_flow")
         )
         if step == "phone_number_input":
             callback = "back_ivr_call"
         else:
             callback = "back_ivr_flow"
-        markup.add(InlineKeyboardButton("Back ↩️", callback_data=callback))
+        markup.add(InlineKeyboardButton(BACK_BUTTON[lg], callback_data=callback))
         bot.send_message(message.chat.id, SELECT_IVR_FLOW[lg], reply_markup=markup)
     else:
         markup.add(
-            InlineKeyboardButton("Create IVR Flow ➕", callback_data="create_ivr_flow")
+            InlineKeyboardButton(CREATE_IVR_FLOW[lg], callback_data="create_ivr_flow")
         )
         if step == "phone_number_input":
             callback = "back_ivr_call"
         else:
             callback = "back_ivr_flow"
-        markup.add(InlineKeyboardButton("Back ↩️", callback_data=callback))
+        markup.add(InlineKeyboardButton(BACK_TO_MAIN_MENU[lg], callback_data=callback))
         bot.send_message(
             message.chat.id, NO_IVR_FLOW_AVAILABLE[lg], reply_markup=markup
         )
@@ -1812,7 +1853,9 @@ def handle_ask_description(message):
     == "add_start_node"
 )
 def handle_add_start_node(message):
-    message.text = "End Call 🛑"
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    message.text = END_CALL[lg]
     add_node(message)
 
 
@@ -1885,7 +1928,7 @@ def get_batch_call_base_prompt(message):
             bot.send_message(
                 user_id,
                 f"{PROCESSING_ERROR[lg]} {str(e)}",
-                reply_markup=get_main_menu_keyboard(),
+                reply_markup=get_main_menu_keyboard(user_id),
             )
 
             return
@@ -1896,12 +1939,14 @@ def get_batch_call_base_prompt(message):
             user_id,
             f"{max_contacts}{REDUCE_NUMBER_OF_CONTACTS[lg]}"
             f"{ALLOWED_CONTACTS_PROMPT[lg]}",
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(user_id),
         )
         return
     if calls_sent == 0:
         bot.send_message(
-            user_id, SUBSCRIPTION_EXPIRED[lg], reply_markup=get_main_menu_keyboard()
+            user_id,
+            SUBSCRIPTION_EXPIRED[lg],
+            reply_markup=get_main_menu_keyboard(user_id),
         )
         return
 
@@ -1914,14 +1959,14 @@ def get_batch_call_base_prompt(message):
 
     if response.status_code == 200:
         bot.send_message(
-            user_id, SUCCESSFULLY_SENT[lg], reply_markup=get_main_menu_keyboard()
+            user_id, SUCCESSFULLY_SENT[lg], reply_markup=get_main_menu_keyboard(user_id)
         )
 
     else:
         bot.send_message(
             user_id,
             f"{PROCESSING_ERROR[lg]} {response.text}",
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(user_id),
         )
 
 
@@ -1953,7 +1998,7 @@ def handle_get_pathway(message):
         bot.send_message(
             user_id,
             f"{PROCESSING_ERROR[lg]} {response}!",
-            reply_markup=ivr_flow_keyboard(),
+            reply_markup=ivr_flow_keyboard(user_id),
         )
 
 
@@ -1983,7 +2028,7 @@ def handle_pathway_selection(call):
         bot.send_message(
             user_id,
             DELETE_FLOW_CONFIRMATION[lg],
-            reply_markup=get_delete_confirmation_keyboard(),
+            reply_markup=get_delete_confirmation_keyboard(user_id),
         )
     elif step == "phone_number_input":
         print("phone numbers ")
@@ -2012,7 +2057,7 @@ def handle_add_edges(message):
         bot.send_message(
             chat_id,
             f"{PROCESSING_ERROR[lg]} {response}",
-            reply_markup=get_main_menu_keyboard(),
+            reply_markup=get_main_menu_keyboard(chat_id),
         )
         return
 
@@ -2127,14 +2172,14 @@ def add_label(message):
             f"{EDGE_ADDED[lg]}\n"
             f"{SOURCE_NODE[lg]}{source_node_id}\n"
             f"{TARGET_NODE[lg]}{target_node_id}",
-            reply_markup=edges_complete_menu(),
+            reply_markup=edges_complete_menu(chat_id),
         )
         pathway = Pathways.objects.get(pathway_id=pathway_id)
         pathway.pathway_name = data.get("name")
         pathway.pathway_description = data.get("description")
         pathway.pathway_payload = response.text
         pathway.save()
-
+        edges_complete = edges_complete_options(chat_id)
         if message.text not in edges_complete:
             user_data[chat_id]["step"] = "error_edges_complete"
     else:
@@ -2148,7 +2193,9 @@ def add_label(message):
 def error_edges_complete(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
-    bot.send_message(user_id, MENU_SELECT[lg], reply_markup=edges_complete_menu())
+    bot.send_message(
+        user_id, MENU_SELECT[lg], reply_markup=edges_complete_menu(user_id)
+    )
 
 
 @bot.message_handler(
@@ -2190,21 +2237,21 @@ def handle_add_node_id(message):
     user_data[user_id]["add_node_id"] = int(text)
     node = user_data[user_id]["node"]
 
-    if node == "Play Message ▶️":
+    if node in PLAY_MESSAGE.values():
         user_data[user_id]["message_type"] = "Play Message"
 
         text_to_speech(message)
 
-    elif node == "End Call 🛑":
+    elif node in END_CALL.values():
         user_data[user_id]["message_type"] = "End Call"
         text_to_speech(message)
 
-    elif node == "Get DTMF Input 📞":
+    elif node in GET_DTMF_INPUT.values():
         user_data[user_id]["step"] = "get_dtmf_input"
         user_data[user_id]["message_type"] = "DTMF Input"
         bot.send_message(user_id, DTMF_PROMPT[lg], reply_markup=get_force_reply())
 
-    elif node == "Call Transfer 🔄":
+    elif node in CALL_TRANSFER.values():
         user_data[user_id]["step"] = "get_dtmf_input"
         user_data[user_id]["message_type"] = "Transfer Call"
         bot.send_message(
@@ -2213,17 +2260,17 @@ def handle_add_node_id(message):
             reply_markup=get_force_reply(),
         )
 
-    elif node == "Menu 📋":
+    elif node in MENU.values():
         user_data[user_id]["step"] = "get_menu"
         bot.send_message(
             user_id, PROMPT_MESSAGE_FOR_MENU[lg], reply_markup=get_force_reply()
         )
 
-    elif node == "Feedback Node":
+    elif node in FEEDBACK_NODE.values():
         user_data[user_id]["message_type"] = "Feedback Node"
         text_to_speech(message)
 
-    elif node == "Question":
+    elif node in QUESTION.values():
         user_data[user_id]["message_type"] = "Question"
         text_to_speech(message)
 
@@ -2260,8 +2307,9 @@ def get_action_list(message):
         bot.send_message(
             user_id,
             f"'{node_name}' {NODE_ADDED[lg]} ✅",
-            reply_markup=get_node_complete_menu(),
+            reply_markup=get_node_complete_menu(user_id),
         )
+        node_complete = node_complete_options(user_id)
         if message.text not in node_complete:
             user_data[user_id]["step"] = "error_nodes_complete"
     else:
@@ -2276,7 +2324,7 @@ def error_nodes_complete(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(
-        user_id, SELECT_FROM_MENU[lg], reply_markup=get_node_complete_menu()
+        user_id, SELECT_FROM_MENU[lg], reply_markup=get_node_complete_menu(user_id)
     )
 
 
@@ -2291,8 +2339,9 @@ def text_to_speech(message):
     bot.send_message(
         user_id,
         USE_TEXT_TO_SPEECH_PROMPT[lg],
-        reply_markup=get_play_message_input_type(),
+        reply_markup=get_play_message_input_type(user_id),
     )
+    message_input_type = get_message_input_type_list(user_id)
     if message.text not in message_input_type:
         user_data[user_id]["step"] = "error_message_input_type"
 
@@ -2304,12 +2353,13 @@ def text_to_speech(message):
 def error_message_input_type(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
+    message_input_type = get_message_input_type_list(user_id)
     if message.text in message_input_type:
         user_data[user_id]["step"] = "get_node_type"
         return
 
     bot.send_message(
-        user_id, SELECTION_PROMPT[lg], reply_markup=get_play_message_input_type()
+        user_id, SELECTION_PROMPT[lg], reply_markup=get_play_message_input_type(user_id)
     )
 
 
@@ -2340,8 +2390,9 @@ def handle_get_dtmf_input(message):
         bot.send_message(
             user_id,
             f"'{node_name}'{NODE_ADDED[lg]}! ✅",
-            reply_markup=get_node_complete_menu(),
+            reply_markup=get_node_complete_menu(user_id),
         )
+        node_complete = node_complete_options(user_id)
         if message.text not in node_complete:
             user_data[user_id]["step"] = "error_nodes_complete"
     else:
@@ -2359,7 +2410,7 @@ def handle_get_node_type(message):
     user_data[user_id]["get_node_type"] = text
     node_type = user_data[user_id]["get_node_type"]
     message_type = user_data[user_id]["message_type"]
-    if node_type == "Text-to-Speech 🗣️":
+    if node_type == TEXT_TO_SPEECH[lg]:
         user_data[user_id]["step"] = "play_message"
         bot.send_message(
             user_id,
@@ -2431,8 +2482,9 @@ def handle_select_voice_type(message):
         bot.send_message(
             user_id,
             f"'{node_name}' {NODE_ADDED[lg]} ✅",
-            reply_markup=get_node_complete_menu(),
+            reply_markup=get_node_complete_menu(user_id),
         )
+        node_complete = node_complete_options(user_id)
         if message.text not in node_complete:
             user_data[user_id]["step"] = "error_nodes_complete"
 
@@ -2448,8 +2500,9 @@ def handle_call_failure(message):
     lg = get_user_language(user_id)
     text = message.text
     bot.send_message(
-        user_id, CALL_FAILURE_PROMPT[lg], reply_markup=get_call_failed_menu()
+        user_id, CALL_FAILURE_PROMPT[lg], reply_markup=get_call_failed_menu(user_id)
     )
+    call_failed_menu = get_call_failed_menu_list(user_id)
     if message.text not in call_failed_menu:
         user_data[user_id]["step"] = "show_error_call_failed"
 
@@ -2461,7 +2514,9 @@ def handle_call_failure(message):
 def handle_show_error_call_failed(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
-    bot.send_message(user_id, SELECT_FROM_MENU[lg], reply_markup=get_call_failed_menu())
+    bot.send_message(
+        user_id, SELECT_FROM_MENU[lg], reply_markup=get_call_failed_menu(user_id)
+    )
 
 
 @bot.message_handler(commands=["transfer"])
@@ -2475,7 +2530,7 @@ def transfer_to_agent(message):
         bot.send_message(
             user_id,
             PREVIOUSLY_ENTERED_NUMBERS[lg],
-            reply_markup=get_reply_keyboard(["Yes", "No"]),
+            reply_markup=yes_or_no(user_id),
         )
         user_data[user_id] = {
             "step": "use_previous_number",
@@ -2496,7 +2551,7 @@ def handle_use_previous_number(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     text = message.text
-    if text == "Yes":
+    if text in YES.values():
         phone_numbers = user_data[user_id]["phone_numbers"]
         bot.send_message(
             user_id,
@@ -2504,7 +2559,7 @@ def handle_use_previous_number(message):
             reply_markup=get_inline_keyboard(phone_numbers),
         )
         user_data[user_id]["step"] = "select_phone_number"
-    elif text == "No":
+    elif text in NO.values():
         bot.send_message(
             user_id, ENTER_PHONE_NUMBER_TO_TRANSFER[lg], reply_markup=get_force_reply()
         )
@@ -2513,7 +2568,7 @@ def handle_use_previous_number(message):
         bot.send_message(
             user_id,
             YES_OR_NO_PROMPT[lg],
-            reply_markup=get_reply_keyboard(["Yes", "No"]),
+            reply_markup=yes_or_no(user_id),
         )
 
 
@@ -2530,7 +2585,7 @@ def handle_select_phone_number(call):
     bot.send_message(
         user_id,
         ADD_NODE_OR_DONE_PROMPT[lg],
-        reply_markup=get_reply_keyboard(["Add Another Node", "Done"]),
+        reply_markup=get_add_another_node_or_done_keyboard(user_id),
     )
     user_data[user_id]["step"] = "add_or_done"
 
@@ -2551,7 +2606,7 @@ def handle_enter_new_number(message):
         bot.send_message(
             user_id,
             ADD_NODE_OR_DONE_PROMPT[lg],
-            reply_markup=get_reply_keyboard(["Add Another Node", "Done"]),
+            reply_markup=get_add_another_node_or_done_keyboard(user_id),
         )
         user_data[user_id]["step"] = "add_or_done"
     else:
@@ -2567,20 +2622,20 @@ def handle_add_or_done(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     text = message.text
-    if text == "Add Another Node":
+    if text in ADD_ANOTHER_NODE.values():
         user_data[user_id]["step"] = "add_another_node"
         keyboard = check_user_has_active_free_plan(user_id)
         bot.send_message(user_id, SELECT_NODE_TYPE[lg], reply_markup=keyboard)
 
-    elif text == "Done":
+    elif text in DONE.values():
         bot.send_message(
-            user_id, FINISHED_ADDING_NODES[lg], reply_markup=ivr_flow_keyboard()
+            user_id, FINISHED_ADDING_NODES[lg], reply_markup=ivr_flow_keyboard(user_id)
         )
     else:
         bot.send_message(
             user_id,
             ADD_ANOTHER_OR_DONE_PROMPT[lg],
-            reply_markup=get_reply_keyboard(["Add Another Node", "Done"]),
+            reply_markup=get_add_another_node_or_done_keyboard(user_id),
         )
 
 
@@ -2616,7 +2671,7 @@ def handle_single_ivr_call_flow(message):
             bot.send_message(
                 user_id,
                 CALL_QUEUED_SUCCESSFULLY[lg],
-                reply_markup=get_main_menu_keyboard(),
+                reply_markup=get_main_menu_keyboard(user_id),
             )
             return
         bot.send_message(user_id, f"{PROCESSING_ERROR[lg]} {response}")
@@ -2651,10 +2706,10 @@ def handle_terms_and_conditions(message):
     url = "https://www.termsfeed.com/blog/sample-terms-and-conditions-template/"
     web_app_info = types.WebAppInfo(url)
     view_terms_button = types.InlineKeyboardButton(
-        "📜 View Terms and Conditions", web_app=web_app_info
+        VIEW_TERMS_AND_CONDITIONS_BUTTON[lg], web_app=web_app_info
     )
-    accept_button = InlineKeyboardButton("✅ Accept", callback_data="accept_terms")
-    decline_terms = InlineKeyboardButton("❌ Decline", callback_data="decline_terms")
+    accept_button = InlineKeyboardButton(ACCEPT[lg], callback_data="accept_terms")
+    decline_terms = InlineKeyboardButton(DECLINE[lg], callback_data="decline_terms")
     markup.add(view_terms_button)
     markup.add(accept_button)
     markup.add(decline_terms)
@@ -2685,10 +2740,10 @@ def handle_terms_response(call):
     elif call.data == "decline_terms":
         markup = types.InlineKeyboardMarkup()
         view_terms_button = types.InlineKeyboardButton(
-            "🔄 View Terms Again", callback_data="view_terms_new"
+            VIEW_TERMS_AGAIN_BUTTON[lg], callback_data="view_terms_new"
         )
         exit_button = types.InlineKeyboardButton(
-            "❌ Exit Setup", callback_data="exit_setup"
+            EXIT_SETUP[lg], callback_data="exit_setup"
         )
 
         markup.add(view_terms_button, exit_button)
@@ -2707,7 +2762,7 @@ def handle_exit_setup(call):
     lg = get_user_language(user_id)
     markup = InlineKeyboardMarkup()
     review_terms = InlineKeyboardButton(
-        "📜 View Terms and Conditions", callback_data="view_terms_new"
+        VIEW_TERMS_AND_CONDITIONS_BUTTON[lg], callback_data="view_terms_new"
     )
     markup.add(review_terms)
     bot.send_message(user_id, EXIT_SETUP_PROMPT[lg], reply_markup=markup)
@@ -2740,7 +2795,7 @@ def handle_main_menu(call):
     user_id = call.message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(
-        user_id, MAIN_MENU_PROMPT[lg], reply_markup=get_main_menu_keyboard()
+        user_id, MAIN_MENU_PROMPT[lg], reply_markup=get_main_menu_keyboard(user_id)
     )
 
 

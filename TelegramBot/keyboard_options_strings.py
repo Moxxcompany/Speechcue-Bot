@@ -1,5 +1,3 @@
-from TelegramBot.English import SINGLE_IVR_MINUTES
-
 JOIN_CHANNEL = "Join Channel 🔗"
 PROFILE = "Profile 👤"
 END_CALL = "End Call 🛑"
@@ -8,7 +6,7 @@ GET_DTMF_INPUT = "Get DTMF Input 📞"
 PLAY_MESSAGE = "Play Message ▶️"
 MENU = "Menu 📋"
 FEEDBACK_NODE = "Feedback Node"
-QUESTION =  "Question"
+QUESTION = "Question"
 HELP = "Help ℹ️"
 BULK_CALL = "Bulk IVR Call 📞📞"
 BILLING_AND_SUBSCRIPTION = "Billing and Subscription 📅"
@@ -34,8 +32,3 @@ DELETE_FLOW = "Delete Flow ❌"
 ADD_NODE = "Add Node"
 PAY_FROM_WALLET_BALANCE = "💼 Pay from Wallet Balance"
 PAY_FROM_CRYPTOCURRENCY = "💰 Pay with Cryptocurrency"
-
-
-
-
-

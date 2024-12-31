@@ -1,7 +1,7 @@
 # -------------- Decorator Functions ---------------#
 from django.utils import timezone
 
-from bot.keyboard_menus import get_main_menu, get_billing_and_subscription_keyboard
+from bot.keyboard_menus import get_billing_and_subscription_keyboard
 from bot.utils import get_user_language
 from payment.models import UserSubscription
 from user.models import TelegramUser
@@ -23,7 +23,7 @@ def check_subscription_status(func):
             bot.send_message(
                 user_id,
                 CHECK_SUBSCRIPTION[lg],
-                reply_markup=get_billing_and_subscription_keyboard(),
+                reply_markup=get_billing_and_subscription_keyboard(user_id),
             )
             return None
 
@@ -59,7 +59,7 @@ def check_validity(func):
             bot.send_message(
                 user_id,
                 CHECK_SUBSCRIPTION[lg],
-                reply_markup=get_billing_and_subscription_keyboard(),
+                reply_markup=get_billing_and_subscription_keyboard(user_id),
             )
             return None
 
