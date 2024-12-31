@@ -134,6 +134,7 @@ def set_user_subscription(user, plan_id):
             "single_ivr_left": plan.single_ivr_minutes,
         },
     )
+    user.free_plan = False
     return "200"
 
 

@@ -1159,6 +1159,7 @@ def handle_plan_selection(call):
         user.subscription_status = "active"
         user.plan = plan.plan_id
         user.save()
+
         set_subscription = set_user_subscription(user, plan.plan_id)
         if set_subscription != f"{STATUS_CODE_200}":
             bot.send_message(user_id, set_subscription)
