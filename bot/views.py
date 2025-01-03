@@ -611,6 +611,7 @@ def send_call_through_pathway(pathway_id, phone_number, user_id):
             user_id=user_id,
             call_status="new",
         )
+        print("your call id is ", call_id)
 
         return pathway, 200
     else:

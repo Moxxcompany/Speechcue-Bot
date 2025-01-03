@@ -64,6 +64,7 @@ from translations.translations import (
     BULK_CALL,
     YES,
     NO,
+    ADD_EDGE,
 )
 
 voice_data = get_voices()
@@ -332,7 +333,7 @@ def yes_or_no(user_id):
 
 def get_flow_node_menu(user_id):
     lg = get_user_language(user_id)
-    options = [ADD_NODE[lg], DELETE_NODE[lg], BACK[lg]]
+    options = [ADD_NODE[lg], DELETE_NODE[lg], ADD_EDGE[lg], BACK[lg]]
     return get_reply_keyboard(options)
 
 

@@ -1,20 +1,18 @@
-BITCOIN = 'Bitcoin'
-LITECOIN = 'Litecoin'
-ETHEREUM = 'Ethereum'
-ERC = 'ERC-20 (USDT)'
-TRC = 'TRC-20 (USTD)'
-BTC = 'BTC'
-ETH = 'ETH'
-LTC = 'LTC'
-TRON = 'TRON'
-bitcoin = 'bitcoin'
-ethereum = 'ethereum'
-litecoin = 'litecoin'
-erc20 = 'erc-20'
-trc20 = 'trc-20'
-STATUS_CODE_200 = '200'
-ACTIVE = 'active'
-USD = 'USD'
+BITCOIN = "Bitcoin"
+LITECOIN = "Litecoin"
+ETHEREUM = "Ethereum"
+ERC = "ERC-20 (USDT)"
+TRC = "TRC-20 (USTD)"
+BTC = "BTC"
+ETH = "ETH"
+LTC = "LTC"
+TRON = "TRON"
+bitcoin = "bitcoin"
+ethereum = "ethereum"
+litecoin = "litecoin"
+erc20 = "erc-20"
+trc20 = "trc-20"
+STATUS_CODE_200 = "200"
+ACTIVE = "active"
+USD = "USD"
 MAX_INFINITY_CONSTANT = 2147483647
-
-

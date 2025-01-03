@@ -456,6 +456,7 @@ def trigger_back_flow(message):
 @bot.message_handler(
     func=lambda message: message.text in DONE_ADDING_NODES.values()
     or message.text in CONTINUE_ADDING_EDGES.values()
+    or message.text in ADD_EDGE.values()
 )
 def trigger_add_edges(message):
     """
