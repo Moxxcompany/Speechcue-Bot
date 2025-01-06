@@ -352,3 +352,20 @@ LITECOIN = "Litecoin (LTC) Ł"
 DOGE = "DOGE (DOGE) Ɖ"
 BITCOIN_HASH = "Bitcoin Cash (BCH) Ƀ"
 TRON = "TRON (TRX)"
+START_YEAR_PROMPT = "Enter the year for the starting range (e.g., 2023):"
+INVALID_YEAR_PROMPT = "Invalid year. Please enter a valid year (e.g., 2023):"
+START_MONTH_PROMPT = "Enter the month for the starting range (1-12):"
+INVALID_MONTH_PROMPT = "Invalid month. Please enter a valid month (1-12):"
+START_DAY_PROMPT = "Enter the day for the starting range (1-31):"
+INVALID_DAY_PROMPT = (
+    "Invalid day. Please enter a valid day for the selected year and month:"
+)
+END_YEAR_PROMPT = "Enter the year for the ending range (e.g., 2023):"
+END_MONTH_PROMPT = "Enter the month for the ending range (1-12):"
+END_DAY_PROMPT = "Enter the day for the ending range (1-31):"
+INVALID_DATE_RANGE_PROMPT = (
+    "The start date cannot be after the end date. Please re-enter the dates."
+)
+INVALID_YEAR_RANGE_PROMPT = "The ending year cannot be earlier than the starting year. Please enter a valid year:"
+INVALID_MONTH_RANGE_PROMPT = "The ending month cannot be earlier than the starting month for the same year. Please enter a valid month:"
+INVALID_DAY_RANGE_PROMPT = "The ending day cannot be earlier than the starting day for the same month and year. Please enter a valid day:"

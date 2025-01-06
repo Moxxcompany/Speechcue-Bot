@@ -731,27 +731,195 @@ def handle_call_selection_variable(call):
 #     bot.send_message(user_id, f"{VIEW_TRANSCRIPT_PROMPT[lg]}", reply_markup=markup)
 
 
+from calendar import isleap
+from datetime import datetime
+
+
 @bot.message_handler(func=lambda message: message.text in USER_FEEDBACK.values())
-def search_calls_by_date(message):
+def initiate_date_range_search(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
-    bot.send_message(user_id, DATE_RANGE_PROMPT[lg], reply_markup=get_force_reply())
+    bot.send_message(user_id, START_YEAR_PROMPT[lg], reply_markup=get_force_reply())
     if user_id not in user_data:
         user_data[user_id] = {}
-    user_data[user_id]["step"] = "get_date_range"
+    user_data[user_id]["step"] = "start_year"
 
 
 @bot.message_handler(
-    func=lambda message: user_data.get(message.chat.id, {}).get("step")
-    == "get_date_range"
+    func=lambda message: user_data.get(message.chat.id, {}).get("step") == "start_year"
 )
-def handle_date_range(message):
+def handle_start_year(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     try:
-        start_date, end_date = map(lambda x: x.strip(), message.text.split(" to "))
-        start_date = datetime.strptime(start_date, "%Y-%m-%d")
-        end_date = datetime.strptime(end_date, "%Y-%m-%d")
+        year = int(message.text)
+        if year < 1900 or year > datetime.now().year:
+            raise ValueError("Invalid year")
+        user_data[user_id]["start_year"] = year
+        bot.send_message(
+            user_id, START_MONTH_PROMPT[lg], reply_markup=get_force_reply()
+        )
+        user_data[user_id]["step"] = "start_month"
+    except ValueError:
+        bot.send_message(
+            user_id, INVALID_YEAR_PROMPT[lg], reply_markup=get_force_reply()
+        )
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step") == "start_month"
+)
+def handle_start_month(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    try:
+        month = int(message.text)
+        if month < 1 or month > 12:
+            raise ValueError("Invalid month")
+        user_data[user_id]["start_month"] = month
+        bot.send_message(user_id, START_DAY_PROMPT[lg], reply_markup=get_force_reply())
+        user_data[user_id]["step"] = "start_day"
+    except ValueError:
+        bot.send_message(
+            user_id, INVALID_MONTH_PROMPT[lg], reply_markup=get_force_reply()
+        )
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step") == "start_day"
+)
+def handle_start_day(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    try:
+        day = int(message.text)
+        year = user_data[user_id]["start_year"]
+        month = user_data[user_id]["start_month"]
+        if day < 1 or day > (
+            29
+            if month == 2 and isleap(year)
+            else (28 if month == 2 else (30 if month in [4, 6, 9, 11] else 31))
+        ):
+            raise ValueError("Invalid day")
+        user_data[user_id]["start_day"] = day
+        bot.send_message(user_id, END_YEAR_PROMPT[lg], reply_markup=get_force_reply())
+        user_data[user_id]["step"] = "end_year"
+    except ValueError:
+        bot.send_message(
+            user_id, INVALID_DAY_PROMPT[lg], reply_markup=get_force_reply()
+        )
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step") == "end_year"
+)
+def handle_end_year(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    try:
+        end_year = int(message.text)
+        start_year = user_data[user_id]["start_year"]
+
+        if end_year < start_year:
+            bot.send_message(
+                user_id, INVALID_YEAR_RANGE_PROMPT[lg], reply_markup=get_force_reply()
+            )
+            return
+
+        user_data[user_id]["end_year"] = end_year
+        bot.send_message(user_id, END_MONTH_PROMPT[lg], reply_markup=get_force_reply())
+        user_data[user_id]["step"] = "end_month"
+    except ValueError:
+        bot.send_message(
+            user_id, INVALID_YEAR_PROMPT[lg], reply_markup=get_force_reply()
+        )
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step") == "end_month"
+)
+def handle_end_month(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    try:
+        end_month = int(message.text)
+        end_year = user_data[user_id]["end_year"]
+        start_year = user_data[user_id]["start_year"]
+        start_month = user_data[user_id]["start_month"]
+
+        if end_month < 1 or end_month > 12:
+            bot.send_message(
+                user_id, INVALID_MONTH_PROMPT[lg], reply_markup=get_force_reply()
+            )
+            return
+
+        if end_year == start_year and end_month < start_month:
+            bot.send_message(
+                user_id, INVALID_MONTH_RANGE_PROMPT[lg], reply_markup=get_force_reply()
+            )
+            return
+
+        user_data[user_id]["end_month"] = end_month
+        bot.send_message(user_id, END_DAY_PROMPT[lg], reply_markup=get_force_reply())
+        user_data[user_id]["step"] = "end_day"
+    except ValueError:
+        bot.send_message(
+            user_id, INVALID_MONTH_PROMPT[lg], reply_markup=get_force_reply()
+        )
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step") == "end_day"
+)
+def handle_end_day(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    try:
+        print(f"Handling end day for user {user_id}. Current user_data: {user_data}")
+        end_day = int(message.text)
+        end_year = user_data[user_id]["end_year"]
+        end_month = user_data[user_id]["end_month"]
+        start_year = user_data[user_id]["start_year"]
+        start_month = user_data[user_id]["start_month"]
+        start_day = user_data[user_id]["start_day"]
+
+        max_days = (
+            29
+            if end_month == 2 and isleap(end_year)
+            else 28 if end_month == 2 else 30 if end_month in [4, 6, 9, 11] else 31
+        )
+
+        if end_day < 1 or end_day > max_days:
+            bot.send_message(
+                user_id, INVALID_DAY_PROMPT[lg], reply_markup=get_force_reply()
+            )
+            return
+
+        if end_year == start_year and end_month == start_month and end_day < start_day:
+            bot.send_message(
+                user_id, INVALID_DAY_RANGE_PROMPT[lg], reply_markup=get_force_reply()
+            )
+            return
+
+        user_data[user_id]["end_day"] = end_day
+
+        # Create datetime objects for start and end dates
+        start_date = datetime(start_year, start_month, start_day)
+        end_date = datetime(end_year, end_month, end_day)
+
+        # Format and print the date range in "date-month-year"
+        date_format = "%d-%m-%Y"
+        date_range = (
+            f"{start_date.strftime(date_format)} to {end_date.strftime(date_format)}"
+        )
+        print(f"Date range for user {user_id}: {date_range}")
+        bot.send_message(user_id, f"Selected date range: {date_range}")
+
+        if start_date > end_date:
+            bot.send_message(
+                user_id, INVALID_DATE_RANGE_PROMPT[lg], reply_markup=get_force_reply()
+            )
+            return
 
         calls = CallLogsTable.objects.filter(
             user_id=user_id,
@@ -773,17 +941,19 @@ def handle_date_range(message):
             types.InlineKeyboardButton(BACK_BUTTON[lg], callback_data="back_account")
         )
         bot.send_message(user_id, f"{VIEW_TRANSCRIPT_PROMPT[lg]}", reply_markup=markup)
+        user_data[user_id]["step"] = ""
 
-    except ValueError:
-        bot.send_message(
-            user_id, INVALID_DATE_FORMAT[lg], reply_markup=get_force_reply()
-        )
+    except KeyError as e:
+        print(f"KeyError encountered for user {user_id}: {e}")
+        bot.send_message(user_id, PROCESSING_ERROR[lg])
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("feedback_"))
 def handle_call_selection(call):
+
     user_id = call.message.chat.id
     lg = get_user_language(user_id)
+
     try:
         call_id = call.data[len("feedback_") :]
         call_log = CallLogsTable.objects.get(call_id=call_id)
@@ -798,9 +968,16 @@ def handle_call_selection(call):
             )
         else:
             transcript_message = f"{TRANSCRIPT_NOT_FOUND[lg]}"
-        bot.send_message(user_id, transcript_message)
+        bot.send_message(
+            user_id, transcript_message, reply_markup=account_keyboard(user_id)
+        )
+        return
     except Exception as e:
-        bot.send_message(call.message.chat.id, f"{PROCESSING_ERROR[lg]} {str(e)}")
+        bot.send_message(
+            call.message.chat.id,
+            f"{PROCESSING_ERROR[lg]} {str(e)}",
+            reply_markup=get_main_menu_keyboard(user_id),
+        )
 
 
 @bot.message_handler(func=lambda message: message.text in CREATE_IVR_FLOW.values())
