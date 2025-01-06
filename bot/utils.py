@@ -403,13 +403,21 @@ def get_batch_id(data):
 def get_currency(payment_method):
     mapping = {
         "Bitcoin (BTC) ₿": f"{BTC}",
+        "比特币 (BTC) ₿": f"{BTC}",
         "Ethereum (ETH) Ξ": f"{ETH}",
+        "以太坊 (ETH) Ξ": f"{ETH}",
+        "TRC-20 USDT 💵": "USDT-TRC20",
         "TRC-20 USDT 💵": "USDT-TRC20",
         "ERC-20 USDT 💵": "USDT-ERC20",
+        "ERC-20 USDT 💵": "USDT-ERC20",
         "Litecoin (LTC) Ł": f"{LTC}",
+        "莱特币 (LTC) Ł": f"{LTC}",
         "DOGE (DOGE) Ɖ": "DOGE",
+        "狗狗币 (DOGE) Ɖ": "DOGE",
         "Bitcoin Hash (BCH) Ƀ": "BCH",
+        "比特币现金 (BCH) Ƀ": "BCH",
         "TRON (TRX)": "TRX",
+        "波场 (TRX)": "TRX",
     }
     payment_currency = mapping.get(payment_method, "Unsupported")
     if payment_currency == "Unsupported":

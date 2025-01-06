@@ -1,4 +1,5 @@
 import base64
+from datetime import datetime
 from io import BytesIO
 import phonenumbers
 from PIL import Image
@@ -706,28 +707,77 @@ def handle_call_selection_variable(call):
         bot.send_message(call.message.chat.id, f"{PROCESSING_ERROR[lg]} {str(e)}")
 
 
-@bot.message_handler(func=lambda message: message.text in USER_FEEDBACK.values())
-def view_feedback(message):
+# @bot.message_handler(func=lambda message: message.text in USER_FEEDBACK.values())
+# def view_feedback(message):
+#
+#     user_id = message.chat.id
+#     lg = get_user_language(user_id)
+#     feedback_pathway_ids = FeedbackLogs.objects.values_list("pathway_id", flat=True)
+#     list_calls = CallLogsTable.objects.filter(
+#         user_id=user_id, pathway_id__in=feedback_pathway_ids
+#     )
+#     if not list_calls.exists():
+#         bot.send_message(user_id, f"{CALL_LOGS_NOT_FOUND[lg]}")
+#         return
+#     markup = types.InlineKeyboardMarkup()
+#     for call in list_calls:
+#         button_text = f"Call ID: {call.call_id}"
+#         callback_data = f"feedback_{call.call_id}"
+#         markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
+#     markup.add(
+#         types.InlineKeyboardButton(BACK_BUTTON[lg], callback_data="back_account")
+#     )
+#
+#     bot.send_message(user_id, f"{VIEW_TRANSCRIPT_PROMPT[lg]}", reply_markup=markup)
 
+
+@bot.message_handler(func=lambda message: message.text in USER_FEEDBACK.values())
+def search_calls_by_date(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
-    feedback_pathway_ids = FeedbackLogs.objects.values_list("pathway_id", flat=True)
-    list_calls = CallLogsTable.objects.filter(
-        user_id=user_id, pathway_id__in=feedback_pathway_ids
-    )
-    if not list_calls.exists():
-        bot.send_message(user_id, f"{CALL_LOGS_NOT_FOUND[lg]}")
-        return
-    markup = types.InlineKeyboardMarkup()
-    for call in list_calls:
-        button_text = f"Call ID: {call.call_id}"
-        callback_data = f"feedback_{call.call_id}"
-        markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
-    markup.add(
-        types.InlineKeyboardButton(BACK_BUTTON[lg], callback_data="back_account")
-    )
+    bot.send_message(user_id, DATE_RANGE_PROMPT[lg], reply_markup=get_force_reply())
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]["step"] = "get_date_range"
 
-    bot.send_message(user_id, f"{VIEW_TRANSCRIPT_PROMPT[lg]}", reply_markup=markup)
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step")
+    == "get_date_range"
+)
+def handle_date_range(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    try:
+        start_date, end_date = map(lambda x: x.strip(), message.text.split(" to "))
+        start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        end_date = datetime.strptime(end_date, "%Y-%m-%d")
+
+        calls = CallLogsTable.objects.filter(
+            user_id=user_id,
+            created_at__date__range=(start_date, end_date),
+        )
+        if not calls.exists():
+            bot.send_message(user_id, f"{NO_CALLS_FOUND[lg]}")
+            return
+
+        markup = types.InlineKeyboardMarkup()
+        for call in calls:
+            button_text = f"Call ID: {call.call_id} ({call.created_at.date()})"
+            callback_data = f"feedback_{call.call_id}"
+            markup.add(
+                types.InlineKeyboardButton(button_text, callback_data=callback_data)
+            )
+
+        markup.add(
+            types.InlineKeyboardButton(BACK_BUTTON[lg], callback_data="back_account")
+        )
+        bot.send_message(user_id, f"{VIEW_TRANSCRIPT_PROMPT[lg]}", reply_markup=markup)
+
+    except ValueError:
+        bot.send_message(
+            user_id, INVALID_DATE_FORMAT[lg], reply_markup=get_force_reply()
+        )
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("feedback_"))
@@ -1430,14 +1480,14 @@ def handle_top_up_wallet(call):
 def currency_selection(user_id):
     lg = get_user_language(user_id)
     payment_methods = [
-        "Bitcoin (BTC) ₿",
-        "Ethereum (ETH) Ξ",
-        "TRC-20 USDT 💵",
-        "ERC-20 USDT 💵",
-        "Litecoin (LTC) Ł",
-        "DOGE (DOGE) Ɖ",
-        "Bitcoin Hash (BCH) Ƀ",
-        "TRON (TRX)",
+        BITCOIN[lg],
+        ETHEREUM[lg],
+        TRC_20[lg],
+        ERC_20[lg],
+        LITECOIN[lg],
+        DOGE[lg],
+        BITCOIN_HASH[lg],
+        TRON[lg],
         f"{BACK_BUTTON[lg]}",
     ]
     markup = types.InlineKeyboardMarkup()

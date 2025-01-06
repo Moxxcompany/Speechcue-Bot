@@ -370,3 +370,17 @@ SUBSCRIPTION_WARNING_PT_5 = "Les jours restants sur ce plan ne seront pas report
 SUBSCRIPTION_WARNING_PT_6 = "Voulez-vous continuer ?"
 NOT_ELIGIBLE_FOR_FREE_TRIAL = "Vous n'êtes pas éligible pour l'essai gratuit !"
 ADD_EDGE = "Ajouter un bord"
+NO_CALLS_FOUND = "Aucun appel trouvé !"
+INVALID_DATE_FORMAT = "Format de date invalide !"
+DATE_RANGE_PROMPT = (
+    "Veuillez entrer une plage de dates au format AAAA-MM-JJ à AAAA-MM-JJ :"
+)
+SEARCH_CALLS = "Rechercher des appels"
+BITCOIN = "Bitcoin (BTC) ₿"
+ETHEREUM = "Ethereum (ETH) Ξ"
+TRC_20 = "TRC-20 USDT 💵"
+ERC_20 = "ERC-20 USDT 💵"
+LITECOIN = "Litecoin (LTC) Ł"
+DOGE = "DOGE (DOGE) Ɖ"
+BITCOIN_HASH = "Bitcoin Cash (BCH) Ƀ"
+TRON = "TRON (TRX)"

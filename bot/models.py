@@ -18,12 +18,12 @@ class CallLogsTable(models.Model):
     pathway_id = models.TextField(null=True)
     user_id = models.BigIntegerField(null=True)
     call_status = models.TextField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
 
 
 class CallDetails(models.Model):
     call_id = models.TextField(primary_key=True)
     call_details = models.TextField()
-
 
 
 class TransferCallNumbers(models.Model):
@@ -45,6 +45,7 @@ class FeedbackDetails(models.Model):
     feedback_questions = ArrayField(models.TextField(), blank=True, default=list)
     feedback_answers = ArrayField(models.TextField(), blank=True, default=list)
 
+
 class CallDuration(models.Model):
     call_id = models.CharField(max_length=255, primary_key=True)
     pathway_id = models.CharField(max_length=255)
@@ -58,10 +59,8 @@ class CallDuration(models.Model):
     charged = models.BooleanField(default=False)
     notified = models.BooleanField(default=False)
 
-
     def __str__(self):
         return f"Call {self.call_id} Duration: {self.duration_in_seconds} seconds"
-
 
 
 class BatchCallLogs(models.Model):
@@ -75,5 +74,3 @@ class BatchCallLogs(models.Model):
 
     def __str__(self):
         return f"Call {self.call_id} Batch Call: {self.batch_id}"
-
-
