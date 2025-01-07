@@ -369,3 +369,19 @@ INVALID_DATE_RANGE_PROMPT = (
 INVALID_YEAR_RANGE_PROMPT = "The ending year cannot be earlier than the starting year. Please enter a valid year:"
 INVALID_MONTH_RANGE_PROMPT = "The ending month cannot be earlier than the starting month for the same year. Please enter a valid month:"
 INVALID_DAY_RANGE_PROMPT = "The ending day cannot be earlier than the starting day for the same month and year. Please enter a valid day:"
+SUBSCRIPTION_RENEWED_SUCCESSFULLY = "subscription renewed successfully!"
+EXPIRY_DATE_MESSAGE = "Your new expiry date is "
+RENEWAL_FAILED = "Renewal failed due to processing error. Please contact support or try again manually."
+RENEWAL_FAILED_DUE_TO_INSUFFICIENT_BALANCE = (
+    "Your subscription has expired, and your wallet "
+    "balance is insufficient for renewal. Please top up your "
+    "wallet to reactivate your plan."
+)
+FREE_TRIAL_AVAILED = (
+    "You have availed your free trial. "
+    "Please subscribe to a new plan to continue with our services."
+)
+SUBSCRIPTION_RENEWAL_MESSAGE = (
+    "Your subscription has expired. Please renew "
+    "it manually to continue enjoying our services."
+)

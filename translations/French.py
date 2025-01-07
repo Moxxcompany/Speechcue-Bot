@@ -399,3 +399,19 @@ INVALID_DATE_RANGE_PROMPT = "La date de début ne peut pas être postérieure à
 INVALID_YEAR_RANGE_PROMPT = "L'année de fin ne peut pas être antérieure à l'année de début. Veuillez entrer une année valide :"
 INVALID_MONTH_RANGE_PROMPT = "Le mois de fin ne peut pas être antérieur au mois de début pour la même année. Veuillez entrer un mois valide :"
 INVALID_DAY_RANGE_PROMPT = "Le jour de fin ne peut pas être antérieur au jour de début pour le même mois et la même année. Veuillez entrer un jour valide :"
+SUBSCRIPTION_RENEWED_SUCCESSFULLY = "Abonnement renouvelé avec succès !"
+EXPIRY_DATE_MESSAGE = "Votre nouvelle date d'expiration est "
+RENEWAL_FAILED = "Le renouvellement a échoué en raison d'une erreur de traitement. Veuillez contacter le support ou réessayer manuellement."
+RENEWAL_FAILED_DUE_TO_INSUFFICIENT_BALANCE = (
+    "Votre abonnement a expiré et le solde de votre portefeuille "
+    "est insuffisant pour le renouvellement. Veuillez recharger "
+    "votre portefeuille pour réactiver votre plan."
+)
+FREE_TRIAL_AVAILED = (
+    "Vous avez utilisé votre essai gratuit. "
+    "Veuillez vous abonner à un nouveau plan pour continuer à utiliser nos services."
+)
+SUBSCRIPTION_RENEWAL_MESSAGE = (
+    "Votre abonnement a expiré. Veuillez le renouveler "
+    "manuellement pour continuer à profiter de nos services."
+)

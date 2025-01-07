@@ -330,3 +330,13 @@ INVALID_MONTH_RANGE_PROMPT = "同一年内，结束月份不能早于起始月�
 INVALID_DAY_RANGE_PROMPT = (
     "同一年同一月内，结束日期不能早于起始日期。请输入有效的日期："
 )
+SUBSCRIPTION_RENEWED_SUCCESSFULLY = "订阅已成功续订！"
+EXPIRY_DATE_MESSAGE = "您的新到期日期是 "
+RENEWAL_FAILED = "续订因处理错误而失败。请联系客服或手动重试。"
+RENEWAL_FAILED_DUE_TO_INSUFFICIENT_BALANCE = (
+    "您的订阅已过期，且您的钱包余额不足以续订。请充值您的 " "钱包以重新激活您的计划。"
+)
+FREE_TRIAL_AVAILED = (
+    "您已经使用了免费的试用期。" "请订阅一个新计划以继续使用我们的服务。"
+)
+SUBSCRIPTION_RENEWAL_MESSAGE = "您的订阅已过期。请手动续订 " "以继续享受我们的服务。"

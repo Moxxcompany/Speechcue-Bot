@@ -31,6 +31,14 @@ from payment.views import (
     credit_wallet_balance,
     get_user_single_transaction,
 )
+from translations.translations import (
+    SUBSCRIPTION_RENEWED_SUCCESSFULLY,
+    EXPIRY_DATE_MESSAGE,
+    RENEWAL_FAILED_DUE_TO_INSUFFICIENT_BALANCE,
+    FREE_TRIAL_AVAILED,
+    SUBSCRIPTION_RENEWAL_MESSAGE,
+    RENEWAL_FAILED,
+)
 from user.models import TelegramUser
 from .models import CallDuration, BatchCallLogs
 from .utils import (
@@ -67,6 +75,7 @@ def update_batch_calls_status_to_terminated(batch_id, started_at):
 
 @shared_task
 def check_call_status():
+
     bland_api_key = os.getenv("BLAND_API_KEY")
     print("Starting check_call_status task with API key: ", bland_api_key)
 
@@ -389,7 +398,7 @@ def check_subscription_status():
     print("Starting subscription status check...")
     current_date = timezone.now().date()
     expired_subscriptions = UserSubscription.objects.filter(
-        date_of_expiry__lt=current_date, subscription_status="active"
+        date_of_expiry__lt=current_date
     )
 
     print(f"Found {expired_subscriptions.count()} expired subscriptions.")
@@ -402,54 +411,65 @@ def check_subscription_status():
         if subscription.auto_renewal:
             print(f"User {user.user_id} has auto-renewal enabled.")
             plan = SubscriptionPlans.objects.get(plan_id=subscription.plan_id_id)
-            wallet_balance = check_user_balance(user.user_id).json()["data"]["amount"]
-            print(f"User {user.user_id} wallet balance: {wallet_balance}")
 
-            if float(wallet_balance) >= float(plan.plan_price):
-                print(f"User {user.user_id} has sufficient balance for renewal.")
-                response = credit_wallet_balance(user.user_id, plan.plan_price)
+            if plan.plan_price > 0:
+                wallet_balance = check_user_balance(user.user_id).json()["data"][
+                    "amount"
+                ]
+                print(f"User {user.user_id} wallet balance: {wallet_balance}")
 
-                if response.status_code == 200:
-                    subscription.date_of_expiry = current_date + timezone.timedelta(
-                        days=plan.validity_days
-                    )
-                    subscription.subscription_status = "active"
-                    subscription.save()
+                if float(wallet_balance) >= float(plan.plan_price):
+                    print(f"User {user.user_id} has sufficient balance for renewal.")
+                    response = credit_wallet_balance(user.user_id, plan.plan_price)
 
-                    print(f"Subscription for user {user.user_id} renewed successfully.")
-                    bot.send_message(
-                        user.user_id,
-                        f"🎉 {plan.name} subscription renewed successfully!\n"
-                        f"Your new expiry date is {subscription.date_of_expiry}.",
-                    )
+                    if response.status_code == 200:
+                        subscription.date_of_expiry = current_date + timezone.timedelta(
+                            days=plan.validity_days
+                        )
+                        subscription.subscription_status = "active"
+                        subscription.save()
+
+                        print(
+                            f"Subscription for user {user.user_id} renewed successfully."
+                        )
+                        bot.send_message(
+                            user.user_id,
+                            f"🎉 {plan.name} {SUBSCRIPTION_RENEWED_SUCCESSFULLY[lg]}\n"
+                            f"{EXPIRY_DATE_MESSAGE[lg]} {subscription.date_of_expiry}.",
+                        )
+                    else:
+                        print(
+                            f"Renewal failed for user {user.user_id}. Response: {response.text}"
+                        )
+                        bot.send_message(
+                            user.user_id,
+                            f"🚨 {RENEWAL_FAILED[lg]}",
+                        )
+                        subscription.subscription_status = "inactive"
+                        subscription.save()
                 else:
-                    print(
-                        f"Renewal failed for user {user.user_id}. Response: {response.text}"
-                    )
-                    bot.send_message(
-                        user.user_id,
-                        f"🚨 Renewal failed due to processing error.\n"
-                        f"Please contact support or try again manually.",
-                    )
+                    print(f"User {user.user_id} has insufficient balance for renewal.")
                     subscription.subscription_status = "inactive"
                     subscription.save()
+                    bot.send_message(
+                        user.user_id,
+                        f"⚠️ {RENEWAL_FAILED_DUE_TO_INSUFFICIENT_BALANCE[lg]}",
+                    )
             else:
-                print(f"User {user.user_id} has insufficient balance for renewal.")
-                subscription.subscription_status = "inactive"
-                subscription.save()
+                print(
+                    f"User {user.user_id} has availed the free trial, no payment required."
+                )
                 bot.send_message(
                     user.user_id,
-                    f"⚠️ Your subscription has expired, and your wallet balance is insufficient for renewal.\n"
-                    f"Please top up your wallet to reactivate your plan.",
+                    f"⚠️ {FREE_TRIAL_AVAILED[lg]}",
                 )
+                subscription.subscription_status = "inactive"
+                subscription.save()
+
         else:
             print(f"User {user.user_id} does not have auto-renewal enabled.")
             subscription.subscription_status = "inactive"
             subscription.save()
-            bot.send_message(
-                user.user_id,
-                f"⚠️ Your subscription has expired.\n"
-                f"Please renew it manually to continue enjoying our services.",
-            )
+            bot.send_message(user.user_id, SUBSCRIPTION_RENEWAL_MESSAGE[lg])
 
     print("Subscription status check completed.")
