@@ -1,5 +1,4 @@
 import base64
-from datetime import datetime
 from io import BytesIO
 import phonenumbers
 from PIL import Image
@@ -10,7 +9,8 @@ import io
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from phonenumbers import geocoder
-
+from calendar import isleap
+from datetime import datetime
 
 import bot.bot_config
 from TelegramBot.constants import STATUS_CODE_200, MAX_INFINITY_CONSTANT
@@ -731,8 +731,17 @@ def handle_call_selection_variable(call):
 #     bot.send_message(user_id, f"{VIEW_TRANSCRIPT_PROMPT[lg]}", reply_markup=markup)
 
 
-from calendar import isleap
-from datetime import datetime
+def handle_back_in_user_feedback(message, bot_prompt):
+    user_id = message.chat.id
+    if message.text == "/start":
+        user_data[user_id]["step"] = ""
+        send_welcome(message)
+    elif message.text == "/support":
+        user_data[user_id]["step"] = ""
+        display_support_menu(message)
+    else:
+        bot.send_message(user_id, bot_prompt)
+        return
 
 
 @bot.message_handler(func=lambda message: message.text in USER_FEEDBACK.values())
@@ -761,9 +770,8 @@ def handle_start_year(message):
         )
         user_data[user_id]["step"] = "start_month"
     except ValueError:
-        bot.send_message(
-            user_id, INVALID_YEAR_PROMPT[lg], reply_markup=get_force_reply()
-        )
+
+        handle_back_in_user_feedback(message, INVALID_YEAR_PROMPT[lg])
 
 
 @bot.message_handler(
@@ -780,9 +788,8 @@ def handle_start_month(message):
         bot.send_message(user_id, START_DAY_PROMPT[lg], reply_markup=get_force_reply())
         user_data[user_id]["step"] = "start_day"
     except ValueError:
-        bot.send_message(
-            user_id, INVALID_MONTH_PROMPT[lg], reply_markup=get_force_reply()
-        )
+        print("message", message.text)
+        handle_back_in_user_feedback(message, INVALID_MONTH_PROMPT[lg])
 
 
 @bot.message_handler(
@@ -805,9 +812,8 @@ def handle_start_day(message):
         bot.send_message(user_id, END_YEAR_PROMPT[lg], reply_markup=get_force_reply())
         user_data[user_id]["step"] = "end_year"
     except ValueError:
-        bot.send_message(
-            user_id, INVALID_DAY_PROMPT[lg], reply_markup=get_force_reply()
-        )
+        print("message", message.text)
+        handle_back_in_user_feedback(message, INVALID_DAY_PROMPT[lg])
 
 
 @bot.message_handler(
@@ -830,9 +836,7 @@ def handle_end_year(message):
         bot.send_message(user_id, END_MONTH_PROMPT[lg], reply_markup=get_force_reply())
         user_data[user_id]["step"] = "end_month"
     except ValueError:
-        bot.send_message(
-            user_id, INVALID_YEAR_PROMPT[lg], reply_markup=get_force_reply()
-        )
+        handle_back_in_user_feedback(message, INVALID_YEAR_PROMPT[lg])
 
 
 @bot.message_handler(
@@ -863,9 +867,7 @@ def handle_end_month(message):
         bot.send_message(user_id, END_DAY_PROMPT[lg], reply_markup=get_force_reply())
         user_data[user_id]["step"] = "end_day"
     except ValueError:
-        bot.send_message(
-            user_id, INVALID_MONTH_PROMPT[lg], reply_markup=get_force_reply()
-        )
+        handle_back_in_user_feedback(message, INVALID_MONTH_PROMPT[lg])
 
 
 @bot.message_handler(
@@ -946,6 +948,8 @@ def handle_end_day(message):
     except KeyError as e:
         print(f"KeyError encountered for user {user_id}: {e}")
         bot.send_message(user_id, PROCESSING_ERROR[lg])
+    except ValueError as v:
+        handle_back_in_user_feedback(message, INVALID_DATE_RANGE_PROMPT[lg])
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("feedback_"))
