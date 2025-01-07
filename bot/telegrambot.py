@@ -2321,25 +2321,27 @@ def handle_pathway_selection(call):
     pathway_id = UUID(pathway_id)
     user_data[user_id] = user_data.get(user_id, {})
     user_data[user_id]["select_pathway"] = pathway_id
+    if "step" in user_data.get(user_id, {}):
+        step = user_data[user_id]["step"]
+
+    if step == "get_pathway":
+        user_data[user_id]["step"] = "back_delete_flow"
+        bot.send_message(
+            user_id,
+            DELETE_FLOW_CONFIRMATION[lg],
+            reply_markup=get_delete_confirmation_keyboard(user_id),
+        )
+        return
     if not check_pathway_block(str(pathway_id)):
         bot.send_message(user_id, NO_BLOCKS[lg])
         view_flows(call.message)
         return
-    if "step" in user_data.get(user_id, {}):
-        step = user_data[user_id]["step"]
     else:
         step = None
     if step is None:
         user_data[user_id]["step"] = "add_node"
         bot.send_message(
             user_id, ENTER_CUSTOM_NODE_NAME[lg], reply_markup=get_force_reply()
-        )
-    elif step == "get_pathway":
-        user_data[user_id]["step"] = "back_delete_flow"
-        bot.send_message(
-            user_id,
-            DELETE_FLOW_CONFIRMATION[lg],
-            reply_markup=get_delete_confirmation_keyboard(user_id),
         )
     elif step == "phone_number_input":
         print("phone numbers ")
