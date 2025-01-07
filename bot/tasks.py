@@ -437,6 +437,13 @@ def check_subscription_status():
                             f"🎉 {plan.name} {SUBSCRIPTION_RENEWED_SUCCESSFULLY[lg]}\n"
                             f"{EXPIRY_DATE_MESSAGE[lg]} {subscription.date_of_expiry}.",
                         )
+                        subscription.bulk_ivr_calls_left = (
+                            plan.number_of_bulk_call_minutes
+                        )
+                        subscription.single_ivr_left = plan.single_ivr_minutes
+                        subscription.date_of_subscription = current_date
+                        subscription.save()
+
                     else:
                         print(
                             f"Renewal failed for user {user.user_id}. Response: {response.text}"
