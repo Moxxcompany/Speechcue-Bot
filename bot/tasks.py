@@ -443,6 +443,9 @@ def check_subscription_status():
                         subscription.single_ivr_left = plan.single_ivr_minutes
                         subscription.date_of_subscription = current_date
                         subscription.save()
+                        user.subscription_status = "active"
+                        user.plan = plan.name
+                        user.save()
 
                     else:
                         print(
