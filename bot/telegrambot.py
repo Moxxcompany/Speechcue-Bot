@@ -2322,9 +2322,9 @@ def handle_pathway_selection(call):
     user_data[user_id] = user_data.get(user_id, {})
     user_data[user_id]["select_pathway"] = pathway_id
     if "step" in user_data.get(user_id, {}):
-        step = user_data[user_id]["step"]
+        check_delete = user_data[user_id]["step"]
 
-    if step == "get_pathway":
+    if check_delete == "get_pathway":
         user_data[user_id]["step"] = "back_delete_flow"
         bot.send_message(
             user_id,
@@ -2332,10 +2332,14 @@ def handle_pathway_selection(call):
             reply_markup=get_delete_confirmation_keyboard(user_id),
         )
         return
+
     if not check_pathway_block(str(pathway_id)):
         bot.send_message(user_id, NO_BLOCKS[lg])
         view_flows(call.message)
         return
+
+    if "step" in user_data.get(user_id, {}):
+        step = user_data[user_id]["step"]
     else:
         step = None
     if step is None:
