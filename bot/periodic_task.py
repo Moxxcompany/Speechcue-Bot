@@ -44,8 +44,8 @@ def create_periodic_task():
         task="bot.tasks.call_status_free_plan",
     )
     schedule_check_subscription, created = CrontabSchedule.objects.get_or_create(
-        minute="*",
-        hour="*",
+        minute="0",
+        hour="0",
         day_of_week="*",  # Every day
         day_of_month="*",  # Every month
         month_of_year="*",  # Every year
