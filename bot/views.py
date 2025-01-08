@@ -14,7 +14,7 @@ from bot.models import (
     FeedbackLogs,
     BatchCallLogs,
 )
-from bot.utils import add_node, get_pathway_data
+from bot.utils import add_node, get_pathway_data, remove_punctuation_and_spaces
 from payment.models import (
     UserSubscription,
     SubscriptionPlans,
@@ -668,23 +668,27 @@ def get_call_details(call_id):
 
 
 def get_transcript(call_id, pathway_id):
-
     feedback_log = FeedbackLogs.objects.get(pathway_id=pathway_id)
     feedback_questions = feedback_log.feedback_questions
-    print("Feedback questions: ", feedback_questions)
     response = get_call_details(call_id)
     data = response
-
     feedback_answers = []
-
     for feedback_question in feedback_questions:
         index = None
+
         for i, transcript in enumerate(data.get("transcripts", [])):
+            assistant_text = transcript.get("text", "").lower()
+            feedback_string = feedback_question.lower()
+            formatted_string_feedback = remove_punctuation_and_spaces(feedback_string)
+            formatted_string_assistant = remove_punctuation_and_spaces(assistant_text)
+
             if (
                 transcript.get("user") == "assistant"
-                and transcript.get("text").lower() == feedback_question.lower()
+                and formatted_string_feedback in formatted_string_assistant
             ):
                 index = i
+                print("Index: ", index)
+                print("Transcript at index: ", transcript)
                 break
 
         if index is not None and index + 1 < len(data["transcripts"]):
@@ -700,6 +704,7 @@ def get_transcript(call_id, pathway_id):
             "feedback_answers": feedback_answers,
         },
     )
+
     return feedback_detail
 
 

@@ -963,6 +963,7 @@ def handle_call_selection(call):
         call_log = CallLogsTable.objects.get(call_id=call_id)
         pathway_id = call_log.pathway_id
         transcript = get_transcript(call_id, pathway_id)
+        print("Transcript in call selection :", transcript)
         if transcript:
             transcript_message = "\n".join(
                 f"Q: {question}\nA: {answer}"

@@ -16,10 +16,21 @@ from bot.bot_config import *
 
 crypto_conversion_base_url = os.getenv("crypto_conversion_base_url")
 import random
-import string
-import re
+
 import time
 import redis
+import re
+import string
+
+
+def remove_punctuation_and_spaces(input_string):
+    # Regex to remove punctuation and all spaces following it until the next character
+    formatted_string = re.sub(
+        r"[{}]\s+".format(re.escape(string.punctuation)), "", input_string
+    )
+    print("in formatting function ", formatted_string)
+    return formatted_string
+
 
 redis_client = redis.StrictRedis(
     host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB
