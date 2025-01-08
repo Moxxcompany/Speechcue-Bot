@@ -415,3 +415,9 @@ SUBSCRIPTION_RENEWAL_MESSAGE = (
     "Votre abonnement a expiré. Veuillez le renouveler "
     "manuellement pour continuer à profiter de nos services."
 )
+TRY_AGAIN = "Veuillez réessayer !"
+UNAUTHORIZED_NODE_ACCESS = (
+    "Vous êtes un nœud autorisé à utiliser l'appel "
+    "transférez le nœud avec votre plan d'abonnement actuel. Choisissez"
+    "un autre flux et réessayez !"
+)

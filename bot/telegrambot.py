@@ -417,10 +417,10 @@ def trigger_single_ivr_call(message):
     Args:
        message: The message object from the user.
     """
-    user_id = message.from_user.id
+    user_id = message.chat.id
     user = TelegramUser.objects.get(user_id=user_id)
     lg = get_user_language(user_id)
-
+    print(f"in single ivr trigger with user id : {user_id}")
     if user.subscription_status == "active":
         bot.send_message(user_id, SUBSCRIPTION_VERIFIED[lg])
         user_data[user_id] = {"step": "phone_number_input"}
@@ -2313,9 +2313,28 @@ def handle_get_pathway(message):
         )
 
 
-# def node_authorization_check(user_id, pathway_id):
-#     subscription_id = UserSubscription.objects.get(user_id=user_id).plan_id_id
-#
+def node_authorization_check(user_id, pathway_id):
+    call_transfer = UserSubscription.objects.get(user_id=user_id).call_transfer
+    print(f"Call transfer for the user : {call_transfer}")
+
+    if call_transfer:
+        return True, 200
+
+    # Get pathway details
+    pathway_details, status_code = handle_view_single_flow(pathway_id)
+
+    if status_code != 200:
+        return False, status_code
+
+    print(f"Pathway details:\n{pathway_details}")
+
+    # Check if there is any node of type 'Transfer Call'
+    for node in pathway_details.get("nodes", []):
+        if node.get("type") == "Transfer Call":
+            return False, 200
+
+    # If no 'Transfer Call' node is found
+    return True, 200
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("select_pathway_"))
@@ -2356,12 +2375,46 @@ def handle_pathway_selection(call):
         print("phone numbers ")
         user_data[user_id]["call_flow"] = pathway_id
         user_data[user_id]["step"] = "initiate_call"
-        print(f"Pathway id for single call : {pathway_id}")
+        check, status_code = node_authorization_check(user_id, pathway_id)
+        if not check:
+            if status_code != 200:
+                bot.send_message(
+                    user_id,
+                    f"{error[lg]} {TRY_AGAIN[lg]}",
+                    reply_markup=ivr_call_keyboard(user_id),
+                )
+            else:
+                bot.send_message(
+                    user_id,
+                    f"{UNAUTHORIZED_NODE_ACCESS[lg]}",
+                    reply_markup=ivr_call_keyboard(user_id),
+                )
+            trigger_single_ivr_call(call.message)
+            return
+
         msg = f"{ENTER_PHONE_NUMBER_PROMPT[lg]}:"
         bot.send_message(user_id, msg)
+
     elif step == "get_batch_numbers":
         print("get batch numbers")
         user_data[user_id]["call_flow_bulk"] = pathway_id
+        check, status_code = node_authorization_check(user_id, pathway_id)
+        if not check:
+            if status_code != 200:
+                bot.send_message(
+                    user_id,
+                    f"{error[lg]} {TRY_AGAIN[lg]}",
+                    reply_markup=ivr_call_keyboard(user_id),
+                )
+            else:
+                bot.send_message(
+                    user_id,
+                    f"{UNAUTHORIZED_NODE_ACCESS[lg]}",
+                    reply_markup=ivr_call_keyboard(user_id),
+                )
+            trigger_bulk_ivr_call(call.message)
+            return
+
         msg = f"{ENTER_PHONE_NUMBER_PROMPT[lg]} {OR[lg]} " f"{UPLOAD_TXT[lg]}"
         bot.send_message(user_id, msg)
 

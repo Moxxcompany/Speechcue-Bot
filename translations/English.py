@@ -385,3 +385,9 @@ SUBSCRIPTION_RENEWAL_MESSAGE = (
     "Your subscription has expired. Please renew "
     "it manually to continue enjoying our services."
 )
+TRY_AGAIN = "Please try again!"
+UNAUTHORIZED_NODE_ACCESS = (
+    "You are node allowed to use call "
+    "transfer node with your current subscription plan. Choose "
+    "another flow and try again!"
+)
