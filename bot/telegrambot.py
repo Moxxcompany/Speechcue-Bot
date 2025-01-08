@@ -2313,6 +2313,11 @@ def handle_get_pathway(message):
         )
 
 
+# def node_authorization_check(user_id, pathway_id):
+#     subscription_id = UserSubscription.objects.get(user_id=user_id).plan_id_id
+#
+
+
 @bot.callback_query_handler(func=lambda call: call.data.startswith("select_pathway_"))
 def handle_pathway_selection(call):
     user_id = call.message.chat.id
@@ -2351,6 +2356,7 @@ def handle_pathway_selection(call):
         print("phone numbers ")
         user_data[user_id]["call_flow"] = pathway_id
         user_data[user_id]["step"] = "initiate_call"
+        print(f"Pathway id for single call : {pathway_id}")
         msg = f"{ENTER_PHONE_NUMBER_PROMPT[lg]}:"
         bot.send_message(user_id, msg)
     elif step == "get_batch_numbers":
