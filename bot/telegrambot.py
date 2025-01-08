@@ -1017,16 +1017,30 @@ def trigger_delete_flow(message):
     delete_flow(message)
 
 
+def get_first_node(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+
+    # user_data[user_id]["select_language"] = lang
+    first_node = user_data[user_id]["first_node"]
+    if first_node:
+        user_data[user_id]["message_type"] = "Play Message"
+        message.text = "Play Message ▶️"
+        user_data[user_id]["first_node"] = False
+        bot.send_message(user_id, ADD_GREETING_NODE[lg])
+        add_node(message)
+
+    else:
+        keyboard = check_user_has_active_free_plan(user_id)
+        bot.send_message(user_id, NODE_TYPE_SELECTION_PROMPT[lg], reply_markup=keyboard)
+
+
 @bot.message_handler(func=lambda message: message.text in ADD_NODE.values())
 def view_main_menu(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     user_data[user_id]["first_node"] = False
-    bot.send_message(
-        user_id,
-        f"{LANGUAGE_SELECTION_PROMPT[lg]}",
-        reply_markup=get_language_markup("flowlanguage"),
-    )
+    get_first_node(message)
 
 
 @bot.message_handler(
@@ -2147,11 +2161,7 @@ def handle_ask_description(message):
         user_data[user_id]["first_node"] = True
         bot.send_message(user_id, f"'{pathway_name}' {FLOW_CREATED[lg]} ✅ ")
 
-        bot.send_message(
-            user_id,
-            f"{LANGUAGE_SELECTION_FOR_FLOW[lg]}",
-            reply_markup=get_language_markup("flowlanguage"),
-        )
+        get_first_node(message)
 
     else:
         keyboard = check_user_has_active_free_plan(user_id)
@@ -2169,26 +2179,6 @@ def handle_add_start_node(message):
     lg = get_user_language(user_id)
     message.text = END_CALL[lg]
     add_node(message)
-
-
-@bot.callback_query_handler(func=lambda call: call.data.startswith("flowlanguage:"))
-def handle_add_flow_language(call):
-    user_id = call.message.chat.id
-    lg = get_user_language(user_id)
-    text = call.data
-    lang = text.split(":")[1]
-    user_data[user_id]["select_language"] = lang
-    first_node = user_data[user_id]["first_node"]
-    if first_node:
-        user_data[user_id]["message_type"] = "Play Message"
-        call.message.text = "Play Message ▶️"
-        user_data[user_id]["first_node"] = False
-        bot.send_message(user_id, ADD_GREETING_NODE[lg])
-        add_node(call.message)
-
-    else:
-        keyboard = check_user_has_active_free_plan(user_id)
-        bot.send_message(user_id, NODE_TYPE_SELECTION_PROMPT[lg], reply_markup=keyboard)
 
 
 @bot.message_handler(
@@ -2847,7 +2837,6 @@ def handle_select_voice_type(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     text = message.text
-    user_input = text
     pathway_id = user_data[user_id]["select_pathway"]
     node_name = user_data[user_id]["add_node"]
     node_text = user_data[user_id]["play_message"]
@@ -2857,12 +2846,10 @@ def handle_select_voice_type(message):
     voice_type = next(
         (voice for voice in voice_data["voices"] if voice["name"] == text), None
     )
-    language = user_data[user_id]["select_language"]
+
     message_type = user_data[user_id]["message_type"]
     if message_type == "Question":
-        response = question_type(
-            pathway_id, node_name, node_text, node_id, voice_type, language
-        )
+        response = question_type(pathway_id, node_name, node_text, node_id, voice_type)
     else:
         response = play_message(
             pathway_id,
@@ -2870,7 +2857,6 @@ def handle_select_voice_type(message):
             node_text,
             node_id,
             voice_type,
-            language,
             message_type,
         )
 

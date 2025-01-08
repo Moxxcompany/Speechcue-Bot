@@ -337,7 +337,6 @@ def play_message(
     node_text: str,
     node_id: int,
     voice: str,
-    language: str,
     message_type: str,
 ) -> requests.Response:
     """
@@ -349,7 +348,6 @@ def play_message(
         node_text: Text of the node to be added to the pathway
         node_id: ID of the node to be added to the pathway
         voice: Type of the voice to be added to the pathway
-        language: Language of the voice to be added to the pathway
     Returns:
         response: A JSON response containing success or error message with corresponding HTTP status.
     """
@@ -373,7 +371,6 @@ def play_message(
             "name": node_name,
             "text": node_text,
             "voice": voice,
-            "language": language,
         },
     }
 
@@ -423,7 +420,6 @@ def question_type(
     node_text: str,
     node_id: int,
     voice: str,
-    language: str,
 ) -> requests.Response:
 
     try:
@@ -441,7 +437,6 @@ def question_type(
             "name": node_name,
             "text": node_text,
             "voice": voice,
-            "language": language,
             "extractVars": [
                 [
                     f"{node_name}_user_input",
