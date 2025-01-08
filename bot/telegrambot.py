@@ -1746,7 +1746,7 @@ def send_qr_code(
     bot.send_message(
         user_id,
         f"{PART1_SCAN_PAYMENT_INFO[lg]} {crypto_amount} "
-        f"{payment_currency} to <code>{address}</code>.\n\n"
+        f"{payment_currency} {PART2_SCAN_PAYMENT_INFO[lg]} <code>{address}</code>.\n\n"
         f"{PART3_SCAN_PAYMENT_INFO[lg]} "
         f"{PART4_SCAN_PAYMENT_INFO[lg]}\n\n"
         f"{PART5_SCAN_PAYMENT_INFO[lg]}\n"
