@@ -287,8 +287,9 @@ def handle_view_subscription(call):
     lg = get_user_language(user_id)
 
     try:
-        user = TelegramUser.objects.get(user_id=user_id)
-        plan = user.plan
+        user = UserSubscription.objects.get(user_id=user_id)
+        plan = user.plan_id_id
+        print("User Plan: ", plan)
 
         subscription_plan = SubscriptionPlans.objects.get(plan_id=plan)
         if subscription_plan.single_ivr_minutes == MAX_INFINITY_CONSTANT:
