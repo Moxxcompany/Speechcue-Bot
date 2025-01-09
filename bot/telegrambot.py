@@ -497,6 +497,12 @@ def trigger_delete_node(message):
     if status_code != 200:
         bot.send_message(user_id, f"{PROCESSING_ERROR[lg]} {pathway.get('error')}")
         return
+
+    # Check if no nodes are found in the pathway
+    if not pathway["nodes"]:
+        bot.send_message(user_id, f"{NO_NODES_FOUND[lg]}")
+        return
+
     keyboard = InlineKeyboardMarkup()
 
     for node in pathway["nodes"]:
@@ -505,6 +511,7 @@ def trigger_delete_node(message):
             text=node_name, callback_data=f"delete_node_{node_name}"
         )
         keyboard.add(button)
+
     bot.send_message(user_id, f"{SELECTION_PROMPT[lg]}", reply_markup=keyboard)
 
 
@@ -2436,6 +2443,15 @@ def handle_add_edges(message):
     start_node = next(
         (node for node in nodes if node["data"].get("isStart") == True), None
     )
+    if not nodes:
+        bot.send_message(chat_id, NO_NODES_FOUND[lg])
+        return
+    # New check: if only one node is found
+    if len(nodes) == 1:
+        bot.send_message(
+            chat_id, ONLY_ONE_NODE_FOUND[lg], reply_markup=ivr_flow_keyboard(chat_id)
+        )
+        return
 
     if not edges:
         if start_node:
@@ -2459,6 +2475,7 @@ def handle_add_edges(message):
             )
         else:
             bot.send_message(chat_id, NO_START_NODE_FOUND[lg])
+            display_flows(message)
     else:
         markup = types.InlineKeyboardMarkup()
         for node in nodes:

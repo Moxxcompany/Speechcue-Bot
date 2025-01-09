@@ -344,3 +344,5 @@ TRY_AGAIN = "请再试一次！"
 UNAUTHORIZED_NODE_ACCESS = (
     "您是节点允许使用调用使用您当前的订阅计划转移节点。选择另一个流程并重试！"
 )
+NO_NODES_FOUND = "没有找到该流的节点！"
+ONLY_ONE_NODE_FOUND = "此流仅找到一个节点！"

@@ -421,3 +421,5 @@ UNAUTHORIZED_NODE_ACCESS = (
     "transférez le nœud avec votre plan d'abonnement actuel. Choisissez"
     "un autre flux et réessayez !"
 )
+NO_NODES_FOUND = "Aucun nœud trouvé pour ce flux !"
+ONLY_ONE_NODE_FOUND = "Un seul nœud trouvé pour ce flux !"

@@ -391,3 +391,5 @@ UNAUTHORIZED_NODE_ACCESS = (
     "transfer node with your current subscription plan. Choose "
     "another flow and try again!"
 )
+NO_NODES_FOUND = "No nodes found for this flow!"
+ONLY_ONE_NODE_FOUND = "Only one node found for this flow!"
