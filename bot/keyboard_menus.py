@@ -120,14 +120,20 @@ def get_inline_keyboard(options):
 
 def get_main_menu_keyboard(user_id):
     lg = get_user_language(user_id)
-    options = [
-        TOP_UP[lg],
-        BILLING_AND_SUBSCRIPTION[lg],
-        IVR_FLOW[lg],
-        IVR_CALL[lg],
-        ACCOUNT[lg],
-    ]
-    return get_reply_keyboard(options)
+    markup = ReplyKeyboardMarkup()
+    top_up_btn = KeyboardButton(TOP_UP[lg])
+    billing_btn = KeyboardButton(BILLING_AND_SUBSCRIPTION[lg])
+    ivr_flows_btn = KeyboardButton(IVR_CALL[lg])
+    ivr_call_btn = KeyboardButton(IVR_FLOW[lg])
+    user_feedback_btn = KeyboardButton(USER_FEEDBACK[lg])
+    account_btn = KeyboardButton(ACCOUNT[lg])
+    markup.add(top_up_btn)
+    markup.add(billing_btn)
+    markup.add(ivr_flows_btn, ivr_call_btn)
+    markup.add(user_feedback_btn)
+    markup.add(account_btn)
+
+    return markup
 
 
 def get_force_reply():

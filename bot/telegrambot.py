@@ -15,8 +15,6 @@ from datetime import datetime
 import bot.bot_config
 from TelegramBot.constants import STATUS_CODE_200, MAX_INFINITY_CONSTANT
 from payment.decorator_functions import (
-    check_validity,
-    check_subscription_status,
     check_expiry_date,
 )
 
@@ -935,7 +933,11 @@ def handle_end_day(message):
             created_at__date__range=(start_date, end_date),
         )
         if not calls.exists():
-            bot.send_message(user_id, f"{NO_CALLS_FOUND[lg]}")
+            bot.send_message(
+                user_id,
+                f"{NO_CALLS_FOUND[lg]}",
+                reply_markup=get_main_menu_keyboard(user_id),
+            )
             return
 
         markup = types.InlineKeyboardMarkup()
@@ -947,7 +949,9 @@ def handle_end_day(message):
             )
 
         markup.add(
-            types.InlineKeyboardButton(BACK_BUTTON[lg], callback_data="back_account")
+            types.InlineKeyboardButton(
+                BACK_BUTTON[lg], callback_data="back_to_welcome_message"
+            )
         )
         bot.send_message(user_id, f"{VIEW_TRANSCRIPT_PROMPT[lg]}", reply_markup=markup)
         user_data[user_id]["step"] = ""
