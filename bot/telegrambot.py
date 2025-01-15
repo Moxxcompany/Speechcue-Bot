@@ -1768,11 +1768,12 @@ def send_qr_code(
     bot.send_message(
         user_id,
         f"{PART1_SCAN_PAYMENT_INFO[lg]} {crypto_amount} "
-        f"{payment_currency} {PART2_SCAN_PAYMENT_INFO[lg]} <code>{address}</code>.\n\n"
+        f"{payment_currency} {PART2_SCAN_PAYMENT_INFO[lg]} '<code>{address}</code>' \n\n"
         f"{PART3_SCAN_PAYMENT_INFO[lg]} "
         f"{PART4_SCAN_PAYMENT_INFO[lg]}\n\n"
         f"{PART5_SCAN_PAYMENT_INFO[lg]}\n"
-        f"{PART6_SCAN_PAYMENT_INFO[lg]}",
+        f"{PART6_SCAN_PAYMENT_INFO[lg]}\n\n"
+        f"<pre>{address} </pre>",
         reply_markup=get_main_menu_keyboard(user_id),
         parse_mode="HTML",
     )
