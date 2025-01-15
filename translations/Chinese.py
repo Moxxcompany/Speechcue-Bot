@@ -346,3 +346,6 @@ UNAUTHORIZED_NODE_ACCESS = (
 )
 NO_NODES_FOUND = "没有找到该流的节点！"
 ONLY_ONE_NODE_FOUND = "此流仅找到一个节点！"
+GENDER_SELECTION_PROMPT = "请选择声音的性别。"
+FEMALE = "女性"
+MALE = "男性"

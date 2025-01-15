@@ -393,3 +393,6 @@ UNAUTHORIZED_NODE_ACCESS = (
 )
 NO_NODES_FOUND = "No nodes found for this flow!"
 ONLY_ONE_NODE_FOUND = "Only one node found for this flow!"
+GENDER_SELECTION_PROMPT = "Please select the gender of the voice."
+FEMALE = "Female"
+MALE = "Male"

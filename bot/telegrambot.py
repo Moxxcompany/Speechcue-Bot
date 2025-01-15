@@ -195,7 +195,6 @@ def show_available_commands(message):
 
 
 @bot.message_handler(func=lambda message: message.text in BULK_CALL.values())
-@check_validity
 def trigger_bulk_ivr_call(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
@@ -281,7 +280,6 @@ def handle_language_selection(call):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "view_subscription")
-@check_subscription_status
 def handle_view_subscription(call):
     user_id = call.message.chat.id
     lg = get_user_language(user_id)
@@ -410,7 +408,6 @@ def trigger_text_to_speech(message):
 
 
 @bot.message_handler(func=lambda message: message.text in SINGLE_IVR.values())
-@check_validity
 def trigger_single_ivr_call(message):
     """
     Handles the 'Single IVR Call ☎️' menu option to initiate an IVR call.
@@ -2841,10 +2838,12 @@ def handle_play_message(message):
         feedback_log.save()
 
     user_data[user_id]["play_message"] = text
-    user_data[user_id]["step"] = "select_voice_type"
-    bot.send_message(
-        user_id, SELECT_VOICE_TYPE_PROMPT[lg], reply_markup=get_voice_type_menu()
-    )
+    user_data[user_id]["step"] = "select_gender"
+    markup = ReplyKeyboardMarkup()
+    female_btn = KeyboardButton(FEMALE[lg])
+    male_btn = KeyboardButton(MALE[lg])
+    markup.add(female_btn, male_btn)
+    bot.send_message(user_id, GENDER_SELECTION_PROMPT[lg], reply_markup=markup)
 
 
 @bot.message_handler(
@@ -2916,6 +2915,20 @@ def handle_show_error_call_failed(message):
     lg = get_user_language(user_id)
     bot.send_message(
         user_id, SELECT_FROM_MENU[lg], reply_markup=get_call_failed_menu(user_id)
+    )
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step")
+    == "select_gender"
+)
+def select_gender(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    gender = message.text
+    user_data[user_id]["step"] = "select_voice_type"
+    bot.send_message(
+        user_id, SELECT_VOICE_TYPE_PROMPT[lg], reply_markup=get_voice_type_menu(gender)
     )
 
 

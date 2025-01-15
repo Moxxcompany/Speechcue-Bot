@@ -9,7 +9,7 @@ from telebot.types import (
     ForceReply,
 )
 
-from bot.utils import get_user_language
+from bot.utils import get_user_language, categorize_voices_by_description
 from bot.views import get_voices
 from telebot import types
 from payment.models import UserSubscription
@@ -65,9 +65,22 @@ from translations.translations import (
     YES,
     NO,
     ADD_EDGE,
+    FEMALE,
+    MALE,
 )
 
+
+def filter_voices_by_gender(voice_data):
+    voices = voice_data.get("voices", [])
+    male_voices = categorize_voices_by_description(voices, "Male")
+    female_voices = categorize_voices_by_description(voices, "Female")
+    print("male_voices: ", male_voices)
+    print("female_voices: ", female_voices)
+    return male_voices, female_voices
+
+
 voice_data = get_voices()
+male_voices, female_voices = filter_voices_by_gender(voice_data)
 
 
 def check_user_has_active_free_plan(user_id):
@@ -198,8 +211,15 @@ def get_language_flag_menu():
     return get_reply_keyboard(options)
 
 
-def get_voice_type_menu():
-    options = [voice["name"] for voice in voice_data["voices"]][:20]
+def get_voice_type_menu(gender):
+
+    if gender in FEMALE.values():
+        options = [voice["name"] for voice in female_voices][:20]
+    elif gender in MALE.values():
+        options = [voice["name"] for voice in male_voices][:20]
+    else:
+        options = ["Invalid gender specified"]
+
     return get_reply_keyboard(options)
 
 
@@ -228,7 +248,6 @@ def get_subscription_activation_markup(user_id):
     return markup
 
 
-# todo : start changes from here for menu translations
 def get_node_menu(user_id):
     lg = get_user_language(user_id)
     options = [

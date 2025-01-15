@@ -381,3 +381,6 @@ UNAUTHORIZED_NODE_ACCESS = (
 )
 NO_NODES_FOUND = "इस प्रवाह के लिए कोई नोड नहीं मिला!"
 ONLY_ONE_NODE_FOUND = "इस प्रवाह के लिए केवल एक नोड मिला!"
+GENDER_SELECTION_PROMPT = "कृपया आवाज़ का लिंग चुनें."
+FEMALE = "महिला"
+MALE = "पुरुष"

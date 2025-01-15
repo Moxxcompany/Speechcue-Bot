@@ -423,3 +423,6 @@ UNAUTHORIZED_NODE_ACCESS = (
 )
 NO_NODES_FOUND = "Aucun nœud trouvé pour ce flux !"
 ONLY_ONE_NODE_FOUND = "Un seul nœud trouvé pour ce flux !"
+GENDER_SELECTION_PROMPT = "Veuillez sélectionner le genre de la voix."
+FEMALE = "Femme"
+MALE = "Homme"

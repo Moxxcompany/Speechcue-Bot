@@ -392,9 +392,7 @@ def notify_users():
 
 @shared_task
 def check_subscription_status():
-    """
-    Daily task to check subscription expiry and handle auto-renewals.
-    """
+
     print("Starting subscription status check...")
     current_date = timezone.now().date()
     expired_subscriptions = UserSubscription.objects.filter(
@@ -405,6 +403,7 @@ def check_subscription_status():
 
     for subscription in expired_subscriptions:
         user = subscription.user_id
+        telegram_user = TelegramUser.objects.get(user_id=user.user_id)
         lg = get_user_language(user.user_id)
         print(f"Processing subscription for user {user.user_id}...")
 
@@ -444,8 +443,16 @@ def check_subscription_status():
                         subscription.date_of_subscription = current_date
                         subscription.call_transfer = plan.call_transfer
                         subscription.save()
+                        print(f"user: ", user)
+                        print(f"user subscription : {user.subscription_status}")
                         user.subscription_status = "active"
+                        print(f"user subscription : {user.subscription_status}")
+                        print(f"user plan: {user.plan}")
                         user.plan = plan.name
+                        print(f"user plan: {user.plan}")
+                        telegram_user.subscription_status = "active"
+                        telegram_user.plan = plan.name
+                        telegram_user.save()
                         user.save()
 
                     else:

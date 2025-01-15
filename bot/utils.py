@@ -19,12 +19,40 @@ import random
 
 import time
 import redis
+
 import re
 import string
 
 
+def categorize_voices_by_description(data, gender):
+
+    gender = gender.lower()  # Normalize input
+    if gender not in ["male", "female"]:
+        raise ValueError("Gender must be 'Male' or 'Female'.")
+
+    gender_keywords = {
+        "male": [" male", "man", "boy"],
+        "female": [" female", "woman", "girl"],
+    }
+
+    filtered_voices = [
+        voice
+        for voice in data
+        if "description" in voice
+        and voice["description"]
+        and any(
+            keyword in voice["description"].lower()
+            for keyword in gender_keywords[gender]
+        )
+        and not any(
+            keyword in voice["description"].lower()
+            for keyword in gender_keywords["male" if gender == "female" else "female"]
+        )
+    ]
+    return filtered_voices
+
+
 def remove_punctuation_and_spaces(input_string):
-    # Regex to remove punctuation and all spaces following it until the next character
     formatted_string = re.sub(
         r"[{}]\s+".format(re.escape(string.punctuation)), "", input_string
     )
