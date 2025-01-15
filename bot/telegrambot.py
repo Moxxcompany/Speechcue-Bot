@@ -199,7 +199,8 @@ def trigger_bulk_ivr_call(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     user = TelegramUser.objects.get(user_id=user_id)
-    if user.subscription_status == "active":
+    subscription = UserSubscription.objects.get(user_id=user)
+    if subscription.subscription_status == "active":
         additional_minutes_records = CallDuration.objects.filter(
             user_id=user_id, additional_minutes__gt=0
         )
@@ -417,9 +418,10 @@ def trigger_single_ivr_call(message):
     """
     user_id = message.chat.id
     user = TelegramUser.objects.get(user_id=user_id)
+    subscription = UserSubscription.objects.get(user_id=user)
     lg = get_user_language(user_id)
     print(f"in single ivr trigger with user id : {user_id}")
-    if user.subscription_status == "active":
+    if subscription.subscription_status == "active":
         bot.send_message(user_id, SUBSCRIPTION_VERIFIED[lg])
         user_data[user_id] = {"step": "phone_number_input"}
         view_flows(message)
