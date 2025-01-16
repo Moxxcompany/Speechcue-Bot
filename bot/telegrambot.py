@@ -1,6 +1,5 @@
 import base64
 from io import BytesIO
-import phonenumbers
 from PIL import Image
 import json
 from uuid import UUID
@@ -11,7 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from phonenumbers import geocoder
 from calendar import isleap
 from datetime import datetime
-
+import phonenumbers
 import bot.bot_config
 from TelegramBot.constants import STATUS_CODE_200, MAX_INFINITY_CONSTANT
 from payment.decorator_functions import (
@@ -1177,6 +1176,15 @@ def validate_email(email):
 
 def validate_mobile(mobile):
     try:
+        # Pre-validation to ensure the number has only one '+' at the start
+        if mobile.count("+") > 1 or (
+            mobile.count("+") == 1 and not mobile.startswith("+")
+        ):
+            print(
+                f"Number {mobile} is invalid: it contains more than one '+' or has '+' in an invalid position."
+            )
+            return False
+
         number = phonenumbers.parse(mobile)
         region = geocoder.region_code_for_number(number)
         is_valid = phonenumbers.is_valid_number(number)
