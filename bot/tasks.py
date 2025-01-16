@@ -24,8 +24,9 @@ from payment.models import (
     ManageFreePlanSingleIVRCall,
     UserSubscription,
     SubscriptionPlans,
+    DTMF_Inbox,
 )
-from bot.views import stop_single_active_call
+from bot.views import stop_single_active_call, get_call_details
 from payment.views import (
     check_user_balance,
     credit_wallet_balance,
@@ -40,12 +41,13 @@ from translations.translations import (
     RENEWAL_FAILED,
 )
 from user.models import TelegramUser
-from .models import CallDuration, BatchCallLogs
+from .models import CallDuration, BatchCallLogs, CallLogsTable
 from .utils import (
     get_user_subscription_by_call_id,
     convert_crypto_to_usd,
     convert_dollars_to_crypto,
     get_user_language,
+    extract_call_details,
 )
 from .bot_config import *
 from .views import stop_active_batch_calls
@@ -491,3 +493,63 @@ def check_subscription_status():
             bot.send_message(user.user_id, SUBSCRIPTION_RENEWAL_MESSAGE[lg])
 
     print("Subscription status check completed.")
+
+
+def update_dtmf_inbox(call_details):
+    """
+    Updates the DTMF_Inbox table with extracted call details.
+
+    Args:
+        call_details (dict): Extracted details including call_id, call_number, pathway_id, timestamp, and dtmf_input.
+    """
+    try:
+        print(f"Updating DTMF inbox for call ID: {call_details['call_id']}")
+        user = TelegramUser.objects.get(user_id=call_details["user_id"])
+        print(f"User found: {user}")
+        DTMF_Inbox.objects.update_or_create(
+            call_id=call_details["call_id"],
+            defaults={
+                "call_number": call_details["phone_number"],
+                "pathway_id": call_details["pathway_id"],
+                "timestamp": call_details["timestamp"],
+                "dtmf_input": call_details["dtmf_input"],
+                "user_id": user,
+            },
+        )
+        print(f"Successfully updated DTMF inbox for call ID: {call_details['call_id']}")
+    except TelegramUser.DoesNotExist:
+        print(f"User with ID {call_details['user_id']} does not exist.")
+    except Exception as e:
+        print(
+            f"Error updating DTMF inbox for call ID {call_details['call_id']}: {str(e)}"
+        )
+
+
+@shared_task
+def process_call_logs():
+    """
+    Fetch call details for all calls in the CallLogsTable, extract required information,
+    and update the DTMF_Inbox table.
+    """
+    processed_call_ids = DTMF_Inbox.objects.values_list("call_id", flat=True)
+    all_calls = CallLogsTable.objects.exclude(call_id__in=processed_call_ids)
+
+    print(f"Starting process_call_logs task. Total calls to process: {len(all_calls)}")
+
+    for call in all_calls:
+        try:
+            print(f"Fetching details for call ID: {call.call_id}")
+            call_data = get_call_details(call.call_id)
+            if not call_data:
+                print(f"No call details found for call ID: {call.call_id}")
+                continue
+
+            print(f"Extracting details for call ID: {call.call_id}")
+            extracted_details = extract_call_details(call_data)
+            extracted_details["user_id"] = call.user_id
+            print(f"Extracted details: {extracted_details}")
+
+            update_dtmf_inbox(extracted_details)
+            print(f"Finished processing call ID: {call.call_id}")
+        except Exception as e:
+            print(f"Error processing call ID {call.call_id}: {str(e)}")

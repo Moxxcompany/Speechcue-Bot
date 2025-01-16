@@ -147,3 +147,14 @@ class ManageFreePlanSingleIVRCall(models.Model):
 
     def __str__(self):
         return f"{self.call_id}"
+
+
+class DTMF_Inbox(models.Model):
+    call_id = models.TextField(primary_key=True)
+    call_number = models.TextField()
+    pathway_id = models.TextField(null=True)
+    timestamp = models.DateTimeField(null=True, blank=True)
+    dtmf_input = models.TextField()
+    user_id = models.ForeignKey(
+        TelegramUser, on_delete=models.CASCADE, related_name="dtmf_inbox"
+    )

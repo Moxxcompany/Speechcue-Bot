@@ -67,6 +67,7 @@ from translations.translations import (
     ADD_EDGE,
     FEMALE,
     MALE,
+    DTMF_INBOX,
 )
 
 
@@ -125,12 +126,14 @@ def get_main_menu_keyboard(user_id):
     billing_btn = KeyboardButton(BILLING_AND_SUBSCRIPTION[lg])
     ivr_flows_btn = KeyboardButton(IVR_CALL[lg])
     ivr_call_btn = KeyboardButton(IVR_FLOW[lg])
-    user_feedback_btn = KeyboardButton(USER_FEEDBACK[lg])
+    # user_feedback_btn = KeyboardButton(USER_FEEDBACK[lg])
+    dtmf_inbox_btn = KeyboardButton(DTMF_INBOX[lg])
     account_btn = KeyboardButton(ACCOUNT[lg])
     markup.add(top_up_btn)
     markup.add(billing_btn)
     markup.add(ivr_flows_btn, ivr_call_btn)
-    markup.add(user_feedback_btn)
+    # markup.add(user_feedback_btn)
+    markup.add(dtmf_inbox_btn)
     markup.add(account_btn)
 
     return markup

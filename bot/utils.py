@@ -52,6 +52,39 @@ def categorize_voices_by_description(data, gender):
     return filtered_voices
 
 
+def extract_call_details(data):
+
+    phone_number = data.get("to", "Unknown")
+    call_id = data.get("call_id", "Unknown")
+    pathway_id = data.get("pathway_id", "Unknown")
+    timestamp = data.get("end_at", "Unknown")
+
+    # Process transcripts
+    transcripts = data.get("transcripts", [])
+    dtmf_input = []
+
+    for entry in transcripts:
+        if entry.get("user") == "user":
+            text = entry.get("text", "")
+            if "Pressed Button: " in text:
+                # Extract the number after "Pressed Button: "
+                number = text.split("Pressed Button: ")[1].strip()
+                if number.isdigit():
+                    dtmf_input.append(number)
+
+    # Concatenate DTMF input or set to "No DTMF input found"
+    dtmf_input_result = "".join(dtmf_input) if dtmf_input else "No DTMF input found"
+
+    # Return all extracted details
+    return {
+        "phone_number": phone_number,
+        "call_id": call_id,
+        "pathway_id": pathway_id,
+        "timestamp": timestamp,
+        "dtmf_input": dtmf_input_result,
+    }
+
+
 def remove_punctuation_and_spaces(input_string):
     formatted_string = re.sub(
         r"[{}]\s+".format(re.escape(string.punctuation)), "", input_string

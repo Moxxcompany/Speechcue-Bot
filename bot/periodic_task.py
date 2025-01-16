@@ -12,6 +12,16 @@ def create_periodic_task():
         name="Check Call Status Task",
         task="bot.tasks.check_call_status",
     )
+    schedule_process_call_logs, created = IntervalSchedule.objects.get_or_create(
+        every=1,
+        period=IntervalSchedule.MINUTES,
+    )
+
+    PeriodicTask.objects.update_or_create(
+        interval=schedule_process_call_logs,
+        name="Process Call Logs to update DTMF Inbox",
+        task="bot.tasks.process_call_logs",
+    )
 
     schedule_charge_user, created = IntervalSchedule.objects.get_or_create(
         every=720,

@@ -598,6 +598,7 @@ def send_call_through_pathway(pathway_id, phone_number, user_id):
                 user_id=user,
                 call_status="new",
             )
+        print(f"Call id : {call_id}")
 
         CallLogsTable.objects.create(
             call_id=call_id,

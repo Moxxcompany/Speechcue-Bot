@@ -1,11 +1,14 @@
-
 SINGLE_CALLS_LEFT = "Single IVR Calls left : "
-UNPAID_MINUTES_PROMPT = "You have unpaid additional minutes. Please settle the charges before proceeding."
+UNPAID_MINUTES_PROMPT = (
+    "You have unpaid additional minutes. Please settle the charges before proceeding."
+)
 WALLET_DETAILS_ERROR = "Error fetching wallet details!"
 WALLET_BALANCE = "You have the following balance in your wallet:"
-SUBSCRIPTION_VERIFIED ="Subscription verified. 📞"
+SUBSCRIPTION_VERIFIED = "Subscription verified. 📞"
 ACTIVATE_SUBSCRIPTION = "A single IVR call requires an active subscription. Please activate your subscription to proceed."
-OUTGOING_CONNECTIONS_MISSING = "The following nodes do not have any outgoing connections to other nodes: "
+OUTGOING_CONNECTIONS_MISSING = (
+    "The following nodes do not have any outgoing connections to other nodes: "
+)
 INCOMING_CONNECTIONS_MISSING = "The following nodes do not connect to any other nodes: "
 ADD_ONE_EDGE = "At least, add one edge for the missing nodes!"
 NO_VARIABLES_FOUND = "No variables found for call ID:"
@@ -17,110 +20,126 @@ REQUEST_FAILED = "Request failed due to the following issue:"
 ACTION_CANCELLED = "You have cancelled the current action."
 MAIN_MENU_REDIRECTION = "Redirecting you to the main menu!"
 SUBSCRIPTION_PLAN_OPTIONS = "Now, let’s get you on the right plan. Please choose a subscription plan from the options below:"
-DURATION_SELECTION_PROMPT = "How long would you like to subscribe? Select your preferred duration:"
+DURATION_SELECTION_PROMPT = (
+    "How long would you like to subscribe? Select your preferred duration:"
+)
 NO_BULK_MINS_LEFT = "No Bulk IVR Calls"
 PLAN_SELECTED = "You’ve selected the following plan."
 SUCCESSFUL_FREE_TRIAL_ACTIVATION = "You have successfully activated your free trial!"
 AUTO_RENEWAL_PROMPT = "Would you like to enable auto-renewal from your wallet balance?"
-FULL_NODE_ACCESS = 'Full Node Access'
-PARTIAL_NODE_ACCESS = 'Partial Node Access'
-CALL_TRANSFER_INCLUDED = 'Call Transfer Included'
-CALL_TRANSFER_EXCLUDED = 'Call Transfer Excluded'
-TOP_UP_PROMPT = 'Please select a payment method to top up your balance:'
-SUBSCRIPTION_PAYMENT_METHOD_PROMPT = 'Please confirm your payment method to proceed:'
-USER_INFORMATION_NOT_FOUND = 'User information not found!'
-MAIN_MENU_PROMPT = 'Here is the main menu:'
-SUBSCRIPTION_ACTIVATED = 'Subscription activated!'
-PAYMENT_SUCCESSFUL = 'Payment successful! ✅'
+FULL_NODE_ACCESS = "Full Node Access"
+PARTIAL_NODE_ACCESS = "Partial Node Access"
+CALL_TRANSFER_INCLUDED = "Call Transfer Included"
+CALL_TRANSFER_EXCLUDED = "Call Transfer Excluded"
+TOP_UP_PROMPT = "Please select a payment method to top up your balance:"
+SUBSCRIPTION_PAYMENT_METHOD_PROMPT = "Please confirm your payment method to proceed:"
+USER_INFORMATION_NOT_FOUND = "User information not found!"
+MAIN_MENU_PROMPT = "Here is the main menu:"
+SUBSCRIPTION_ACTIVATED = "Subscription activated!"
+PAYMENT_SUCCESSFUL = "Payment successful! ✅"
 RECEIVERS_WALLET_NOT_FOUND = "The receiver's wallet could not be found."
 PROCESSING_PAYMENT = "We are processing your payment, please wait..."
-CURRENT_BALANCE = 'Your current balance is'
-VIRTUAL_ACCOUNT_NOT_FOUND = 'Account Not Found!'
-INVOICE_REVIEW_PROMPT = 'Please review the invoice for your selected subscription plan:'
-PLAN_DOESNT_EXIST = 'Sorry, the selected plan does not exist anymore!'
-DAYS = 'Days'
-DAY = 'Day'
-VALIDITY_PROMPT = 'Select validity for your plan:'
-PLAN_VALIDITY = 'subscription plans with different validity:'
-VALIDITY = 'Validity:'
-SUBSCRIPTION_PLAN_SELECTION_PROMPT = 'Please select a subscription plan below:'
-NAME_INPUT_PROMPT = 'What’s your name? Let’s personalize your experience! (e.g., Ren)'
+CURRENT_BALANCE = "Your current balance is"
+VIRTUAL_ACCOUNT_NOT_FOUND = "Account Not Found!"
+INVOICE_REVIEW_PROMPT = "Please review the invoice for your selected subscription plan:"
+PLAN_DOESNT_EXIST = "Sorry, the selected plan does not exist anymore!"
+DAYS = "Days"
+DAY = "Day"
+VALIDITY_PROMPT = "Select validity for your plan:"
+PLAN_VALIDITY = "subscription plans with different validity:"
+VALIDITY = "Validity:"
+SUBSCRIPTION_PLAN_SELECTION_PROMPT = "Please select a subscription plan below:"
+NAME_INPUT_PROMPT = "What’s your name? Let’s personalize your experience! (e.g., Ren)"
 SETUP_WELCOME = "Welcome to Speechcad IVR Bot!"
-SETUP_PROMPT = ("We’re thrilled to have you here! 🎉 \n"
-                "Let’s get you started so you can explore all the exciting features we offer. 🌟 \n"
-                "This setup is quick and easy—let's dive in! 🚀")
-EXISTING_USER_WELCOME = "Welcome! 🎉 We are glad to have you again. 🎉 Here is the main menu!"
+SETUP_PROMPT = (
+    "We’re thrilled to have you here! 🎉 \n"
+    "Let’s get you started so you can explore all the exciting features we offer. 🌟 \n"
+    "This setup is quick and easy—let's dive in! 🚀"
+)
+EXISTING_USER_WELCOME = (
+    "Welcome! 🎉 We are glad to have you again. 🎉 Here is the main menu!"
+)
 NEW_USER_WELCOME = "Welcome! As a new user! 🎉"
-PROFILE_LANGUAGE_SELECTION_PROMPT = "To ensure everything is in your preferred language, please select one below:"
+PROFILE_LANGUAGE_SELECTION_PROMPT = (
+    "To ensure everything is in your preferred language, please select one below:"
+)
 LANGUAGE_SELECTION_PROMPT = "Select your preferred language:"
 USERNAME_PROMPT = "Your username is"
-SETUP_TOOLTIP = 'The setup is fast and easy. You’ll be ready in just a few steps!'
-ACKNOWLEDGE_AND_PROCEED = 'Acknowledge and Proceed ✅'
-NODE_TYPE_SELECTION_PROMPT = 'Select the type of node that you want to add:'
-TRANSCRIPT_NOT_FOUND = 'No transcript found for this call.'
-VIEW_TRANSCRIPT_PROMPT = 'Select a call to view the transcript:'
-CALL_LOGS_NOT_FOUND = 'No call logs found for your user ID.'
-VIEW_VARIABLES_PROMPT = 'Select a call to view variables:'
+SETUP_TOOLTIP = "The setup is fast and easy. You’ll be ready in just a few steps!"
+ACKNOWLEDGE_AND_PROCEED = "Acknowledge and Proceed ✅"
+NODE_TYPE_SELECTION_PROMPT = "Select the type of node that you want to add:"
+TRANSCRIPT_NOT_FOUND = "No transcript found for this call."
+VIEW_TRANSCRIPT_PROMPT = "Select a call to view the transcript:"
+CALL_LOGS_NOT_FOUND = "No call logs found!"
+VIEW_VARIABLES_PROMPT = "Select a call to view variables:"
 EDGES_DELETED = "Node and its associated edges have been deleted successfully."
 BALANCE_IN_USD = "Your Wallet balance is "
 NICE_TO_MEET_YOU = "Nice to meet you,"
-PROFILE_SETTING_PROMPT = ("We’re setting up your account now. "
-                          "Please hold on for just a moment while we finalize the details.")
+PROFILE_SETTING_PROMPT = (
+    "We’re setting up your account now. "
+    "Please hold on for just a moment while we finalize the details."
+)
 FREE_TRIAL_TOOLTIP = "Enjoy premium features during your free trial period!"
-SETUP_COMPLETION_FIRST_HALF = "✨ Great news! Your account is ready! 🎉 Your username is "
-SETUP_COMPLETION_SECOND_HALF = " and even better, you’re eligible for a free trial! 💃🎉"
+SETUP_COMPLETION_FIRST_HALF = (
+    "✨ Great news! Your account is ready! 🎉 Your username is "
+)
+SETUP_COMPLETION_SECOND_HALF = (
+    " and even better, you’re eligible for a free trial! 💃🎉"
+)
 ACCOUNT_SETUP_TOOLTIP = "We’re doing the work behind the scenes. Just follow the steps!"
-base_url = 'https://api.bland.ai'
-invalid_data = 'Invalid Data!'
-error = 'Error! '
-PROCESSING_ERROR = 'We were unable to process your request due to the following error:'
-DEPOSIT_SUCCESSFUL = 'Deposit successful! ✅ '
-INSUFFICIENT_DEPOSIT_AMOUNT = 'Insufficient amount to activate subscription.'
-WEBHOOK_RECEIVED = 'Webhook received successfully'
-INVALID_JSON = 'Invalid JSON data'
-WEBHOOK_DEPOSIT = 'webhook_deposit'
-WEBHOOK = 'webhook'
-INSUFFICIENT_BALANCE = 'Insufficient balance. Please top up your wallet or select another payment method. ⚠️'
-DEPOSIT_ADDRESS = 'Get Deposit Address'
-PAYMENT_METHOD_PROMPT = 'How would you like to make payment for your subscription?'
-AVAILABLE_COMMANDS_PROMPT = 'Here are the available commands:'
-SUBSCRIPTION_PLAN = 'Subscription Plan'
-NAME = 'Name'
-DESCRIPTION = 'Description'
-NODES = 'Nodes'
-BULK_IVR_LEFT = 'Number of Bulk IVR call minutes left'
-CALL_TRANSFER_NODE = 'Call Transfer Node'
-WALLET_INFORMATION = 'Your wallet information is as follows:'
-PROFILE_INFORMATION_PROMPT = 'Here is your profile information:'
-USERNAME = 'Username'
-NO_SUBSCRIPTION_PLAN = 'No Subscription Plan!'
-JOIN_CHANNEL_PROMPT = 'Join our channel for updates and support:'
-INACTIVE = 'inactive'
-BULK_IVR_SUBSCRIPTION_PROMPT = 'A Bulk IVR call requires an active subscription. Please activate your subscription to proceed.'
-ACTIVE_SUBSCRIPTION_PLAN_PROMPT = 'You are currently assigned to the following subscription plan:'
-SUBSCRIPTION_PLAN_NOT_FOUND = 'Subscription Plan not found!'
-CHECKING_WALLETS = 'Checking your wallets...'
-PLAN_NAME = 'Plan Name:'
-PRICE = 'Price:'
-FEATURES = 'Features:'
-CUSTOMER_SUPPORT_LEVEL = 'Customer Support Level'
-DAY_PLAN = 'Day Plan'
-UNLIMITED_SINGLE_IVR = 'Unlimited Single IVR calls'
-BULK_IVR_CALLS = 'Bulk IVR call minutes'
-CALL_TRANSFER_MINS = 'Minutes of Call Transfer'
-SELECTION_PROMPT = 'Select from the following options:'
-WELCOME_PROMPT = 'Welcome to the Main Menu!'
-PATHWAY_NOT_FOUND = 'Pathway not found!'
-NOT_FOUND = 'not found!'
-ACCOUNT_CREATED_SUCCESSFULLY = 'Account Created successfully!'
+base_url = "https://api.bland.ai"
+invalid_data = "Invalid Data!"
+error = "Error! "
+PROCESSING_ERROR = "We were unable to process your request due to the following error:"
+DEPOSIT_SUCCESSFUL = "Deposit successful! ✅ "
+INSUFFICIENT_DEPOSIT_AMOUNT = "Insufficient amount to activate subscription."
+WEBHOOK_RECEIVED = "Webhook received successfully"
+INVALID_JSON = "Invalid JSON data"
+WEBHOOK_DEPOSIT = "webhook_deposit"
+WEBHOOK = "webhook"
+INSUFFICIENT_BALANCE = "Insufficient balance. Please top up your wallet or select another payment method. ⚠️"
+DEPOSIT_ADDRESS = "Get Deposit Address"
+PAYMENT_METHOD_PROMPT = "How would you like to make payment for your subscription?"
+AVAILABLE_COMMANDS_PROMPT = "Here are the available commands:"
+SUBSCRIPTION_PLAN = "Subscription Plan"
+NAME = "Name"
+DESCRIPTION = "Description"
+NODES = "Nodes"
+BULK_IVR_LEFT = "Number of Bulk IVR call minutes left"
+CALL_TRANSFER_NODE = "Call Transfer Node"
+WALLET_INFORMATION = "Your wallet information is as follows:"
+PROFILE_INFORMATION_PROMPT = "Here is your profile information:"
+USERNAME = "Username"
+NO_SUBSCRIPTION_PLAN = "No Subscription Plan!"
+JOIN_CHANNEL_PROMPT = "Join our channel for updates and support:"
+INACTIVE = "inactive"
+BULK_IVR_SUBSCRIPTION_PROMPT = "A Bulk IVR call requires an active subscription. Please activate your subscription to proceed."
+ACTIVE_SUBSCRIPTION_PLAN_PROMPT = (
+    "You are currently assigned to the following subscription plan:"
+)
+SUBSCRIPTION_PLAN_NOT_FOUND = "Subscription Plan not found!"
+CHECKING_WALLETS = "Checking your wallets..."
+PLAN_NAME = "Plan Name:"
+PRICE = "Price:"
+FEATURES = "Features:"
+CUSTOMER_SUPPORT_LEVEL = "Customer Support Level"
+DAY_PLAN = "Day Plan"
+UNLIMITED_SINGLE_IVR = "Unlimited Single IVR calls"
+BULK_IVR_CALLS = "Bulk IVR call minutes"
+CALL_TRANSFER_MINS = "Minutes of Call Transfer"
+SELECTION_PROMPT = "Select from the following options:"
+WELCOME_PROMPT = "Welcome to the Main Menu!"
+PATHWAY_NOT_FOUND = "Pathway not found!"
+NOT_FOUND = "not found!"
+ACCOUNT_CREATED_SUCCESSFULLY = "Account Created successfully!"
 YES = "Yes"
 NO = "No"
-WALLET = 'Wallet'
-TOP_UP = 'Top Up Wallet 💳'
-BACK = 'Back'
-back = 'back'
+WALLET = "Wallet"
+TOP_UP = "Top Up Wallet 💳"
+BACK = "Back"
+back = "back"
 AUTO_RENEWAL_ENABLED = "Auto-renewal has been enabled."
-PROCEED_PAYMENT= "Please proceed with payment."
+PROCEED_PAYMENT = "Please proceed with payment."
 AUTO_RENEWAL_DISABLED = "Auto-renewal has been disabled"
 WALLET_BALANCE_PAYMENT = "Pay from Wallet Balance"
 CRYPTO_PAYMENT = "Pay with Cryptocurrency"
@@ -133,14 +152,16 @@ TABLE_UPDATE_FAILED = "Failed to update user tables due to the following issue:"
 MISSING_KEY = "Missing key:"
 METHOD_NOT_ALLOWED = "Method Not Allowed"
 TRANSACTION_ID = "Transaction id:"
-PAYMENT_STATUS =  "Payment status:"
+PAYMENT_STATUS = "Payment status:"
 USER_ID = "User id:"
 PAID_AMOUNT = "Paid Amount:"
 PAID_CURRENCY = "Paid Currency:"
 TRANSACTION_DETAILS = "Transaction Details:"
-TOP_UP_SUCCESSFUL = 'Top Up successful! ✅ '
+TOP_UP_SUCCESSFUL = "Top Up successful! ✅ "
 SETUP_COMPLETE = "Your account setup is complete! You can now explore all the features of the Speechcad IVR Bot. Let's get started!"
-EXIT_SETUP_PROMPT = "You have exited the setup process. You can start again by accepting the terms."
+EXIT_SETUP_PROMPT = (
+    "You have exited the setup process. You can start again by accepting the terms."
+)
 ACCEPT_TERMS_AND_CONDITIONS = "You need to accept the Terms and Conditions to continue using Speechcad. Please review them again when you're ready."
 TERMS_AND_CONDITIONS_TOOLTIP = "Tooltip: You can revisit the Terms and Conditions anytime in your profile settings."
 ENTER_PATHWAY_NAME_PROMPT = "Please enter the name of the pathway:"
@@ -149,13 +170,17 @@ EDGES_LIST_EMPTY = "Edges list is empty."
 NO_START_NODE_FOUND = "No start node found."
 SELECT_SOURCE_NODE = "Select source node:"
 SELECT_TARGET_NODE = "Select target node:"
-ENTER_LABEL_PROMPT = "Enter Label: (Default: User Responds, For DTMF: User enters {your option}) "
+ENTER_LABEL_PROMPT = (
+    "Enter Label: (Default: User Responds, For DTMF: User enters {your option}) "
+)
 INVALID_NUMBER_INPUT = "Invalid input. Please enter a valid number between 0 and 9."
 NODE_EDGES_DELETED = "Node and its associated edges have been deleted successfully."
 INVALID_PHONE_NUMBER = "Invalid phone number. Please enter a valid number with a country code (e.g., +123456789)."
 FINISHED_ADDING_NODES = "You have finished adding nodes."
 CALL_QUEUED_SUCCESSFULLY = "Call successfully queued."
-PROCESSING_ERROR_MESSAGE = "We were unable to process your request due to the following error:"
+PROCESSING_ERROR_MESSAGE = (
+    "We were unable to process your request due to the following error:"
+)
 VIEW_TERMS_AND_CONDITIONS = "View the Terms and Conditions here:"
 CALL_FAILURE_PROMPT = "What should happen in case of failure?"
 INVALID_PHONE_FORMAT = "Invalid number format. Please enter a valid phone number:"
@@ -167,21 +192,33 @@ ENTER_CUSTOM_NODE_NAME = "Please enter the name of your custom node:"
 ASSIGN_NODE_NUMBER = "Please assign a number for this node."
 NODE_NUMBER_ALREADY_ASSIGNED = "This number has already been assigned to another node. Please enter a different number."
 PROMPT_MESSAGE_FOR_DTMF = "Please enter the prompt message for DTMF input."
-ENTER_PHONE_NUMBER_FOR_CALL_TRANSFER = "Please enter the phone number to transfer the call to."
+ENTER_PHONE_NUMBER_FOR_CALL_TRANSFER = (
+    "Please enter the phone number to transfer the call to."
+)
 PROMPT_MESSAGE_FOR_MENU = "Please enter the prompt message for the menu:"
-ASSIGN_NUMBERS_FOR_MENU = "Please assign numbers and corresponding actions for each option."
+ASSIGN_NUMBERS_FOR_MENU = (
+    "Please assign numbers and corresponding actions for each option."
+)
 ADD_NODE_OR_DONE_PROMPT = "Add another node or select 'Done' if you are finished."
 ENTER_PHONE_NUMBER_TO_TRANSFER = "Please enter the phone number to transfer to."
 NODE_NAME_ALREADY_TAKEN = "This name is already taken for another node. Please try again with a different name."
 SELECT_VOICE_TYPE_PROMPT = "Please select the type of voice."
-USE_TEXT_TO_SPEECH_PROMPT = "Would you like to use Text-to-Speech for the Greeting Message?"
-BEGIN_USING_SPEECHCAD = "You’re all set to begin using Speechcad. Let’s move to the fun part!"
+USE_TEXT_TO_SPEECH_PROMPT = (
+    "Would you like to use Text-to-Speech for the Greeting Message?"
+)
+BEGIN_USING_SPEECHCAD = (
+    "You’re all set to begin using Speechcad. Let’s move to the fun part!"
+)
 DISPLAY_IVR_FLOWS = "Here are your IVR flows:"
 SELECT_IVR_FLOW = "Please select an IVR Call Flow:"
 SETTINGS_SAVED = "Settings saved."
-SUCCESSFULLY_ACCEPTED_TERMS_AND_CONDITIONS = "You've successfully accepted the Terms and Conditions!"
+SUCCESSFULLY_ACCEPTED_TERMS_AND_CONDITIONS = (
+    "You've successfully accepted the Terms and Conditions!"
+)
 NO_IVR_FLOW_AVAILABLE = "No IVR flow available! Please create a new IVR flow"
-SIMILAR_FLOW_NAME_EXISTS = "A flow with similar name already exists. Please enter the name again:"
+SIMILAR_FLOW_NAME_EXISTS = (
+    "A flow with similar name already exists. Please enter the name again:"
+)
 LANGUAGE_SELECTION_FOR_FLOW = "Now, please select the language for this flow:"
 MENU_SELECT = "Select from the menu provided below:"
 SUBSCRIPTION_EXPIRED = "Your subscription plan has expired!"
@@ -191,7 +228,9 @@ SUCCESSFULLY_SENT = "Successfully sent!"
 ADD_ANOTHER_NUMBER_PROMPT = "Do you want to add another number?"
 FLOW_DELETED_SUCCESSFULLY = "Flow deleted successfully! ✅"
 DELETE_FLOW_CONFIRMATION = "Are you sure you want to delete this flow?"
-ENTER_PHONE_NUMBER_PROMPT = "Please enter the phone number to call (include country code)"
+ENTER_PHONE_NUMBER_PROMPT = (
+    "Please enter the phone number to call (include country code)"
+)
 UPLOAD_TXT = "upload a file (TXT or CSV format) with up to 50 phone numbers."
 START_NODE_ID = "Start Node ID:"
 START_NODE_NAME = "Start Node Name:"
@@ -213,7 +252,9 @@ YES_OR_NO_PROMPT = "Please choose 'Yes' or 'No'."
 SELECT_NODE_TYPE = "Please Select the type of node:"
 ENTER_FLOW_NAME = "Please enter the name of flow to add node:"
 ADD_ANOTHER_OR_DONE_PROMPT = "Please choose 'Add Another Node' or 'Done'."
-REVIEW_TERMS_AND_CONDITIONS = "📜 Before proceeding, please review and accept our Terms and Conditions."
+REVIEW_TERMS_AND_CONDITIONS = (
+    "📜 Before proceeding, please review and accept our Terms and Conditions."
+)
 EDGE_ADDED = "Edge Added!"
 SOURCE_NODE = "Source Node:"
 TARGET_NODE = "Target Node:"
@@ -223,8 +264,9 @@ ACCOUNT_TAKEN = "Account is already taken! Try it with a different email address
 NO_BLOCKS = "This pathway has no blocks."
 PART1_SCAN_PAYMENT_INFO = "Please remit"
 PART2_SCAN_PAYMENT_INFO = "to"
-PART3_SCAN_PAYMENT_INFO = "Please note, crypto transactions can take up to 30 minutes to complete."
+PART3_SCAN_PAYMENT_INFO = (
+    "Please note, crypto transactions can take up to 30 minutes to complete."
+)
 PART4_SCAN_PAYMENT_INFO = "Once the transaction has been confirmed, you will be promptly notified, and your wallet will be updated."
 PART5_SCAN_PAYMENT_INFO = "Best regards,"
 PART6_SCAN_PAYMENT_INFO = "Speechcad Bot"
-

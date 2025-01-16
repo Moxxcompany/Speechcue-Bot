@@ -16,7 +16,7 @@ from TelegramBot.constants import STATUS_CODE_200, MAX_INFINITY_CONSTANT
 from payment.decorator_functions import (
     check_expiry_date,
 )
-
+from django.db.models import Q
 from translations.translations import *  # noqa
 
 from bot.models import (
@@ -60,7 +60,7 @@ from bot.views import (
     handle_transfer_call_node,
 )
 
-from payment.models import SubscriptionPlans
+from payment.models import SubscriptionPlans, DTMF_Inbox
 from payment.views import (
     setup_user,
     check_user_balance,
@@ -733,6 +733,156 @@ def handle_call_selection_variable(call):
 #     )
 #
 #     bot.send_message(user_id, f"{VIEW_TRANSCRIPT_PROMPT[lg]}", reply_markup=markup)
+
+
+# Define the function to handle DTMF_INBOX messages
+@bot.message_handler(func=lambda message: message.text in DTMF_INBOX.values())
+def handle_dtmf_inbox(message):
+    lg = get_user_language(message.chat.id)
+    user_id = message.chat.id
+    user = TelegramUser.objects.get(user_id=user_id)
+    call_numbers = (
+        DTMF_Inbox.objects.filter(user_id=user)
+        .values_list("call_number", flat=True)
+        .distinct()
+    )
+
+    if not call_numbers:
+        bot.send_message(user_id, CALL_LOGS_NOT_FOUND[lg])
+        return
+
+    # Display the list of phone numbers as an inline keyboard
+    markup = types.InlineKeyboardMarkup()
+    for number in call_numbers:
+        button_text = f"Phone Number: {number}"
+        callback_data = f"phone_{number}"
+        markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
+    markup.add(
+        types.InlineKeyboardButton(BACK[lg], callback_data="back_to_welcome_message")
+    )
+
+    bot.send_message(user_id, SELECT_PHONE_NUMBER_INBOX[lg], reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "back_dtmf_main")
+def handle_back_dtmf_main(call):
+    if call.data == "back_dtmf_main":
+        handle_dtmf_inbox(call.message)
+        return
+
+
+@bot.callback_query_handler(
+    func=lambda call: call.data.startswith("phone_") or call.data == "back_dtmf"
+)
+def handle_phone_selection(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    if user_id not in user_data:
+        user_data[user_id] = {}
+
+    if call.data == "back_dtmf":
+        phone_number = user_data[user_id]["previous_phone_number"]
+    else:
+        phone_number = call.data.split("phone_")[1]
+        user_data[user_id]["previous_phone_number"] = phone_number
+
+    pathways = Pathways.objects.filter(
+        pathway_user_id=user_id,
+        pathway_id__in=DTMF_Inbox.objects.filter(
+            call_number=phone_number, user_id=user_id
+        ).values_list("pathway_id", flat=True),
+    )
+
+    if not pathways.exists():
+        bot.send_message(user_id, PATHWAY_NOT_FOUND[lg])
+        return
+
+    markup = types.InlineKeyboardMarkup()
+    for pathway in pathways:
+        button_text = f"Pathway: {pathway.pathway_name}"
+        callback_data = f"pathway_{pathway.pathway_id}"
+        markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
+
+    # Add back button
+    markup.add(types.InlineKeyboardButton(BACK[lg], callback_data="back_dtmf_main"))
+    bot.send_message(user_id, SELECT_PATHWAY[lg], reply_markup=markup)
+
+
+@bot.callback_query_handler(
+    func=lambda call: call.data.startswith("pathway_")
+    or call.data.startswith("back_phone_")
+)
+def handle_pathway_selection(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    if call.data.startswith("back_phone_"):
+        phone_number = call.data.split("back_phone_")[1]
+        handle_phone_selection(
+            types.CallbackQuery(call.message, data=f"phone_{phone_number}")
+        )
+        return
+
+    pathway_id = call.data.split("pathway_")[1]
+    user = TelegramUser.objects.get(user_id=user_id)
+
+    # Fetch call IDs associated with the pathway ID and user ID
+    call_logs = DTMF_Inbox.objects.filter(user_id=user, pathway_id=pathway_id)
+
+    if not call_logs.exists():
+        bot.send_message(user_id, CALL_LOGS_NOT_FOUND[lg])
+        return
+
+    # Display the list of call IDs as an inline keyboard
+    markup = types.InlineKeyboardMarkup()
+    for log in call_logs:
+        button_text = f"Call ID: {log.call_id}"
+        callback_data = f"call_{log.call_id}"
+        markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
+
+    markup.add(types.InlineKeyboardButton(BACK[lg], callback_data=f"back_dtmf"))
+    bot.send_message(user_id, SELECT_CALL_ID[lg], reply_markup=markup)
+
+
+# Handle call ID selection
+@bot.callback_query_handler(
+    func=lambda call: call.data.startswith("call_")
+    or call.data.startswith("back_pathway_")
+)
+def handle_call_selection(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    if call.data.startswith("back_pathway_"):
+        pathway_id = call.data.split("back_pathway_")[1]
+        handle_pathway_selection(
+            types.CallbackQuery(call.message, data=f"pathway_{pathway_id}")
+        )
+        return
+
+    call_id = call.data.split("call_")[1]
+    user = TelegramUser.objects.get(user_id=user_id)
+
+    # Fetch the DTMF input for the selected call ID
+    call_log = DTMF_Inbox.objects.filter(user_id=user, call_id=call_id).first()
+
+    if not call_log:
+        bot.send_message(user_id, NO_DTMF_INPUT_FOUND[lg])
+        return
+
+    dtmf_input = call_log.dtmf_input
+    phone_number = call_log.call_number
+    timestamp = call_log.timestamp
+
+    # Add back button
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(BACK[lg], callback_data=f"back_dtmf"))
+
+    bot.send_message(
+        user_id,
+        f"{PHONE_NUMBER_TEXT[lg]}: {phone_number}\n"
+        f"{DTMF_INPUT_TEXT[lg]}{dtmf_input}\n"
+        f"{TIMESTAMP_TEXT[lg]}: {timestamp}",
+        reply_markup=markup,
+    )
 
 
 def handle_back_in_user_feedback(message, bot_prompt):
