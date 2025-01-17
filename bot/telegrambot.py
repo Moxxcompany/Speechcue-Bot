@@ -2383,6 +2383,7 @@ def get_batch_call_base_prompt(message):
             for line in lines
             if valid_phone_number_pattern.match(line.strip())
         ]
+        print(f"Base Prompts: {base_prompts}")
 
     elif message.content_type == "document":
         file_info = bot.get_file(message.document.file_id)
@@ -2396,6 +2397,8 @@ def get_batch_call_base_prompt(message):
                 for line in lines
                 if valid_phone_number_pattern.match(line.strip())
             ]
+            print(f"Base Prompts: {base_prompts}")
+
         except Exception as e:
             bot.send_message(
                 user_id,
@@ -2421,6 +2424,11 @@ def get_batch_call_base_prompt(message):
             reply_markup=get_main_menu_keyboard(user_id),
         )
         return
+    for number in base_prompts:
+        check_validation = validate_mobile(number)
+        if not check_validation:
+            bot.send_message(user_id, INVALID_NUMBER_PROMPT[lg])
+            return
 
     formatted_prompts = [{"phone_number": phone} for phone in base_prompts if phone]
 

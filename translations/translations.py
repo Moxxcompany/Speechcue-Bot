@@ -768,7 +768,7 @@ WALLET = {
     "Hindi": "वॉलेट",
 }
 INVALID_NUMBER_PROMPT = {
-    "English": "Invalid Number. Please enter a valid mobile number:",
+    "English": "Invalid Number. Please enter valid mobile number:",
     "Chinese": "无效的手机号码格式。请输入有效的手机号码：",
     "French": "Format de numéro de portable invalide. Veuillez entrer un numéro valide :",
     "Hindi": "अमान्य मोबाइल नंबर प्रारूप। कृपया एक वैध मोबाइल नंबर दर्ज करें:",
