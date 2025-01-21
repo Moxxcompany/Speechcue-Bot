@@ -392,3 +392,12 @@ SELECT_PHONE_NUMBER_INBOX = "एक फ़ोन नंबर चुनें:"
 PHONE_NUMBER_TEXT = "फ़ोन नंबर:"
 DTMF_INPUT_TEXT = "DTMF इनपुट:"
 TIMESTAMP_TEXT = "टाइमस्टैम्प:"
+SELECTED = " चयनित!"
+SELECT_CONDITION = "इस कनेक्शन के लिए एक शर्त चुनें:"
+CONDITION = "शर्त:"
+INPUT = "इनपुट:"
+ADDED_SUCCESSFULLY = " सफलतापूर्वक जोड़ा गया!"
+ADD_ANOTHER_CONDITION = "क्या आप इस स्रोत नोड के लिए एक और शर्त जोड़ना चाहेंगे?"
+CONDITIONS_SAVED_SUCCESSFULLY = (
+    "सभी स्थितियाँ और किनारे सफलतापूर्वक सहेजे गए! क्या आप जारी रखना चाहते हैं?"
+)

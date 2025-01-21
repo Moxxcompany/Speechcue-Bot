@@ -2217,6 +2217,7 @@ def handle_pathway_details(call):
     pathway_id = UUID(pathway_id)
     user_data[user_id] = user_data.get(user_id, {})
     user_data[user_id]["view_pathway"] = pathway_id
+    user_data[user_id]["select_pathway"] = pathway_id
     pathway = Pathways.objects.get(pathway_id=pathway_id)
     user_data[user_id]["pathway_name"] = pathway.pathway_name
     pathway, status_code = handle_view_single_flow(pathway_id)
@@ -2236,6 +2237,7 @@ def handle_pathway_details(call):
         [f"\n  {NAME[lg]}: {node['data']['name']}\n" for node in pathway["nodes"]]
     )
     user_data[user_id]["step"] = "display_flows"
+
     bot.send_message(user_id, pathway_info, reply_markup=get_flow_node_menu(user_id))
 
 
@@ -2617,37 +2619,39 @@ def handle_add_edges(message):
     if not nodes:
         bot.send_message(chat_id, NO_NODES_FOUND[lg])
         return
-    # New check: if only one node is found
     if len(nodes) == 1:
         bot.send_message(
             chat_id, ONLY_ONE_NODE_FOUND[lg], reply_markup=ivr_flow_keyboard(chat_id)
         )
         return
 
+    # Check if edges exist
     if not edges:
         if start_node:
             bot.send_message(chat_id, EDGES_LIST_EMPTY[lg])
-            markup = types.InlineKeyboardMarkup()
-            for node in nodes:
-                if node["id"] != start_node["id"]:
-                    markup.add(
-                        types.InlineKeyboardButton(
-                            f"{node['data']['name']}",
-                            callback_data=f"target_node_{node['id']}",
-                        )
-                    )
+
+            # Ask for condition options
             user_data[chat_id]["source_node_id"] = f"{start_node['id']}"
             bot.send_message(
                 chat_id,
                 f"{START_NODE_ID[lg]} {start_node['id']}\n"
-                f"{START_NODE_NAME[lg]} {start_node['data']['name']}\n"
-                f"{CONNECT_NODE[lg]}",
-                reply_markup=markup,
+                f"{START_NODE_NAME[lg]} {start_node['data']['name']}\n",
+            )
+            markup = types.InlineKeyboardMarkup()
+            for i in range(1, 10):
+                markup.add(
+                    types.InlineKeyboardButton(
+                        f"Input = {i}", callback_data=f"data_user_pressed_{i}"
+                    )
+                )
+            bot.send_message(
+                chat_id, "Select a condition for this connection:", reply_markup=markup
             )
         else:
             bot.send_message(chat_id, NO_START_NODE_FOUND[lg])
             display_flows(message)
     else:
+        # Handle case when edges exist
         markup = types.InlineKeyboardMarkup()
         for node in nodes:
             markup.add(
@@ -2663,9 +2667,47 @@ def handle_add_edges(message):
 def handle_source_node(call):
     user_id = call.message.chat.id
     lg = get_user_language(user_id)
-    nodes = user_data[call.message.chat.id]["node_info"]
+    nodes = user_data[user_id]["node_info"]
     source_node_id = call.data.split("_")[2]
     user_data[call.message.chat.id]["source_node_id"] = source_node_id
+
+    selected_node = next(node for node in nodes if node["id"] == source_node_id)
+    bot.send_message(
+        user_id,
+        f"{SOURCE_NODE[lg]} {selected_node['data']['name']} ({selected_node['id']}) {SELECTED[lg]}",
+    )
+
+    markup = types.InlineKeyboardMarkup()
+    for i in range(1, 10):
+        markup.add(
+            types.InlineKeyboardButton(
+                f"Input = {i}", callback_data=f"data_user_pressed_{i}"
+            )
+        )
+    bot.send_message(user_id, SELECT_CONDITION[lg], reply_markup=markup)
+    bot.answer_callback_query(call.id)
+
+
+def replace_underscores_with_spaces(input_string):
+    return input_string.replace("_", " ")
+
+
+@bot.callback_query_handler(
+    func=lambda call: call.data.startswith("data_user_pressed_")
+)
+def handle_condition_selection(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    condition = call.data.split("_")[-1]
+    print(f"Condition: {condition}")
+    formatted_condition = f"User pressed {condition}"
+    print(f"Formatted Condition: {formatted_condition}")
+    user_data[user_id]["selected_condition"] = formatted_condition
+
+    bot.send_message(user_id, f"Condition 'Input = {condition}' selected!")
+
+    nodes = user_data[user_id]["node_info"]
+    source_node_id = user_data[user_id]["source_node_id"]
     markup = types.InlineKeyboardMarkup()
     for node in nodes:
         if node["id"] != source_node_id:
@@ -2675,20 +2717,73 @@ def handle_source_node(call):
                     callback_data=f"target_node_{node['id']}",
                 )
             )
-    bot.send_message(user_id, SELECT_TARGET_NODE[lg], reply_markup=markup)
+    bot.send_message(user_id, f"{SELECT_TARGET_NODE}", reply_markup=markup)
     bot.answer_callback_query(call.id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("target_node_"))
 def handle_target_node(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
     target_node_id = call.data.split("_")[2]
-    chat_id = call.message.chat.id
-    lg = get_user_language(chat_id)
-    source_node_id = user_data[call.message.chat.id]["source_node_id"]
-    user_data[chat_id]["step"] = "add_label"
-    user_data[chat_id]["src"] = source_node_id
-    user_data[chat_id]["target"] = target_node_id
-    bot.send_message(chat_id, ENTER_LABEL_PROMPT[lg], reply_markup=get_force_reply())
+    nodes = user_data[user_id]["node_info"]
+    source_node_id = user_data[user_id]["source_node_id"]
+    condition = user_data[user_id]["selected_condition"]
+    user_data[user_id]["target_node_id"] = target_node_id
+    print("target node id ", target_node_id)
+
+    target_node = next(node for node in nodes if node["id"] == target_node_id)
+    source_node = next(node for node in nodes if node["id"] == source_node_id)
+    response = update_edge(user_id)
+
+    if response.status_code == 200:
+        update_edges_database(user_id, response.text)
+        edges_complete = edges_complete_options(user_id)
+        if call.message.text not in edges_complete:
+            user_data[user_id]["step"] = "error_edges_complete"
+    else:
+        bot.send_message(user_id, f"{PROCESSING_ERROR[lg]} {response}")
+
+    bot.send_message(
+        user_id,
+        f"{SOURCE_NODE[lg]} '{source_node['data']['name']} ({source_node['id']})' ->"
+        f" {CONDITION[lg]} '{INPUT[lg]} = {condition}' -> {TARGET_NODE[lg]} '{target_node['data']['name']}"
+        f" ({target_node['id']})' {ADDED_SUCCESSFULLY[lg]}",
+    )
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("Yes", callback_data="add_another_condition"),
+        types.InlineKeyboardButton("No", callback_data="save_conditions"),
+    )
+    bot.send_message(user_id, ADD_ANOTHER_CONDITION[lg], reply_markup=markup)
+    bot.answer_callback_query(call.id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "add_another_condition")
+def handle_add_another_condition(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+
+    markup = types.InlineKeyboardMarkup()
+    for i in range(1, 10):
+        markup.add(
+            types.InlineKeyboardButton(
+                f"Input = {i}", callback_data=f"data_user_pressed_{i}"
+            )
+        )
+    bot.send_message(user_id, SELECT_CONDITION[lg], reply_markup=markup)
+    bot.answer_callback_query(call.id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "save_conditions")
+def handle_save_conditions(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    bot.send_message(
+        user_id, ADD_ANOTHER_CONDITION[lg], reply_markup=edges_complete_menu(user_id)
+    )
+    bot.answer_callback_query(call.id)
 
 
 @bot.message_handler(
@@ -2701,14 +2796,15 @@ def add_label(message):
     label = message.text
     nodes = user_data[chat_id]["node_info"]
     edges = user_data[chat_id]["edge_info"]
-    source_node_id = user_data[chat_id]["src"]
+    source_node_id = user_data[chat_id]["source_node_id"]
     data = user_data[chat_id]["data"]
     pathway_id = user_data[chat_id]["select_pathway"]
-    target_node_id = user_data[chat_id]["target"]
+    target_node_id = user_data[chat_id]["target_node_id"]
+    condition = user_data[chat_id]["condition"]
 
     new_edge = {
         "id": f"reactflow__edge-{generate_random_id()}",
-        "label": f"{label}",
+        "label": f"{condition}",
         "source": f"{source_node_id}",
         "target": f"{target_node_id}",
     }
@@ -2722,13 +2818,6 @@ def add_label(message):
     }
     response = handle_add_node(pathway_id, updated_data)
     if response.status_code == 200:
-        bot.send_message(
-            chat_id,
-            f"{EDGE_ADDED[lg]}\n"
-            f"{SOURCE_NODE[lg]}{source_node_id}\n"
-            f"{TARGET_NODE[lg]}{target_node_id}",
-            reply_markup=edges_complete_menu(chat_id),
-        )
         pathway = Pathways.objects.get(pathway_id=pathway_id)
         pathway.pathway_name = data.get("name")
         pathway.pathway_description = data.get("description")
@@ -2739,6 +2828,44 @@ def add_label(message):
             user_data[chat_id]["step"] = "error_edges_complete"
     else:
         bot.send_message(chat_id, f"{PROCESSING_ERROR[lg]} {response}")
+
+
+def update_edges_database(user_id, payload):
+    data = user_data[user_id]["data"]
+    pathway_id = user_data[user_id]["select_pathway"]
+    pathway = Pathways.objects.get(pathway_id=pathway_id)
+    pathway.pathway_name = data.get("name")
+    pathway.pathway_description = data.get("description")
+    pathway.pathway_payload = payload
+    pathway.save()
+
+
+def update_edge(chat_id):
+    nodes = user_data[chat_id]["node_info"]
+    edges = user_data[chat_id]["edge_info"]
+    source_node_id = user_data[chat_id]["source_node_id"]
+    data = user_data[chat_id]["data"]
+    pathway_id = user_data[chat_id]["select_pathway"]
+    target_node_id = user_data[chat_id]["target_node_id"]
+    condition = user_data[chat_id]["selected_condition"]
+
+    new_edge = {
+        "id": f"reactflow__edge-{generate_random_id()}",
+        "label": f"{condition}",
+        "source": f"{source_node_id}",
+        "target": f"{target_node_id}",
+    }
+
+    edges.append(new_edge)
+    updated_data = {
+        "name": data.get("name"),
+        "description": data.get("description"),
+        "nodes": nodes,
+        "edges": edges,
+    }
+    response = handle_add_node(pathway_id, updated_data)
+    print(f"Response : {response.text}")
+    return response
 
 
 @bot.message_handler(

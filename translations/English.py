@@ -404,3 +404,12 @@ SELECT_PHONE_NUMBER_INBOX = "Select a phone number:"
 PHONE_NUMBER_TEXT = "Phone Number: "
 DTMF_INPUT_TEXT = "DTMF Input: "
 TIMESTAMP_TEXT = "Timestamp: "
+SELECTED = "2 selected! "
+SELECT_CONDITION = "Select a condition for this connection:"
+CONDITION = "Condition: "
+INPUT = "Input: "
+ADDED_SUCCESSFULLY = " Added successfully!"
+ADD_ANOTHER_CONDITION = "Would you like to add another condition for this source node?"
+CONDITIONS_SAVED_SUCCESSFULLY = (
+    "All conditions and edges saved successfully! Do you want to continue?"
+)
