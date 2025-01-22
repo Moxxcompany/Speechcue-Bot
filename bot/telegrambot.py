@@ -58,6 +58,7 @@ from bot.views import (
     get_variables,
     check_pathway_block,
     handle_transfer_call_node,
+    get_call_status,
 )
 
 from payment.models import SubscriptionPlans, DTMF_Inbox
@@ -2819,49 +2820,6 @@ def handle_save_conditions(call):
     bot.answer_callback_query(call.id)
 
 
-@bot.message_handler(
-    func=lambda message: "step" in user_data.get(message.chat.id, {})
-    and user_data[message.chat.id]["step"] == "add_label"
-)
-def add_label(message):
-    chat_id = message.chat.id
-    lg = get_user_language(chat_id)
-    label = message.text
-    nodes = user_data[chat_id]["node_info"]
-    edges = user_data[chat_id]["edge_info"]
-    source_node_id = user_data[chat_id]["source_node_id"]
-    data = user_data[chat_id]["data"]
-    pathway_id = user_data[chat_id]["select_pathway"]
-    target_node_id = user_data[chat_id]["target_node_id"]
-    condition = user_data[chat_id]["condition"]
-
-    new_edge = {
-        "id": f"reactflow__edge-{generate_random_id()}",
-        "label": f"{condition}",
-        "source": f"{source_node_id}",
-        "target": f"{target_node_id}",
-    }
-    edges.append(new_edge)
-    updated_data = {
-        "name": data.get("name"),
-        "description": data.get("description"),
-        "nodes": nodes,
-        "edges": edges,
-    }
-    response = handle_add_node(pathway_id, updated_data)
-    if response.status_code == 200:
-        pathway = Pathways.objects.get(pathway_id=pathway_id)
-        pathway.pathway_name = data.get("name")
-        pathway.pathway_description = data.get("description")
-        pathway.pathway_payload = response.text
-        pathway.save()
-        edges_complete = edges_complete_options(chat_id)
-        if message.text not in edges_complete:
-            user_data[chat_id]["step"] = "error_edges_complete"
-    else:
-        bot.send_message(chat_id, f"{PROCESSING_ERROR[lg]} {response}")
-
-
 def update_edges_database(user_id, payload):
     data = user_data[user_id]["data"]
     pathway_id = user_data[user_id]["select_pathway"]
@@ -3413,9 +3371,10 @@ def handle_single_ivr_call_flow(message):
 
         response, status = send_call_through_pathway(pathway_id, phone_number, user_id)
         if status == 200:
+            call_id = response["call_id"]
             bot.send_message(
                 user_id,
-                CALL_QUEUED_SUCCESSFULLY[lg],
+                f"{CALL_QUEUED_SUCCESSFULLY[lg]}\n{CALL_ID[lg]} {call_id}",
                 reply_markup=get_main_menu_keyboard(user_id),
             )
             return
@@ -3542,6 +3501,85 @@ def handle_main_menu(call):
     bot.send_message(
         user_id, MAIN_MENU_PROMPT[lg], reply_markup=get_main_menu_keyboard(user_id)
     )
+
+
+@bot.message_handler(func=lambda message: message.text in CALL_STATUS.values())
+def handle_call_status(message):
+    print("call status")
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    call_numbers = (
+        CallLogsTable.objects.filter(user_id=user_id)
+        .values_list("call_number", flat=True)
+        .distinct()
+    )
+    print(call_numbers)
+
+    if not call_numbers:
+        bot.send_message(user_id, CALL_LOGS_NOT_FOUND[lg])
+        return
+
+    markup = types.InlineKeyboardMarkup()
+    print("adding markup")
+    for number in call_numbers:
+        button_text = f"Phone: {number}"
+        markup.add(
+            types.InlineKeyboardButton(button_text, callback_data=f"status_{number}")
+        )
+    markup.add(types.InlineKeyboardButton(BACK[lg], callback_data="back_ivr_call"))
+
+    bot.send_message(user_id, SELECT_PHONE_NUMBER_INBOX[lg], reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("status_"))
+def handle_phone_selection_for_status(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    phone_number = call.data.split("_")[1]
+    user_data[user_id]["previous_number"] = phone_number
+
+    call_logs = CallLogsTable.objects.filter(user_id=user_id, call_number=phone_number)
+    markup = types.InlineKeyboardMarkup()
+    for log in call_logs:
+        button_text = f"Call ID: {log.call_id}"
+        callback_data = f"statusCallId_{log.call_id}"
+        markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
+    back_btn = types.InlineKeyboardButton(
+        BACK[lg], callback_data="back_to_handle_call_status"
+    )
+    markup.add(back_btn)
+    bot.send_message(user_id, SELECT_CALL_ID[lg], reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "back_to_handle_call_status")
+def back_to_handle_call_status(call):
+    handle_call_status(call.message)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("statusCallId_"))
+def handle_status_call(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    call_id = call.data.split("_")[1]
+    status = get_call_status(call_id)
+    phone_number = user_data[user_id]["previous_number"]
+    callback = f"status_{phone_number}"
+    markup = InlineKeyboardMarkup()
+    back_btn = types.InlineKeyboardButton(BACK[lg], callback_data=callback)
+    markup.add(back_btn)
+    match status:
+        case "new":
+            bot.send_message(user_id, CALL_INITIATED[lg], reply_markup=markup)
+        case "queued":
+            bot.send_message(user_id, CALL_PREPARING[lg], reply_markup=markup)
+        case "allocated":
+            bot.send_message(user_id, CALL_RINGING[lg], reply_markup=markup)
+        case "started":
+            bot.send_message(user_id, CALL_ONGOING[lg], reply_markup=markup)
+        case "complete":
+            bot.send_message(user_id, CALL_COMPLETED[lg], reply_markup=markup)
+        case _:
+            bot.send_message(user_id, f"{error[lg]} {status}", reply_markup=markup)
 
 
 def start_bot():

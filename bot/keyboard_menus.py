@@ -68,6 +68,7 @@ from translations.translations import (
     FEMALE,
     MALE,
     DTMF_INBOX,
+    CALL_STATUS,
 )
 
 
@@ -151,7 +152,7 @@ def ivr_flow_keyboard(user_id):
 
 def ivr_call_keyboard(user_id):
     lg = get_user_language(user_id)
-    options = [SINGLE_IVR[lg], BULK_CALL[lg], BACK_BUTTON[lg]]
+    options = [SINGLE_IVR[lg], BULK_CALL[lg], CALL_STATUS[lg], BACK_BUTTON[lg]]
     return get_reply_keyboard(options)
 
 

@@ -607,7 +607,6 @@ def send_call_through_pathway(pathway_id, phone_number, user_id):
             user_id=user_id,
             call_status="new",
         )
-        print("your call id is ", call_id)
 
         return pathway, 200
     else:
@@ -661,6 +660,13 @@ def get_call_details(call_id):
     headers = {"Authorization": f"{settings.BLAND_API_KEY}"}
     response = requests.get(endpoint, headers=headers)
     return response.json()
+
+
+def get_call_status(call_id):
+    data = get_call_details(call_id)
+    call_status = data.get("queue_status")
+    print(f"Call status for call id {call_id} : {call_status}")
+    return call_status
 
 
 def get_transcript(call_id, pathway_id):
