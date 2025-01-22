@@ -404,7 +404,7 @@ SELECT_PHONE_NUMBER_INBOX = "Select a phone number:"
 PHONE_NUMBER_TEXT = "Phone Number: "
 DTMF_INPUT_TEXT = "DTMF Input: "
 TIMESTAMP_TEXT = "Timestamp: "
-SELECTED = "2 selected! "
+SELECTED = " selected! "
 SELECT_CONDITION = "Select a condition for this connection:"
 CONDITION = "Condition: "
 INPUT = "Input: "
@@ -413,3 +413,5 @@ ADD_ANOTHER_CONDITION = "Would you like to add another condition for this source
 CONDITIONS_SAVED_SUCCESSFULLY = (
     "All conditions and edges saved successfully! Do you want to continue?"
 )
+CUSTOM_CONDITION = "Custom Condition"
+CUSTOM_CONDITION_PROMPT = "Enter your custom condition:"

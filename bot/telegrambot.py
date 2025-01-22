@@ -2676,11 +2676,38 @@ def handle_source_node(call):
     for i in range(1, 10):
         markup.add(
             types.InlineKeyboardButton(
-                f"Input = {i}", callback_data=f"data_user_pressed_{i}"
+                f"{INPUT[lg]} = {i}", callback_data=f"data_user_pressed_{i}"
             )
         )
+    custom_condition = types.InlineKeyboardButton(
+        CUSTOM_CONDITION[lg], callback_data="custom_condition"
+    )
+    markup.add(custom_condition)
     bot.send_message(user_id, SELECT_CONDITION[lg], reply_markup=markup)
     bot.answer_callback_query(call.id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "custom_condition")
+def custom_condition_prompt(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    user_data[user_id]["step"] = "custom_conditions"
+    bot.send_message(
+        user_id, CUSTOM_CONDITION_PROMPT[lg], reply_markup=get_force_reply()
+    )
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step")
+    == "custom_conditions"
+)
+def handle_custom_conditions(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    condition = message.text
+    user_data[user_id]["selected_condition"] = condition
+    bot.send_message(user_id, f"{CONDITION[lg]} '{condition}'")
+    send_target_nodes(user_id)
 
 
 def replace_underscores_with_spaces(input_string):
@@ -2702,7 +2729,11 @@ def handle_condition_selection(call):
     bot.send_message(
         user_id, f"{CONDITION[lg]} '{INPUT[lg]} = {condition}' {SELECTED[lg]}"
     )
+    send_target_nodes(user_id)
 
+
+def send_target_nodes(user_id):
+    lg = get_user_language(user_id)
     nodes = user_data[user_id]["node_info"]
     source_node_id = user_data[user_id]["source_node_id"]
     markup = types.InlineKeyboardMarkup()
@@ -2715,7 +2746,6 @@ def handle_condition_selection(call):
                 )
             )
     bot.send_message(user_id, f"{SELECT_TARGET_NODE[lg]}", reply_markup=markup)
-    bot.answer_callback_query(call.id)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("target_node_"))
@@ -2769,6 +2799,10 @@ def handle_add_another_condition(call):
                 f"Input = {i}", callback_data=f"data_user_pressed_{i}"
             )
         )
+    custom_condition = types.InlineKeyboardButton(
+        CUSTOM_CONDITION[lg], callback_data="custom_condition"
+    )
+    markup.add(custom_condition)
     bot.send_message(user_id, SELECT_CONDITION[lg], reply_markup=markup)
     bot.answer_callback_query(call.id)
 
