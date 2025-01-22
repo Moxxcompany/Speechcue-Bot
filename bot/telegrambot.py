@@ -2625,12 +2625,10 @@ def handle_add_edges(message):
         )
         return
 
-    # Check if edges exist
     if not edges:
         if start_node:
             bot.send_message(chat_id, EDGES_LIST_EMPTY[lg])
 
-            # Ask for condition options
             user_data[chat_id]["source_node_id"] = f"{start_node['id']}"
             bot.send_message(
                 chat_id,
@@ -2644,14 +2642,11 @@ def handle_add_edges(message):
                         f"Input = {i}", callback_data=f"data_user_pressed_{i}"
                     )
                 )
-            bot.send_message(
-                chat_id, "Select a condition for this connection:", reply_markup=markup
-            )
+            bot.send_message(chat_id, SELECT_CONDITION[lg], reply_markup=markup)
         else:
             bot.send_message(chat_id, NO_START_NODE_FOUND[lg])
             display_flows(message)
     else:
-        # Handle case when edges exist
         markup = types.InlineKeyboardMarkup()
         for node in nodes:
             markup.add(
@@ -2704,7 +2699,9 @@ def handle_condition_selection(call):
     print(f"Formatted Condition: {formatted_condition}")
     user_data[user_id]["selected_condition"] = formatted_condition
 
-    bot.send_message(user_id, f"Condition 'Input = {condition}' selected!")
+    bot.send_message(
+        user_id, f"{CONDITION[lg]} '{INPUT[lg]} = {condition}' {SELECTED[lg]}"
+    )
 
     nodes = user_data[user_id]["node_info"]
     source_node_id = user_data[user_id]["source_node_id"]
@@ -2717,7 +2714,7 @@ def handle_condition_selection(call):
                     callback_data=f"target_node_{node['id']}",
                 )
             )
-    bot.send_message(user_id, f"{SELECT_TARGET_NODE}", reply_markup=markup)
+    bot.send_message(user_id, f"{SELECT_TARGET_NODE[lg]}", reply_markup=markup)
     bot.answer_callback_query(call.id)
 
 
