@@ -415,3 +415,4 @@ CONDITIONS_SAVED_SUCCESSFULLY = (
 )
 CUSTOM_CONDITION = "Custom Condition"
 CUSTOM_CONDITION_PROMPT = "Enter your custom condition:"
+CONTINUE_ADDING_EDGES_PROMPT = "Do you want to continue adding edges?"

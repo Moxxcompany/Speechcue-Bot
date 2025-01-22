@@ -443,3 +443,4 @@ ADD_ANOTHER_CONDITION = "Voulez-vous ajouter une autre condition pour ce nœud s
 CONDITIONS_SAVED_SUCCESSFULLY = "Toutes les conditions et tous les bords ont été enregistrés avec succès ! Voulez-vous continuer ?"
 CUSTOM_CONDITION = "Condition Personnalisée"
 CUSTOM_CONDITION_PROMPT = "Entrez votre condition personnalisée :"
+CONTINUE_ADDING_EDGES_PROMPT = "Voulez-vous continuer à ajouter des arêtes ?"

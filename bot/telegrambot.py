@@ -2812,7 +2812,9 @@ def handle_save_conditions(call):
     user_id = call.message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(
-        user_id, ADD_ANOTHER_CONDITION[lg], reply_markup=edges_complete_menu(user_id)
+        user_id,
+        CONTINUE_ADDING_EDGES_PROMPT[lg],
+        reply_markup=edges_complete_menu(user_id),
     )
     bot.answer_callback_query(call.id)
 
@@ -2839,7 +2841,6 @@ def add_label(message):
         "source": f"{source_node_id}",
         "target": f"{target_node_id}",
     }
-
     edges.append(new_edge)
     updated_data = {
         "name": data.get("name"),

@@ -403,3 +403,4 @@ CONDITIONS_SAVED_SUCCESSFULLY = (
 )
 CUSTOM_CONDITION = "कस्टम शर्त"
 CUSTOM_CONDITION_PROMPT = "अपनी कस्टम शर्त दर्ज करें:"
+CONTINUE_ADDING_EDGES_PROMPT = "क्या आप किनारे जोड़ना जारी रखना चाहते हैं?"
