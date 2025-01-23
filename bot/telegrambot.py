@@ -698,7 +698,7 @@ def handle_call_selection_variable(call):
             return
         formatted_variables = []
         for key, value in variables.items():
-            formatted_key = key.replace("_", "\\_")
+            formatted_key = escape_markdown(key)
             formatted_variables.append(f"{formatted_key}: {value}")
         variable_message = "\n".join(formatted_variables)
 
