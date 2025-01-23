@@ -2643,6 +2643,9 @@ def handle_add_edges(message):
                         f"Input = {i}", callback_data=f"data_user_pressed_{i}"
                     )
                 )
+            custom_condition = types.InlineKeyboardButton(
+                CUSTOM_CONDITION[lg], callback_data="custom_condition"
+            )
             bot.send_message(chat_id, SELECT_CONDITION[lg], reply_markup=markup)
         else:
             bot.send_message(chat_id, NO_START_NODE_FOUND[lg])
