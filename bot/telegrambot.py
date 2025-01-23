@@ -2637,7 +2637,7 @@ def handle_add_edges(message):
                 f"{START_NODE_NAME[lg]} {start_node['data']['name']}\n",
             )
             markup = types.InlineKeyboardMarkup()
-            for i in range(1, 10):
+            for i in range(0, 10):
                 markup.add(
                     types.InlineKeyboardButton(
                         f"Input = {i}", callback_data=f"data_user_pressed_{i}"
@@ -2678,7 +2678,7 @@ def handle_source_node(call):
     )
 
     markup = types.InlineKeyboardMarkup()
-    for i in range(1, 10):
+    for i in range(0, 10):
         markup.add(
             types.InlineKeyboardButton(
                 f"{INPUT[lg]} = {i}", callback_data=f"data_user_pressed_{i}"
@@ -2798,7 +2798,7 @@ def handle_add_another_condition(call):
     lg = get_user_language(user_id)
 
     markup = types.InlineKeyboardMarkup()
-    for i in range(1, 10):
+    for i in range(0, 10):
         markup.add(
             types.InlineKeyboardButton(
                 f"Input = {i}", callback_data=f"data_user_pressed_{i}"
