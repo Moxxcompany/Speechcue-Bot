@@ -120,10 +120,10 @@ def get_user_profile(message):
     bot.send_message(
         user_id, f"{USERNAME[lg]} : {username_formated}", parse_mode="Markdownv2"
     )
-    if user.subscription_status == f"{INACTIVE}":
+    user_plan = UserSubscription.objects.get(user_id=user.user_id)
+    if user_plan.subscription_status == f"{INACTIVE[lg]}":
         bot.send_message(user_id, f"{NO_SUBSCRIPTION_PLAN[lg]}")
     else:
-        user_plan = UserSubscription.objects.get(user_id=user.user_id)
         plan_msg = (
             f"{SUBSCRIPTION_PLAN[lg]}: \n"
             f"{NAME[lg]} :{user_plan.plan_id.name}\n"
@@ -132,18 +132,18 @@ def get_user_profile(message):
         if user_plan.single_ivr_left != MAX_INFINITY_CONSTANT:
             plan_msg += f"{SINGLE_CALLS_LEFT[lg]}{user_plan.single_ivr_left}\n"
         bot.send_message(user_id, plan_msg)
-        wallet = check_user_balance(user_id)
-        balance = wallet.json()["data"]["amount"]
-        bot.send_message(
-            user_id,
-            f"{BALANCE_IN_USD[lg]}{balance}",
-            reply_markup=account_keyboard(user_id),
-        )
-        bot.send_message(
-            user_id,
-            SELECTION_PROMPT[lg],
-            reply_markup=account_keyboard(user_id),
-        )
+    wallet = check_user_balance(user_id)
+    balance = wallet.json()["data"]["amount"]
+    bot.send_message(
+        user_id,
+        f"{BALANCE_IN_USD[lg]}{balance}",
+        reply_markup=account_keyboard(user_id),
+    )
+    bot.send_message(
+        user_id,
+        SELECTION_PROMPT[lg],
+        reply_markup=account_keyboard(user_id),
+    )
 
 
 @bot.message_handler(func=lambda message: message.text == "Back 📞")
@@ -285,6 +285,14 @@ def handle_view_subscription(call):
 
     try:
         user = UserSubscription.objects.get(user_id=user_id)
+        print(user.subscription_status, "subscription status ")
+        if user.subscription_status == f"{INACTIVE[lg]}":
+            bot.send_message(
+                user_id,
+                f"{NO_SUBSCRIPTION_PLAN[lg]}",
+                reply_markup=get_billing_and_subscription_keyboard(user_id),
+            )
+            return
         plan = user.plan_id_id
         print("User Plan: ", plan)
 

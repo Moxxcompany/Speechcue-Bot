@@ -74,3 +74,12 @@ class BatchCallLogs(models.Model):
 
     def __str__(self):
         return f"Call {self.call_id} Batch Call: {self.batch_id}"
+
+
+class FrequentlyAskedQuestions(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    question = models.CharField(max_length=255)
+    answer = models.TextField()
+
+    def __str__(self):
+        return self.question
