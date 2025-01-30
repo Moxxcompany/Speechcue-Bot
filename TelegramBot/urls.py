@@ -19,6 +19,7 @@ from django.contrib import admin
 from django.urls import path
 from bot import views as bot_views
 from bot.telegrambot import crypto_transaction_webhook, payment_deposit_webhook
+from bot import webhooks as webhook_views
 from django.conf.urls.static import static
 from django.conf import settings
 
@@ -29,6 +30,11 @@ urlpatterns = [
     path(
         "webhook/crypto_transaction",
         crypto_transaction_webhook,
+        name="crypto_transaction_webhook",
+    ),
+    path(
+        "call_details",
+        webhook_views.call_details_webhook,
         name="crypto_transaction_webhook",
     ),
     path(

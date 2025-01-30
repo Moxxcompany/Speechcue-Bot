@@ -2920,6 +2920,7 @@ def handle_add_node_id(message):
 
     user_data[user_id]["add_node_id"] = int(text)
     node = user_data[user_id]["node"]
+    user_data[user_id]["dtmf"] = False
 
     if node in PLAY_MESSAGE.values():
         user_data[user_id]["message_type"] = "Play Message"
@@ -2932,6 +2933,7 @@ def handle_add_node_id(message):
 
     elif node in GET_DTMF_INPUT.values():
         user_data[user_id]["step"] = "get_dtmf_input"
+        user_data[user_id]["dtmf"] = True
         user_data[user_id]["message_type"] = "DTMF Input"
         bot.send_message(user_id, DTMF_PROMPT[lg], reply_markup=get_force_reply())
 
@@ -3077,6 +3079,7 @@ def handle_get_dtmf_input(message):
     prompt = text
     node_id = user_data[user_id]["add_node_id"]
     message_type = user_data[user_id]["message_type"]
+    dtmf = user_data[user_id]["dtmf"]
 
     if message_type == "Transfer Call":
         if not validate_mobile(text):
@@ -3087,7 +3090,7 @@ def handle_get_dtmf_input(message):
             pathway_id, node_id, prompt, node_name, message
         )
     else:
-        response = handle_dtmf_input_node(pathway_id, node_id, prompt, node_name)
+        response = handle_dtmf_input_node(pathway_id, node_id, prompt, node_name, dtmf)
 
     if response.status_code == 200:
         bot.send_message(
@@ -3379,8 +3382,9 @@ def handle_single_ivr_call_flow(message):
     user_data[user_id]["initiate_call"] = text
     pathway_id = user_data[user_id]["call_flow"]
     phone_number = text
-    if validate_mobile(phone_number):
+    dtmf = Pathways.objects.get(pathway_id=pathway_id).dtmf
 
+    if validate_mobile(phone_number):
         response, status = send_call_through_pathway(pathway_id, phone_number, user_id)
         if status == 200:
             call_id = response["call_id"]
@@ -3389,6 +3393,14 @@ def handle_single_ivr_call_flow(message):
                 f"{CALL_QUEUED_SUCCESSFULLY[lg]}\n{CALL_ID[lg]} {call_id}",
                 reply_markup=get_main_menu_keyboard(user_id),
             )
+            if dtmf:
+                user = TelegramUser.objects.get(user_id=user_id)
+                DTMF_Inbox.objects.create(
+                    user_id=user,
+                    call_id=call_id,
+                    call_number=phone_number,
+                    pathway_id=pathway_id,
+                )
             return
         bot.send_message(user_id, f"{PROCESSING_ERROR[lg]} {response}")
     else:

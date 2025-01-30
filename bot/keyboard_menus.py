@@ -76,8 +76,7 @@ def filter_voices_by_gender(voice_data):
     voices = voice_data.get("voices", [])
     male_voices = categorize_voices_by_description(voices, "Male")
     female_voices = categorize_voices_by_description(voices, "Female")
-    print("male_voices: ", male_voices)
-    print("female_voices: ", female_voices)
+
     return male_voices, female_voices
 
 

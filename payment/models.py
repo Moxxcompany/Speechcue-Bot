@@ -154,7 +154,7 @@ class DTMF_Inbox(models.Model):
     call_number = models.TextField()
     pathway_id = models.TextField(null=True)
     timestamp = models.DateTimeField(null=True, blank=True)
-    dtmf_input = models.TextField()
+    dtmf_input = models.TextField(null=True, blank=True)
     user_id = models.ForeignKey(
         TelegramUser, on_delete=models.CASCADE, related_name="dtmf_inbox"
     )

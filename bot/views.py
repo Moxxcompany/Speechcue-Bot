@@ -19,7 +19,9 @@ from payment.models import (
     UserSubscription,
     SubscriptionPlans,
     ManageFreePlanSingleIVRCall,
+    DTMF_Inbox,
 )
+from translations.English import DTMF_INBOX
 from user.models import TelegramUser
 
 logging.basicConfig(
@@ -241,7 +243,7 @@ def handle_menu_node(
 
 
 def handle_dtmf_input_node(
-    pathway_id: int, node_id: int, prompt, node_name
+    pathway_id: int, node_id: int, prompt, node_name, dtmf
 ) -> requests.Response:
     pathway = Pathways.objects.get(pathway_id=pathway_id)
 
@@ -279,6 +281,7 @@ def handle_dtmf_input_node(
 
     if response.status_code == 200:
         pathway.pathway_payload = response.text
+        pathway.dtmf = dtmf
         pathway.save()
 
     return response
@@ -570,6 +573,7 @@ def send_call_through_pathway(pathway_id, phone_number, user_id):
     payload = {
         "phone_number": f"{phone_number}",
         "pathway_id": f"{pathway_id}",
+        "webhook": "https://7b8d-169-150-218-40.ngrok-free.app/call_details",
     }
 
     headers = {
@@ -886,3 +890,25 @@ def check_pathway_block(pathway_id):
         # Log the error or handle it as needed
         print("Error retrieving pathway:", pathway_data)
         return False
+
+
+# @csrf_exempt
+# def get_dtmf_input_from_webhook(request):
+#     if request.method == "POST":
+#         data = json.loads(request.body)
+#         user_dtmf_input = data.get("user_dtmf_input")
+#
+#         try:
+#             account = DTMF_Inbox.objects.get(account_number=account_number)
+#             return JsonResponse({
+#                 "status": "success",
+#                 "message": "Account number verified.",
+#                 "age": account.age
+#             })
+#         except Account.DoesNotExist:
+#             return JsonResponse({
+#                 "status": "failed",
+#                 "message": "Invalid account number."
+#             })
+#
+#     return JsonResponse({"message": "Invalid request method."})

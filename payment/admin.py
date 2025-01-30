@@ -11,7 +11,14 @@ from payment.models import (
     UserTransactionLogs,
     TransactionType,
     PricingUnits,
+    DTMF_Inbox,
 )
+
+
+@admin.register(DTMF_Inbox)
+class DTMFInboxAdmin(admin.ModelAdmin):
+    list_display = ("user_id_id", "call_id", "call_number", "dtmf_input", "timestamp")
+    list_filter = ("timestamp", "user_id_id", "call_number")
 
 
 @admin.register(SubscriptionPlans)

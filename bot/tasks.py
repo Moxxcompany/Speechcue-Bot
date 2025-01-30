@@ -496,26 +496,15 @@ def check_subscription_status():
 
 
 def update_dtmf_inbox(call_details):
-    """
-    Updates the DTMF_Inbox table with extracted call details.
-
-    Args:
-        call_details (dict): Extracted details including call_id, call_number, pathway_id, timestamp, and dtmf_input.
-    """
     try:
-        print(f"Updating DTMF inbox for call ID: {call_details['call_id']}")
-        user = TelegramUser.objects.get(user_id=call_details["user_id"])
+        call_id = call_details["call_id"]
+        print(f"Updating DTMF inbox for call ID: {call_id}")
+        call_record = DTMF_Inbox.objects.get(call_id=call_id)
+        user = TelegramUser.objects.get(user_id=call_record.user_id_id)
         print(f"User found: {user}")
-        DTMF_Inbox.objects.update_or_create(
-            call_id=call_details["call_id"],
-            defaults={
-                "call_number": call_details["phone_number"],
-                "pathway_id": call_details["pathway_id"],
-                "timestamp": call_details["timestamp"],
-                "dtmf_input": call_details["dtmf_input"],
-                "user_id": user,
-            },
-        )
+        call_record.timestamp = call_details["timestamp"]
+        call_record.dtmf_input = call_details["dtmf_input"]
+        call_record.save()
         print(f"Successfully updated DTMF inbox for call ID: {call_details['call_id']}")
     except TelegramUser.DoesNotExist:
         print(f"User with ID {call_details['user_id']} does not exist.")

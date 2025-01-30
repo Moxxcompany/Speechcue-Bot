@@ -16,32 +16,14 @@ user_data = {}
 
 def clear_bot_commands(bot):
     bot.set_my_commands([])
-    print("Old commands cleared!")
-
-
-clear_bot_commands(bot)
 
 
 def set_bot_commands(bot):
-    bot.delete_my_commands(
-        scope=BotCommandScopeDefault()
-    )  # Clear global commands explicitly
-    print("Global commands cleared!")
+    bot.delete_my_commands(scope=BotCommandScopeDefault())
 
     commands = [BotCommand("start", "Main Menu 🗒"), BotCommand("support", "Support 👤")]
-    bot.set_my_commands(commands, scope=BotCommandScopeDefault())  # Set global commands
-    print("Global commands updated!")
+    bot.set_my_commands(commands, scope=BotCommandScopeDefault())
 
 
+clear_bot_commands(bot)
 set_bot_commands(bot)
-
-
-def get_bot_commands(bot):
-    commands = bot.get_my_commands()
-
-    print("Currently set commands:")
-    for command in commands:
-        print(f"/{command.command}: {command.description}")
-
-
-get_bot_commands(bot)

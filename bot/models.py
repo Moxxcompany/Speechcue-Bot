@@ -10,6 +10,11 @@ class Pathways(models.Model):
     pathway_user_id = models.BigIntegerField()
     pathway_description = models.TextField(null=True)
     pathway_payload = models.TextField(null=True)
+    dtmf = models.BooleanField(default=False)
+    transcript = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.pathway_name
 
 
 class CallLogsTable(models.Model):
@@ -83,3 +88,12 @@ class FrequentlyAskedQuestions(models.Model):
 
     def __str__(self):
         return self.question
+
+
+class Tasks(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    task = models.TextField(blank=True, null=True)
+    transcript = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.task
