@@ -1,12 +1,11 @@
-import importlib
 import json
-
+from datetime import date
 from translations.translations import *
 from django.core.exceptions import ObjectDoesNotExist
 
 from TelegramBot import settings
 from TelegramBot.crypto_cache import *
-from bot.models import CallLogsTable, CallDuration, BatchCallLogs
+from bot.models import CallLogsTable
 from TelegramBot.constants import BTC, ETH, LTC, STATUS_CODE_200, ACTIVE
 from payment.models import SubscriptionPlans, UserSubscription
 from user.models import TelegramUser
@@ -517,3 +516,9 @@ def get_user_language(user_id):
 
 def reset_user_language(user_id):
     redis_client.delete(f"user_language:{user_id}")
+
+
+def get_subscription_day(user_subscription):
+    if user_subscription.date_of_subscription:
+        return (date.today() - user_subscription.date_of_subscription).days + 1
+    return None

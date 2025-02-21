@@ -9,14 +9,20 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from phonenumbers import geocoder
 from calendar import isleap
-from datetime import datetime
+from datetime import datetime, timedelta
 import phonenumbers
+from timezonefinder import TimezoneFinder
+
 import bot.bot_config
 from TelegramBot.constants import STATUS_CODE_200, MAX_INFINITY_CONSTANT
+from bot.tasks import execute_bulk_ivr, send_reminder, cancel_scheduled_call
 from payment.decorator_functions import (
     check_expiry_date,
 )
-from django.db.models import Q
+import pytz
+from geopy.geocoders import Nominatim
+
+
 from translations.translations import *  # noqa
 
 from bot.models import (
@@ -25,6 +31,10 @@ from bot.models import (
     FeedbackLogs,
     CallLogsTable,
     CallDuration,
+    AI_Assisted_Tasks,
+    CallerIds,
+    CampaignLogs,
+    ScheduledCalls,
 )
 
 from bot.utils import (
@@ -39,6 +49,7 @@ from bot.utils import (
     get_plan_price,
     get_user_language,
     reset_user_language,
+    get_subscription_day,
 )
 
 from bot.views import (
@@ -59,6 +70,7 @@ from bot.views import (
     check_pathway_block,
     handle_transfer_call_node,
     get_call_status,
+    send_task_through_call,
 )
 
 from payment.models import SubscriptionPlans, DTMF_Inbox
@@ -153,7 +165,7 @@ def handle_back_ivr_flow(message):
     bot.send_message(
         user_id,
         FLOW_OPERATIONS_SELECTION_PROMPT[lg],
-        reply_markup=ivr_flow_keyboard(user_id),
+        reply_markup=advanced_user_flow_keyboard(user_id),
     )
 
 
@@ -190,35 +202,6 @@ def back_support(message):
 @bot.message_handler(commands=["help"])
 def show_available_commands(message):
     handle_help(message)
-
-
-@bot.message_handler(func=lambda message: message.text in BULK_CALL.values())
-def trigger_bulk_ivr_call(message):
-    user_id = message.chat.id
-    lg = get_user_language(user_id)
-    user = TelegramUser.objects.get(user_id=user_id)
-    subscription = UserSubscription.objects.get(user_id=user)
-    if subscription.subscription_status == "active":
-        additional_minutes_records = CallDuration.objects.filter(
-            user_id=user_id, additional_minutes__gt=0
-        )
-        if additional_minutes_records.exists():
-            unpaid_minutes_records = additional_minutes_records.filter(charged=False)
-            if unpaid_minutes_records.exists():
-                bot.send_message(
-                    user_id,
-                    f"{UNPAID_MINUTES_PROMPT[lg]}",
-                    reply_markup=get_main_menu_keyboard(user_id),
-                )
-                return
-        user_data[user_id] = {"step": "get_batch_numbers"}
-        view_flows(message)
-    else:
-        bot.send_message(
-            user_id,
-            f"{BULK_IVR_SUBSCRIPTION_PROMPT[lg]}",
-            reply_markup=get_subscription_activation_markup(user_id),
-        )
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "help")
@@ -414,30 +397,30 @@ def trigger_text_to_speech(message):
     handle_get_node_type(message)
 
 
-@bot.message_handler(func=lambda message: message.text in SINGLE_IVR.values())
-def trigger_single_ivr_call(message):
-    """
-    Handles the 'Single IVR Call ☎️' menu option to initiate an IVR call.
-
-    Args:
-       message: The message object from the user.
-    """
-    user_id = message.chat.id
-    user = TelegramUser.objects.get(user_id=user_id)
-    subscription = UserSubscription.objects.get(user_id=user)
-    lg = get_user_language(user_id)
-    print(f"in single ivr trigger with user id : {user_id}")
-    if subscription.subscription_status == "active":
-        bot.send_message(user_id, SUBSCRIPTION_VERIFIED[lg])
-        user_data[user_id] = {"step": "phone_number_input"}
-        view_flows(message)
-
-    else:
-        bot.send_message(
-            user_id,
-            f"{ACTIVATE_SUBSCRIPTION[lg]}",
-            reply_markup=get_subscription_activation_markup(user_id),
-        )
+# @bot.message_handler(func=lambda message: message.text in SINGLE_IVR.values())
+# def trigger_single_ivr_call(message):
+#     """
+#     Handles the 'Single IVR Call ☎️' menu option to initiate an IVR call.
+#
+#     Args:
+#        message: The message object from the user.
+#     """
+#     user_id = message.chat.id
+#     user = TelegramUser.objects.get(user_id=user_id)
+#     subscription = UserSubscription.objects.get(user_id=user)
+#     lg = get_user_language(user_id)
+#     print(f"in single ivr trigger with user id : {user_id}")
+#     if subscription.subscription_status == "active":
+#         bot.send_message(user_id, SUBSCRIPTION_VERIFIED[lg])
+#         user_data[user_id] = {"step": "phone_number_input"}
+#         view_flows(message)
+#
+#     else:
+#         bot.send_message(
+#             user_id,
+#             f"{ACTIVATE_SUBSCRIPTION[lg]}",
+#             reply_markup=get_subscription_activation_markup(user_id),
+#         )
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "trigger_single_flow")
@@ -812,7 +795,6 @@ def handle_phone_selection(call):
         callback_data = f"pathway_{pathway.pathway_id}"
         markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
 
-    # Add back button
     markup.add(types.InlineKeyboardButton(BACK[lg], callback_data="back_dtmf_main"))
     bot.send_message(user_id, SELECT_PATHWAY[lg], reply_markup=markup)
 
@@ -870,7 +852,6 @@ def handle_call_selection(call):
     call_id = call.data.split("call_")[1]
     user = TelegramUser.objects.get(user_id=user_id)
 
-    # Fetch the DTMF input for the selected call ID
     call_log = DTMF_Inbox.objects.filter(user_id=user, call_id=call_id).first()
 
     if not call_log:
@@ -1154,11 +1135,15 @@ def handle_call_selection(call):
         )
 
 
-@bot.message_handler(func=lambda message: message.text in CREATE_IVR_FLOW.values())
+@bot.message_handler(
+    func=lambda message: message.text in CREATE_IVR_FLOW.values()
+    or message.text in ADVANCED_USER_FLOW.values()
+)
 def trigger_create_flow(message):
     """
     Handle 'Create IVR Flow ➕' menu option.
     """
+
     create_flow(message)
 
 
@@ -1384,13 +1369,42 @@ def display_main_menu(message):
 
 
 @bot.message_handler(func=lambda message: message.text in IVR_FLOW.values())
-def display_ivr_flow_menu(message):
+def display_ivr_flow_types(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    bot.send_message(
+        user_id, CHOOSE_IVR_FLOW_TYPE[lg], reply_markup=ivr_flow_keyboard(user_id)
+    )
+
+
+@bot.message_handler(
+    func=lambda message: message.text in AI_ASSISTED_FLOW_KEYBOARD.values()
+)
+def display_ai_assisted_flows(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
     bot.send_message(
         user_id,
         FLOW_OPERATIONS_SELECTION_PROMPT[lg],
-        reply_markup=ivr_flow_keyboard(user_id),
+        reply_markup=ai_assisted_user_flow_keyboard(user_id),
+    )
+
+
+@bot.message_handler(func=lambda message: message.text in CREATE_IVR_FLOW_AI.values())
+def display_create_ivr_flows_ai(message):
+    user_id = message.chat.id
+
+
+@bot.message_handler(
+    func=lambda message: message.text in ADVANCED_USER_FLOW_KEYBOARD.values()
+)
+def display_advanced_flow_keyboard(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    bot.send_message(
+        user_id,
+        FLOW_OPERATIONS_SELECTION_PROMPT[lg],
+        reply_markup=advanced_user_flow_keyboard(user_id),
     )
 
 
@@ -1398,6 +1412,9 @@ def display_ivr_flow_menu(message):
 def display_ivr_calls_menu(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
+    if user_id in user_data:
+        user_data[user_id]["step"] = ""
+
     bot.send_message(
         user_id, IVR_CALL_SELECTION_PROMPT[lg], reply_markup=ivr_call_keyboard(user_id)
     )
@@ -2145,6 +2162,7 @@ def add_node(message):
 @bot.message_handler(commands=["view_flows"])
 def display_flows(message):
     """
+
     Handle '/view_flows' command to retrieve all pathways.
     """
     user_id = message.chat.id
@@ -2154,7 +2172,7 @@ def display_flows(message):
         bot.send_message(
             user_id,
             f"{PROCESSING_ERROR[lg]} {pathways.get('error')}",
-            reply_markup=ivr_flow_keyboard(user_id),
+            reply_markup=advanced_user_flow_keyboard(user_id),
         )
         return
 
@@ -2183,7 +2201,7 @@ def trigger_back_ivr_flow(call):
     bot.send_message(
         user_id,
         FLOW_OPERATIONS_SELECTION_PROMPT[lg],
-        reply_markup=ivr_flow_keyboard(user_id),
+        reply_markup=advanced_user_flow_keyboard(user_id),
     )
 
 
@@ -2235,7 +2253,7 @@ def handle_pathway_details(call):
         bot.send_message(
             user_id,
             f"{PROCESSING_ERROR[lg]} {pathway.get('error')}",
-            reply_markup=ivr_flow_keyboard(user_id),
+            reply_markup=advanced_user_flow_keyboard(user_id),
         )
         return
 
@@ -2250,7 +2268,7 @@ def handle_pathway_details(call):
     bot.send_message(user_id, pathway_info, reply_markup=get_flow_node_menu(user_id))
 
 
-@bot.message_handler(commands=["list_flows"])
+@bot.message_handler(func=lambda message: message.text in CUSTOM_MADE_TASKS.values())
 def view_flows(message):
     """
     Handle '/list_flows' command to retrieve all pathways.
@@ -2258,14 +2276,31 @@ def view_flows(message):
     """
     user_id = message.chat.id
     lg = get_user_language(user_id)
+    call_type = user_data[user_id]["call_type"]
+    if call_type == "bulk_ivr":
+        additional_minutes_records = CallDuration.objects.filter(
+            user_id=user_id, additional_minutes__gt=0
+        )
+        if additional_minutes_records.exists():
+            unpaid_minutes_records = additional_minutes_records.filter(charged=False)
+            if unpaid_minutes_records.exists():
+                bot.send_message(
+                    user_id,
+                    f"{UNPAID_MINUTES_PROMPT[lg]}",
+                    reply_markup=ivr_call_keyboard(user_id),
+                )
+                return
+
     pathways, status_code = handle_view_flows()
     if status_code != 200:
         bot.send_message(
             user_id,
             f"{PROCESSING_ERROR[lg]} {pathways.get('error')}",
-            reply_markup=ivr_flow_keyboard(user_id),
+            reply_markup=advanced_user_flow_keyboard(user_id),
         )
         return
+    if user_id not in user_data:
+        user_data[user_id] = {}
     step = user_data[user_id]["step"]
 
     current_users_pathways = Pathways.objects.filter(pathway_user_id=message.chat.id)
@@ -2375,94 +2410,6 @@ def handle_show_error_node_type(message):
 
 @bot.message_handler(
     func=lambda message: user_data.get(message.chat.id, {}).get("step")
-    == "get_batch_numbers",
-    content_types=["text", "document"],
-)
-def get_batch_call_base_prompt(message):
-    user_id = message.chat.id
-    lg = get_user_language(user_id)
-    pathway_id = user_data[user_id]["call_flow_bulk"]
-    subscription_details = UserSubscription.objects.get(user_id=user_id)
-    max_contacts = 50
-    valid_phone_number_pattern = re.compile(r"^[\d\+\-\(\)\s]+$")
-    base_prompts = []
-
-    if message.content_type == "text":
-        lines = message.text.split("\n")
-        base_prompts = [
-            line.strip()
-            for line in lines
-            if valid_phone_number_pattern.match(line.strip())
-        ]
-        print(f"Base Prompts: {base_prompts}")
-
-    elif message.content_type == "document":
-        file_info = bot.get_file(message.document.file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        file_stream = io.BytesIO(downloaded_file)
-        try:
-            content = file_stream.read().decode("utf-8")
-            lines = content.split("\n")
-            base_prompts = [
-                line.strip()
-                for line in lines
-                if valid_phone_number_pattern.match(line.strip())
-            ]
-            print(f"Base Prompts: {base_prompts}")
-
-        except Exception as e:
-            bot.send_message(
-                user_id,
-                f"{PROCESSING_ERROR[lg]} {str(e)}",
-                reply_markup=get_main_menu_keyboard(user_id),
-            )
-
-            return
-    calls_sent = len(base_prompts)
-
-    if calls_sent > max_contacts:
-        bot.send_message(
-            user_id,
-            f"{max_contacts}{REDUCE_NUMBER_OF_CONTACTS[lg]}"
-            f"{ALLOWED_CONTACTS_PROMPT[lg]}",
-            reply_markup=get_main_menu_keyboard(user_id),
-        )
-        return
-    if calls_sent == 0:
-        bot.send_message(
-            user_id,
-            SUBSCRIPTION_EXPIRED[lg],
-            reply_markup=get_main_menu_keyboard(user_id),
-        )
-        return
-    for number in base_prompts:
-        check_validation = validate_mobile(number)
-        if not check_validation:
-            bot.send_message(user_id, INVALID_NUMBER_PROMPT[lg])
-            return
-
-    formatted_prompts = [{"phone_number": phone} for phone in base_prompts if phone]
-
-    user_data[user_id]["base_prompts"] = formatted_prompts
-    user_data[user_id]["step"] = "batch_numbers"
-
-    response = bulk_ivr_flow(formatted_prompts, pathway_id, user_id)
-
-    if response.status_code == 200:
-        bot.send_message(
-            user_id, SUCCESSFULLY_SENT[lg], reply_markup=get_main_menu_keyboard(user_id)
-        )
-
-    else:
-        bot.send_message(
-            user_id,
-            f"{PROCESSING_ERROR[lg]} {response.text}",
-            reply_markup=get_main_menu_keyboard(user_id),
-        )
-
-
-@bot.message_handler(
-    func=lambda message: user_data.get(message.chat.id, {}).get("step")
     == "batch_numbers"
 )
 def get_batch_call_numbers(message):
@@ -2489,7 +2436,7 @@ def handle_get_pathway(message):
         bot.send_message(
             user_id,
             f"{PROCESSING_ERROR[lg]} {response}!",
-            reply_markup=ivr_flow_keyboard(user_id),
+            reply_markup=advanced_user_flow_keyboard(user_id),
         )
 
 
@@ -2554,7 +2501,8 @@ def handle_pathway_selection(call):
     elif step == "phone_number_input":
         print("phone numbers ")
         user_data[user_id]["call_flow"] = pathway_id
-        user_data[user_id]["step"] = "initiate_call"
+        user_data[user_id]["pathway_id"] = pathway_id
+        # user_data[user_id]["step"] = "initiate_call"
         check, status_code = node_authorization_check(user_id, pathway_id)
         if not check:
             if status_code != 200:
@@ -2569,15 +2517,16 @@ def handle_pathway_selection(call):
                     f"{UNAUTHORIZED_NODE_ACCESS[lg]}",
                     reply_markup=ivr_call_keyboard(user_id),
                 )
-            trigger_single_ivr_call(call.message)
             return
-
-        msg = f"{ENTER_PHONE_NUMBER_PROMPT[lg]}:"
-        bot.send_message(user_id, msg)
+        user_data[user_id]["step"] = "get_single_call_recipient"
+        bot.send_message(
+            user_id, SINGLE_IVR_RECIPIENT_PROMPT[lg], reply_markup=get_force_reply()
+        )
 
     elif step == "get_batch_numbers":
         print("get batch numbers")
         user_data[user_id]["call_flow_bulk"] = pathway_id
+        user_data[user_id]["pathway_id"] = pathway_id
         check, status_code = node_authorization_check(user_id, pathway_id)
         if not check:
             if status_code != 200:
@@ -2592,11 +2541,12 @@ def handle_pathway_selection(call):
                     f"{UNAUTHORIZED_NODE_ACCESS[lg]}",
                     reply_markup=ivr_call_keyboard(user_id),
                 )
-            trigger_bulk_ivr_call(call.message)
+            handle_bulk_ivr_flow_call(call.message)
             return
-
-        msg = f"{ENTER_PHONE_NUMBER_PROMPT[lg]} {OR[lg]} " f"{UPLOAD_TXT[lg]}"
-        bot.send_message(user_id, msg)
+        user_data[user_id]["step"] = "campaign_name"
+        bot.send_message(
+            user_id, CAMPAIGN_NAME_PROMPT[lg], reply_markup=get_force_reply()
+        )
 
 
 @bot.message_handler(
@@ -2630,7 +2580,9 @@ def handle_add_edges(message):
         return
     if len(nodes) == 1:
         bot.send_message(
-            chat_id, ONLY_ONE_NODE_FOUND[lg], reply_markup=ivr_flow_keyboard(chat_id)
+            chat_id,
+            ONLY_ONE_NODE_FOUND[lg],
+            reply_markup=advanced_user_flow_keyboard(chat_id),
         )
         return
 
@@ -3347,7 +3299,9 @@ def handle_add_or_done(message):
 
     elif text in DONE.values():
         bot.send_message(
-            user_id, FINISHED_ADDING_NODES[lg], reply_markup=ivr_flow_keyboard(user_id)
+            user_id,
+            FINISHED_ADDING_NODES[lg],
+            reply_markup=advanced_user_flow_keyboard(user_id),
         )
     else:
         bot.send_message(
@@ -3604,6 +3558,1035 @@ def handle_status_call(call):
             bot.send_message(user_id, CALL_COMPLETED[lg], reply_markup=markup)
         case _:
             bot.send_message(user_id, f"{error[lg]} {status}", reply_markup=markup)
+
+
+@bot.message_handler(func=lambda message: message.text in AI_ASSISTED_FLOW.values())
+def initiate_ai_assisted_flow(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]["step"] = "get_task_name"
+    bot.send_message(user_id, ASK_TASK_NAME[lg], reply_markup=get_force_reply())
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step")
+    == "get_task_name"
+)
+def get_task_description(message):
+    user_id = message.chat.id
+    task_name = message.text
+    if AI_Assisted_Tasks.objects.filter(task_name=task_name).exists():
+        bot.send_message(user_id, "Task with a similar name exists! Try a new one!")
+        return
+    user_data[user_id]["task_name"] = task_name
+    user_data[user_id]["step"] = "task_description"
+    lg = get_user_language(user_id)
+    bot.send_message(user_id, ASK_TASK_DESCRIPTION[lg], reply_markup=get_force_reply())
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step")
+    == "task_description"
+)
+def task_creation(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    task_description = message.text
+    task_name = user_data[user_id]["task_name"]
+    try:
+        AI_Assisted_Tasks.objects.create(
+            user_id=user_id,
+            task_name=task_name,
+            task_description=task_description,
+        )
+        bot.send_message(
+            user_id, TASK_CREATED[lg], reply_markup=advanced_user_flow_keyboard(user_id)
+        )
+        user_data[user_id]["step"] = ""
+        return
+    except Exception as error:
+        bot.send_message(
+            user_id,
+            PROCESSING_ERROR_MESSAGE[lg],
+            reply_markup=advanced_user_flow_keyboard(user_id),
+        )
+
+
+@bot.message_handler(func=lambda message: message.text in AI_MADE_TASKS.values())
+def view_ai_assisted_tasks(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    tasks = AI_Assisted_Tasks.objects.filter(user_id=user_id).values_list(
+        "task_name", flat=True
+    )
+    markup = types.InlineKeyboardMarkup()
+    for task in tasks:
+        markup.add(types.InlineKeyboardButton(task, callback_data=f"viewtask_{task}"))
+
+    bot.send_message(user_id, DISPLAY_IVR_FLOWS[lg], reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("viewtask_"))
+def handle_call_back_view_task(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    task_name = call.data.split("_")[1]
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    task = AI_Assisted_Tasks.objects.get(
+        user_id=user_id, task_name=task_name
+    ).task_description
+    user_data[user_id]["task"] = task
+    call_type = user_data[user_id]["call_type"]
+    if call_type == "single_ivr":
+        user_data[user_id]["step"] = "get_single_call_recipient"
+        bot.send_message(
+            user_id, SINGLE_IVR_RECIPIENT_PROMPT[lg], reply_markup=get_force_reply()
+        )
+
+    else:
+        user_data[user_id]["step"] = "campaign_name"
+        bot.send_message(
+            user_id, CAMPAIGN_NAME_PROMPT[lg], reply_markup=get_force_reply()
+        )
+
+    return
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step")
+    == "campaign_name"
+)
+def get_campaign_name(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    user = TelegramUser.objects.get(user_id=user_id)
+    user_data[user_id]["campaign_name"] = message.text
+    campaign = CampaignLogs.objects.create(
+        user_id=user,
+        campaign_name=user_data[user_id]["campaign_name"],
+        start_date=datetime.now(),
+    )
+    user_data[user_id]["campaign_id"] = campaign.campaign_id
+    user_data[user_id]["step"] = "get_bulk_call_recipient"
+    bot.send_message(
+        user_id, BULK_IVR_RECIPIENT_PROMPT[lg], reply_markup=get_force_reply()
+    )
+
+
+def send_caller_id_selection_prompt(user_id):
+    lg = get_user_language(user_id)
+    markup = types.InlineKeyboardMarkup()
+    random_caller_id_btn = types.InlineKeyboardButton(
+        RANDOM_CALLER_ID[lg], callback_data="callerid_random"
+    )
+    markup.add(random_caller_id_btn)
+
+    caller_ids = CallerIds.objects.all().values_list("caller_id", flat=True)
+
+    if caller_ids:
+        for caller_id in caller_ids:
+            markup.add(
+                types.InlineKeyboardButton(
+                    caller_id, callback_data=f"callerid_{caller_id}"
+                )
+            )
+    markup.add(types.InlineKeyboardButton(BUY_NUMBER[lg], callback_data="buy_number"))
+
+    bot.send_message(user_id, CALLER_ID_SELECTION_PROMPT[lg], reply_markup=markup)
+
+
+def get_summary_details():
+    pass
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step")
+    == "get_bulk_call_recipient",
+    content_types=["text", "document"],
+)
+def get_bulk_call_recipient(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    max_contacts = 50
+    valid_phone_number_pattern = re.compile(r"^[\d\+\-\(\)\s]+$")
+    base_prompts = []
+
+    if message.content_type == "text":
+        lines = message.text.split("\n")
+        base_prompts = [
+            line.strip()
+            for line in lines
+            if valid_phone_number_pattern.match(line.strip())
+        ]
+        print(f"Base Prompts: {base_prompts}")
+
+    elif message.content_type == "document":
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        file_stream = io.BytesIO(downloaded_file)
+        try:
+            content = file_stream.read().decode("utf-8")
+            lines = content.split("\n")
+            base_prompts = [
+                line.strip()
+                for line in lines
+                if valid_phone_number_pattern.match(line.strip())
+            ]
+            print(f"Base Prompts: {base_prompts}")
+
+        except Exception as e:
+            bot.send_message(
+                user_id,
+                f"{PROCESSING_ERROR[lg]} {str(e)}",
+                reply_markup=get_main_menu_keyboard(user_id),
+            )
+
+            return
+    calls_sent = len(base_prompts)
+
+    if calls_sent > max_contacts:
+        bot.send_message(
+            user_id,
+            f"{max_contacts}{REDUCE_NUMBER_OF_CONTACTS[lg]}"
+            f"{ALLOWED_CONTACTS_PROMPT[lg]}",
+            reply_markup=get_main_menu_keyboard(user_id),
+        )
+        return
+    user_data[user_id]["call_count"] = calls_sent
+    for number in base_prompts:
+        check_validation = validate_mobile(number)
+        if not check_validation:
+            bot.send_message(user_id, INVALID_NUMBER_PROMPT[lg])
+            return
+
+    formatted_prompts = [{"phone_number": phone} for phone in base_prompts if phone]
+    print(formatted_prompts)
+    user_data[user_id]["base_prompts"] = formatted_prompts
+    user_data[user_id]["phone_number"] = formatted_prompts
+    user_data[user_id]["step"] = ""
+
+    send_caller_id_selection_prompt(user_id)
+    return
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step")
+    == "get_single_call_recipient"
+)
+def get_recipient_single_ivr(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    phone_number = message.text
+    if not validate_mobile(phone_number):
+        bot.send_message(
+            user_id,
+            "☎️ Please enter recipient’s phone number in the right format"
+            " (e.g., +14155552671). ",
+        )
+        return
+    user_data[user_id]["step"] = ""
+    if check_user_data(user_data, user_id) == "task":
+        task = user_data[user_id]["task"]
+    else:
+        task = user_data[user_id]["pathway_id"]
+    print(task)
+    user_data[user_id]["phone_number"] = phone_number
+    send_caller_id_selection_prompt(user_id)
+
+    return
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("callerid_"))
+def handle_caller_id(call):
+    print("caller id")
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    caller = call.data.split("_")[1]
+    if caller == "random":
+        caller_id = None
+        caller = RANDOM_CALLER_ID[lg]
+    else:
+        caller_id = caller
+
+    user_data[user_id]["caller_id"] = caller_id
+    phone_number = user_data[user_id]["phone_number"]
+    if check_user_data(user_data, user_id) == "task":
+        task = user_data[user_id]["task"]
+    else:
+        pathway_id = user_data[user_id]["pathway_id"]
+        task = Pathways.objects.get(pathway_id=pathway_id).pathway_name
+
+    summary_details = f"{TASK[lg]} {task}\n\n" f"{CALLER_ID[lg]} {caller}\n"
+
+    if user_data[user_id]["call_type"] == "bulk_ivr":
+        total_count = user_data[user_id]["call_count"]
+        summary_details += f"{RECIPIENTS[lg]}\n"
+        for number in phone_number:
+            summary_details += f"{number['phone_number']}\n"
+        summary_details += (
+            f"{CAMPAIGN[lg]} {user_data[user_id]['campaign_name']}\n\n"
+            f"{TOTAL_NUMBERS_BULK[lg]} {total_count}\n"
+        )
+    else:
+        summary_details += f"{RECIPIENTS[lg]} {phone_number}\n"
+
+    summary_details += f"\n{PROCEED[lg]}"
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(types.KeyboardButton(YES_PROCEED[lg]))
+    markup.add(types.KeyboardButton(EDIT_DETAILS[lg]))
+    bot.send_message(user_id, summary_details, reply_markup=markup)
+
+
+@bot.message_handler(func=lambda message: message.text in YES_PROCEED.values())
+def proceed_single_ivr(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+
+    phone_number = user_data[user_id]["phone_number"]
+    caller_id = user_data[user_id]["caller_id"]
+    if user_data[user_id]["call_type"] == "single_ivr":
+        if check_user_data(user_data, user_id) == "task":
+            task = user_data[user_id]["task"]
+            response = send_task_through_call(task, phone_number, caller_id, user_id)
+            print(response)
+            if response.status_code != 200:
+                bot.send_message(user_id, PROCESSING_ERROR_MESSAGE[lg])
+            else:
+                bot.send_message(
+                    user_id,
+                    SINGLE_CALL_INITIATED[lg],
+                    reply_markup=ivr_call_keyboard(user_id),
+                )
+            del user_data[user_id]["task"]
+
+        else:
+            pathway_id = user_data[user_id]["pathway_id"]
+            response, status_code = send_call_through_pathway(
+                pathway_id, phone_number, user_id, caller_id
+            )
+            if status_code != 200:
+                bot.send_message(user_id, PROCESSING_ERROR_MESSAGE[lg])
+            else:
+                bot.send_message(
+                    user_id,
+                    SINGLE_CALL_INITIATED[lg],
+                    reply_markup=ivr_call_keyboard(user_id),
+                )
+                # TODO: DISPLAY CALL ID HERE
+
+            del user_data[user_id]["pathway_id"]
+
+    else:
+        markup = ReplyKeyboardMarkup(resize_keyboard=True)
+        markup.add(KeyboardButton(START_NOW[lg]))
+        markup.add(KeyboardButton(SCHEDULE_FOR_LATER[lg]))
+        bot.send_message(user_id, START_BULK_IVR[lg], reply_markup=markup)
+
+    return
+
+
+@bot.message_handler(func=lambda message: message.text in START_NOW.values())
+def start_batch_calls_now(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    phone_number = user_data[user_id]["phone_number"]
+    caller_id = user_data[user_id]["caller_id"]
+    campaign_id = user_data[user_id]["campaign_id"]
+    if check_user_data(user_data, user_id) == "task":
+        task = user_data[user_id]["task"]
+        response = bulk_ivr_flow(
+            call_data=phone_number,
+            user_id=user_id,
+            caller_id=caller_id,
+            campaign_id=campaign_id,
+            task=task,
+            pathway_id=None,
+        )
+        del user_data[user_id]["task"]
+    else:
+        pathway_id = user_data[user_id]["pathway_id"]
+        response = bulk_ivr_flow(
+            call_data=phone_number,
+            user_id=user_id,
+            caller_id=caller_id,
+            campaign_id=campaign_id,
+            task=None,
+            pathway_id=pathway_id,
+        )
+        del user_data[user_id]["pathway_id"]
+    if response.status_code != 200:
+        print("the following error occurred : ", response.json())
+        del user_data[user_id]["pathway_id"]
+        return
+
+    bot.send_message(
+        user_id, CAMPAIGN_INITIATED[lg], reply_markup=ivr_call_keyboard(user_id)
+    )
+    # campaign = CampaignLogs.objects.get(campaign_id=campaign_id)
+    # campaign.total_calls = user_data[user_id]['total_calls']
+    # campaign.save()
+
+
+geolocator = Nominatim(user_agent="timezone_bot")
+
+
+# Function to get timezone from a city name
+def get_timezone_from_city(city_name):
+    try:
+        geolocator = Nominatim(user_agent="timezone_bot")
+        location = geolocator.geocode(city_name)
+        if location:
+            # Get latitude and longitude of the city
+            latitude = location.latitude
+            longitude = location.longitude
+
+            # Use timezonefinder to get the timezone from lat/long
+            tf = TimezoneFinder()
+            timezone_str = tf.timezone_at(lng=longitude, lat=latitude)
+
+            if timezone_str:
+                timezone = pytz.timezone(timezone_str)
+                print(f"Timezone for {city_name} is {timezone_str}")
+                return timezone
+            else:
+                raise ValueError(f"Could not determine timezone for {city_name}")
+        else:
+            raise ValueError(f"City not found: {city_name}")
+    except Exception as e:
+        print(f"Error finding timezone for city {city_name}: {e}")
+        return None
+
+
+# Function to convert datetime from the user's timezone to UTC
+def convert_datetime_to_target_timezone(input_datetime, city_name):
+    try:
+        dt_pattern = r"(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) (.+)"
+        match = re.match(dt_pattern, input_datetime)
+        if not match:
+            return "Error: Invalid format. Please use YYYY-MM-DD HH:mm [City]."
+
+        date_str, time_str, city = match.groups()
+        datetime_str = f"{date_str} {time_str}"
+
+        timezone = get_timezone_from_city(city.strip())
+        if timezone is None:
+            return "Error: Could not determine the timezone for the provided city."
+
+        # Parse the datetime string into a datetime object
+        user_datetime = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M")
+
+        # Localize the datetime to the user's timezone
+        user_datetime = timezone.localize(user_datetime)
+
+        # Check if the datetime is in the future
+        if user_datetime < datetime.now(timezone):
+            return "The datetime must be in the future."
+
+        # Convert the datetime to UTC
+        utc_datetime = user_datetime.astimezone(pytz.utc)
+        print("Datetime in UTC:", utc_datetime)
+
+        return user_datetime, utc_datetime
+    except Exception as e:
+        print(f"Error in datetime conversion: {str(e)}")
+        return "Please enter a valid datetime in the format YYYY-MM-DD HH:mm [City]."
+
+
+# Handler for receiving datetime input for scheduling
+def handle_datetime_input_for_schedule(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    datetime_input = message.text.strip()
+
+    print(f"User {user_id} entered datetime: {datetime_input}")
+
+    # Validate datetime input format and check if it's in the future
+    try:
+        # Convert to datetime object and check timezone
+        result = convert_datetime_to_target_timezone(
+            datetime_input, datetime_input.split()[-1]
+        )  # Get city name from input
+        if isinstance(result, str) and result.startswith("Error"):  # Check for errors
+            raise ValueError(result)
+
+        user_datetime, utc_time = (
+            result  # Extract both the input city datetime and the UTC time
+        )
+
+        # Save the UTC time for scheduling (now it's a datetime object in UTC)
+        user_data[user_id]["scheduled_time"] = utc_time
+
+        print(f"Scheduled datetime confirmed for user {user_id}: {user_datetime}")
+
+        # Proceed to reminder selection
+        markup = ReplyKeyboardMarkup(resize_keyboard=True)
+        markup.add(KeyboardButton(TEN_TWENTY_THIRTY_MINUTES_BEFORE[lg]))
+        markup.add(KeyboardButton(NO_REMINDER[lg]))
+        print("Asking for reminder preference.")
+        user_data[user_id]["scheduled_time"] = utc_time
+        user = TelegramUser.objects.get(user_id=user_id)
+        print("Campaign ID : ", user_data[user_id]["campaign_id"])
+        campaign_id = user_data[user_id]["campaign_id"]
+        campaign = CampaignLogs.objects.get(campaign_id=campaign_id)
+        print(campaign.campaign_name)
+        call_data = user_data[user_id]["phone_number"]
+        caller_id = user_data[user_id]["caller_id"]
+        schedule_call = ScheduledCalls.objects.create(
+            user_id=user,
+            campaign_id=campaign,
+            call_data=call_data,
+            schedule_time=utc_time,
+            caller_id=caller_id,
+        )
+        task, pathway_id = None, None
+        if check_user_data(user_data, user_id) == "task":
+            task = user_data[user_id]["task"]
+            schedule_call.task = task
+
+        else:
+            pathway_id = user_data[user_id]["pathway_id"]
+            schedule_call.pathway_id = pathway_id
+
+        schedule_call.save()
+        user_data[user_id]["call_time"] = utc_time
+        user_data[user_id]["scheduled_call_id"] = schedule_call.id
+
+        current_time = datetime.utcnow().replace(tzinfo=pytz.utc)
+
+        delay_time = (utc_time - current_time).total_seconds()
+        execute_bulk_ivr.schedule(args=(schedule_call.id,), delay=delay_time)
+
+        bot.send_message(user_id, "Call scheduled successfully!")
+
+        scheduled_time_str = user_datetime.strftime("%Y-%m-%d %H:%M %Z")
+        utc_time_str = utc_time.strftime("%Y-%m-%d %H:%M UTC")  # UTC time
+
+        confirmation_message = (
+            f"{SCHEDULED_CAMPAIGN[lg]}\n"
+            f"{CAMPAIGN_NAME_LABEL[lg]} {campaign.campaign_name}\n"
+            f"{RECIPIENTS[lg]} {user_data[user_id]['call_count']} numbers "
+            f"\n{TIME_LABEL[lg]} (UTC): {scheduled_time_str}"
+        )
+        user_data[user_id]["confirmation_message"] = confirmation_message
+        bot.send_message(
+            user_id, "When would you like to receive a reminder?", reply_markup=markup
+        )
+
+    except Exception as e:
+        print(f"Error with datetime input for user {user_id}: {str(e)}")
+        bot.send_message(user_id, f"Invalid Data Time format!")
+        schedule_for_later(message)
+
+
+# Handler for setting reminders
+@bot.message_handler(
+    func=lambda message: message.text in TEN_TWENTY_THIRTY_MINUTES_BEFORE.values()
+)
+def handle_reminder(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    utc_time = user_data[user_id]["call_time"]  # Get scheduled call time in UTC
+    schedule_call_id = user_data[user_id]["scheduled_call_id"]
+    reminder_times = [10, 20, 30]  # Times for reminders: 10, 20, 30 minutes before
+
+    # Get the current time in UTC and make it offset-aware
+    now = datetime.utcnow().replace(tzinfo=pytz.utc)  # Make now UTC-aware
+    time_diff = utc_time - now
+
+    # Check if there's enough time to schedule reminders
+    if time_diff < timedelta(minutes=5):
+        bot.send_message(user_id, "The campaign is scheduled too soon for reminders.")
+        schedule_confirmation(message)
+        return
+
+    # Set reminders based on available time
+    for minutes in reminder_times:
+        if time_diff >= timedelta(minutes=minutes):
+            reminder_time = utc_time - timedelta(minutes=minutes)
+            delay = (
+                reminder_time - now
+            ).total_seconds()  # Calculate the delay in seconds
+            send_reminder.schedule(args=(schedule_call_id, minutes), delay=delay)
+        else:
+            # If not enough time for this reminder, skip it
+            print(f"Not enough time for {minutes}-minute reminder.")
+
+    # Send final confirmation message
+    schedule_confirmation(message)
+
+
+# Handler for when no reminder is set
+@bot.message_handler(func=lambda message: message.text in NO_REMINDER.values())
+def schedule_confirmation(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    confirmation_message = user_data[user_id]["confirmation_message"]
+    bot.send_message(
+        user_id, confirmation_message, reply_markup=ivr_call_keyboard(user_id)
+    )
+
+
+@bot.message_handler(func=lambda message: message.text in SCHEDULE_FOR_LATER.values())
+def schedule_for_later(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    print(f"User {user_id} selected 'Schedule for Later' option.")
+
+    print("Sending datetime input prompt to user.")
+    bot.send_message(user_id, ENTER_DATETIME_PROMPT[lg], reply_markup=get_force_reply())
+
+    bot.register_next_step_handler(message, handle_datetime_input_for_schedule)
+
+
+def check_user_data(user_data, user_id):
+    if "task" in user_data[user_id]:
+        print("task")
+        return "task"
+    if "pathway_id" in user_data[user_id]:
+        print("pathway_id")
+        return "pathway_id"
+    return None
+
+
+@bot.message_handler(
+    func=lambda message: message.text in NO_REMINDER.values()
+    or message.text in TEN_TWENTY_THIRTY_MINUTES_BEFORE.values()
+)
+def handle_reminder_input_for_schedule(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    reminder_input = message.text.strip()
+
+    print(f"User {user_id} selected reminder: {reminder_input}")
+
+    if reminder_input == NO_REMINDER[lg]:
+        user_data[user_id]["reminder"] = None
+        print(f"User {user_id} chose no reminder.")
+    elif reminder_input == TEN_TWENTY_THIRTY_MINUTES_BEFORE[lg]:
+        user_data[user_id]["reminder"] = "10/20/30 Minutes Before"
+        print(f"User {user_id} chose reminder: 10/20/30 minutes before.")
+
+    # Final confirmation
+    scheduled_time = user_data[user_id]["scheduled_time"]
+    reminder = user_data[user_id].get("reminder", "No reminder")
+
+    # Get additional info from user_data (campaign name, recipients)
+    campaign_name = user_data[user_id].get("campaign_name", "Default Campaign")
+    recipients = len(user_data[user_id].get("recipients", []))
+
+    # Ensure scheduled_time is formatted for display (use .strftime() here)
+    confirmation_message = f"✅ Scheduled Campaign:\n🏷️ Name: {campaign_name}\n👥 Recipients: {recipients} numbers\n🕒 Time: {scheduled_time.strftime('%Y-%m-%d %H:%M %Z')}\n⏰ Reminder: {reminder}"
+
+    print(f"Sending confirmation to user {user_id}:\n{confirmation_message}")
+    bot.send_message(user_id, confirmation_message)
+    bot.send_message(user_id, "Your campaign has been scheduled successfully!")
+
+
+@bot.message_handler(func=lambda message: message.text in SINGLE_IVR.values())
+def handle_single_ivr_flow_call(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]["call_type"] = "single_ivr"
+    user_data[user_id]["step"] = "phone_number_input"
+    subscribed_users_message_ivr(user_id)
+
+
+@bot.message_handler(func=lambda message: message.text in BULK_CALL.values())
+def handle_bulk_ivr_flow_call(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]["call_type"] = "bulk_ivr"
+    user_data[user_id]["step"] = "get_batch_numbers"
+    subscribed_users_message_ivr(user_id)
+
+
+def subscribed_users_message_ivr(user_id):
+    user = TelegramUser.objects.get(user_id=user_id)
+    lg = get_user_language(user_id)
+    subscription = UserSubscription.objects.get(user_id=user)
+    if subscription.subscription_status == "active":
+        plan = subscription.plan_id
+        node_access = (
+            f"{FULL_NODE_ACCESS[lg]}"
+            if plan.call_transfer
+            else f"{PARTIAL_NODE_ACCESS[lg]}"
+        )
+        call_transfer_node = "✅" if plan.call_transfer else "❌"
+
+        if plan.single_ivr_minutes == MAX_INFINITY_CONSTANT:
+            single_calls = f"{UNLIMITED_SINGLE_IVR[lg]}"
+        else:
+            single_calls = f"{plan.single_ivr_minutes:.4f} {SINGLE_IVR_MINUTES[lg]}"
+        if plan.number_of_bulk_call_minutes is None:
+            bulk_calls = NO_BULK_MINS_LEFT[lg]
+        else:
+            bulk_calls = (
+                f"{subscription.bulk_ivr_calls_left:.2f} / "
+                f"{plan.number_of_bulk_call_minutes:.2f} {BULK_IVR_CALLS[lg]}"
+            )
+        current_day_of_subscription = get_subscription_day(subscription)
+
+        if plan.plan_price == 0:
+            msg = (
+                f"🆓 Free Trial \n"
+                f"⏳ Status: Day {current_day_of_subscription} of {plan.validity_days}\n"
+                f"☎️ Single IVR Usage: {subscription.single_ivr_left}\n"
+                f"😊 Note: Subscribe after trial! "
+            )
+        else:
+            msg = (
+                f"Welcome to Speechcue IVR Service! Let’s get started:\n"
+                f"🌟 Active Plan: {plan.name} ({current_day_of_subscription} of {plan.validity_days} Days)\n"
+                f"📞 Single IVR: {single_calls}\n"
+                f"⏱️ Bulk Calls: {bulk_calls}\n"
+                f"💳  Note: Bulk IVR charges auto-deduct from wallet at $0.15/min if minutes are exhausted. "
+            )
+
+        bot.send_message(user_id, msg, reply_markup=get_task_type_keyboard(user_id))
+    else:
+        msg = (
+            f"💵 Pay-as-you-go pricing (wallet deduction): \n"
+            f"📞 Single IVR: $0.30/call\n"
+            f"📋 Bulk IVR: $0.15/min\n"
+            f"🛑 Note: Minimum $25 wallet balance required. "
+        )
+        markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
+        markup.add(types.KeyboardButton(MAKE_IVR_CALL[lg]))
+        markup.add(types.KeyboardButton(BILLING_AND_SUBSCRIPTION[lg]))
+        bot.send_message(user_id, msg, reply_markup=markup)
+
+
+@bot.message_handler(func=lambda message: message.text in MAKE_IVR_CALL.values())
+def handle_make_ivr_call(message):
+
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    msg = (
+        f"Choose task type:\n"
+        f"{AI_MADE_TASKS[lg]} (e.g., surveys)\n"
+        f"{CUSTOM_MADE_TASKS[lg]} (personalized scripts)\n"
+        f"{CREATE_TASK[lg]} (new task)"
+    )
+    bot.send_message(user_id, msg, reply_markup=get_task_type_keyboard(user_id))
+
+
+@bot.message_handler(func=lambda message: message.text in CREATE_TASK.values())
+def handle_create_task(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]["step"] = "create_task_flow"
+    bot.send_message(
+        user_id,
+        f"{CREATE_TASK_PROMPT[lg]}\n"
+        f"{AI_ASSISTED_FLOW[lg]}\n"
+        f"{ADVANCED_USER_FLOW[lg]}\n",
+        reply_markup=get_create_task_keyboard(user_id),
+    )
+
+
+@bot.message_handler(func=lambda message: message.text in CREATE_IVR_FLOW_AI.values())
+def handle_create_ivr_flow_ai(message):
+    initiate_ai_assisted_flow(message)
+
+
+@bot.message_handler(func=lambda message: message.text in VIEW_FLOWS_AI.values())
+def handle_view_flow_ai(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    tasks = AI_Assisted_Tasks.objects.filter(user_id=user_id).values("task_name", "id")
+    markup = types.InlineKeyboardMarkup()
+
+    for task in tasks:
+        task_name = task["task_name"]
+        task_id = task["id"]
+        markup.add(
+            types.InlineKeyboardButton(
+                task_name, callback_data=f"displaytask_{task_id}"
+            )
+        )
+
+    bot.send_message(user_id, DISPLAY_IVR_FLOWS[lg], reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("displaytask_"))
+def handle_call_back_view_task(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    task_id = call.data.split("_")[1]
+    task = AI_Assisted_Tasks.objects.get(id=task_id)
+    msg = (
+        f"{CAMPAIGN_NAME_LABEL[lg]} {task.task_name}\n\n"
+        f"{TASK_DESCRIPTION[lg]} {task.task_description}"
+    )
+    bot.send_message(
+        user_id[lg], msg, reply_markup=ai_assisted_user_flow_keyboard(user_id)
+    )
+
+
+@bot.message_handler(func=lambda message: message.text in DELETE_FLOW_AI.values())
+def handle_delete_flow_ai(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    tasks = AI_Assisted_Tasks.objects.filter(user_id=user_id).values("task_name", "id")
+    markup = types.InlineKeyboardMarkup()
+
+    for task in tasks:
+        task_name = task["task_name"]
+        task_id = task["id"]
+        markup.add(
+            types.InlineKeyboardButton(task_name, callback_data=f"deletetask_{task_id}")
+        )
+
+    bot.send_message(user_id, DISPLAY_IVR_FLOWS[lg], reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("deletetask_"))
+def handle_call_back_view_task(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    task_id = call.data.split("_")[1]
+
+    try:
+        task = AI_Assisted_Tasks.objects.get(id=task_id)
+        task.delete()
+
+        bot.send_message(
+            user_id,
+            f"Deleted Successfully!",
+            reply_markup=ai_assisted_user_flow_keyboard(),
+        )
+    except AI_Assisted_Tasks.DoesNotExist:
+        bot.send_message(
+            user_id,
+            "Task not found. Please try again.",
+            reply_markup=ai_assisted_user_flow_keyboard,
+        )
+
+
+# ---------------------campaign management----------------------
+
+
+@bot.message_handler(func=lambda message: message.text in CAMPAIGN_MANAGEMENT.values())
+def initiate_campaign_management_flow(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    bot.send_message(
+        user_id,
+        CAMPAIGN_MANAGEMENT_WELCOME[lg],
+        reply_markup=get_campaign_management_keyboard(user_id),
+    )
+
+
+@bot.message_handler(func=lambda message: message.text in RETURN_HOME.values())
+def handle_return_home(message):
+    user_id = message.chat.id
+    initiate_campaign_management_flow(message)
+
+
+@bot.message_handler(func=lambda message: message.text in ACTIVE_CAMPAIGNS.values())
+def handle_active_campaign(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    scheduled_campaigns = ScheduledCalls.objects.filter(
+        user_id=user_id, call_status=True
+    )
+    details = ""
+    markup = types.InlineKeyboardMarkup()
+    for campaign in scheduled_campaigns:
+        campaign_details = CampaignLogs.objects.get(campaign_id=campaign.campaign_id_id)
+        campaign_name = campaign_details.campaign_name
+        if campaign.pathway_id:
+            task = Pathways.objects.get(pathway_id=campaign.pathway_id)
+        if campaign.task:
+            task = AI_Assisted_Tasks.objects.get(task_description=campaign.task)
+        details += (
+            f"{CAMPAIGN_NAME_LABEL[lg]} {campaign_name}\n\n"
+            f"{TASK[lg]} {task.task_name}\n"
+            f"{START_TIME[lg]} {campaign_details.start_date}\n\n"
+        )
+        markup.add(
+            InlineKeyboardButton(
+                campaign_name, callback_data=f"activecampaign_{campaign.campaign_id_id}"
+            )
+        )
+    bot.send_message(user_id, details, reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("activecampaign_"))
+def handle_view_active_campaign_flow(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    data = call.data.split("_")
+    campaign_id = data[1]
+
+    campaign = CampaignLogs.objects.get(campaign_id=campaign_id)
+    schedule = ScheduledCalls.objects.get(campaign_id=campaign)
+    if schedule.pathway_id:
+        task = Pathways.objects.get(pathway_id=schedule.pathway_id)
+        task_name = task.pathway_name
+    if schedule.task:
+        task = AI_Assisted_Tasks.objects.get(task_description=schedule.task)
+        task_name = task.task_name
+    details = (
+        f"{NAME[lg]}: {campaign.campaign_name}\n"
+        f"{TASK[lg]} {task_name}\n"
+        f"{START_TIME[lg]} {campaign.start_date}\n"
+        f"{TOTAL_NUMBERS[lg]} {campaign.total_calls}\n\n"
+    )
+    markup = ReplyKeyboardMarkup()
+    markup.add(KeyboardButton(RETURN_TO_ACTIVE_CAMPAIGNS[lg]))
+    markup.add(RETURN_HOME[lg])
+    bot.send_message(user_id, details)
+    bot.send_message(
+        user_id, ACTIVE_CAMPAIGNS_CANNOT_BE_MODIFIED[lg], reply_markup=markup
+    )
+
+
+@bot.message_handler(
+    func=lambda message: message.text in RETURN_TO_ACTIVE_CAMPAIGNS.values()
+)
+def handle_return_to_active_campaigns(message):
+    handle_active_campaign(message)
+
+
+@bot.message_handler(func=lambda message: message.text in GO_BACK.values())
+def handle_go_back(message):
+    handle_scheduled_campaign(message)
+
+
+@bot.message_handler(func=lambda message: message.text in SCHEDULED_CAMPAIGNS.values())
+def handle_scheduled_campaign(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    scheduled_campaigns = ScheduledCalls.objects.filter(
+        user_id=user_id, call_status=False
+    )
+    details = ""
+    markup = types.InlineKeyboardMarkup()
+    for campaign in scheduled_campaigns:
+        campaign_name = CampaignLogs.objects.get(
+            campaign_id=campaign.campaign_id_id
+        ).campaign_name
+        if campaign.pathway_id:
+            task = Pathways.objects.get(pathway_id=campaign.pathway_id)
+            task_name = task.pathway_name
+        if campaign.task:
+            task = AI_Assisted_Tasks.objects.get(task_description=campaign.task)
+            task_name = task.task_name
+        details += (
+            f"{CAMPAIGN_NAME_LABEL[lg]} {campaign_name}\n\n"
+            f"{TASK[lg]} {task_name}\n"
+            f"{SCHEDULED_TIME[lg]} {campaign.schedule_time}\n\n"
+        )
+
+        data = f"viewcampaign_{campaign.campaign_id_id}"
+        markup.add(InlineKeyboardButton(campaign_name, callback_data=data))
+    markup.add(
+        InlineKeyboardButton(RETURN_HOME[lg], callback_data="back_to_campaign_home")
+    )
+    bot.send_message(user_id, details, reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "back_to_campaign_home")
+def back_to_campaign_home(call):
+    initiate_campaign_management_flow(call.message)
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("viewcampaign_"))
+def handle_view_campaign_flow(call):
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    data = call.data.split("_")
+    campaign_id = data[1]
+
+    campaign = CampaignLogs.objects.get(campaign_id=campaign_id)
+    schedule = ScheduledCalls.objects.get(campaign_id=campaign)
+    user_data[user_id]["scheduled_call_id"] = schedule.id
+
+    if schedule.pathway_id:
+        task = Pathways.objects.get(pathway_id=schedule.pathway_id)
+        task_name = task.pathway_name
+
+    if schedule.task:
+        task = AI_Assisted_Tasks.objects.get(task_description=schedule.task)
+        task_name = task.task_name
+
+    details = (
+        f"{NAME[lg]}: {campaign.campaign_name}\n"
+        f"{TASK[lg]} {task_name}\n"
+        f"{SCHEDULED_TIME[lg]} {schedule.schedule_time}\n"
+        f"{TOTAL_NUMBERS[lg]} {campaign.total_calls}\n\n"
+        f"{WHAT_WOULD_YOU_LIKE_TO_DO[lg]}"
+    )
+
+    user_data[user_id]["phone_number"] = schedule.call_data
+    user_data[user_id]["caller_id"] = schedule.caller_id
+    user_data[user_id]["campaign_id"] = campaign_id
+    if schedule.task:
+        user_data[user_id]["task"] = schedule.task
+    elif schedule.pathway_id:
+        user_data[user_id]["pathway_id"] = schedule.pathway_id
+
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(KeyboardButton(CANCEL_CAMPAIGN[lg]))
+    markup.add(KeyboardButton(START_NOW[lg]))
+    markup.add(KeyboardButton(GO_BACK[lg]))
+    bot.send_message(user_id, details, reply_markup=markup)
+
+
+@bot.message_handler(func=lambda message: message.text in CANCEL_CAMPAIGN.values())
+def cancel_scheduled_campaign_confirmation(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    markup = ReplyKeyboardMarkup()
+    markup.add(KeyboardButton(YES_CANCEL[lg]))
+    markup.add(KeyboardButton(NO_GO_BACK[lg]))
+    bot.send_message(user_id, CONFIRM_CANCEL_CAMPAIGN[lg], reply_markup=markup)
+
+
+@bot.message_handler(func=lambda message: message.text in YES_CANCEL.values())
+def cancel_scheduled_campaign(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    schedule_call_id = user_data[user_id]["scheduled_call_id"]
+    result = cancel_scheduled_call(schedule_call_id)
+    print("Cancel Campaign Result: ", result)
+    bot.send_message(
+        user_id,
+        CAMPAIGN_CANCELED[lg],
+        reply_markup=get_campaign_management_keyboard(user_id),
+    )
+
+
+# ------------------------------DTMF Inbox---------------------------------
+@bot.message_handler(func=lambda message: message.text in INBOX.values())
+def handle_inbox(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+
+    bot.send_message(
+        user_id, WELCOME_PROMPT_INBOX[lg], reply_markup=inbox_keyboard(user_id)
+    )
+
+
+@bot.message_handler(func=lambda message: message.text in SINGLE_CALL.values())
+def handle_single_call_inbox(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    bot.send_message(
+        user_id, ENTER_PHONE_OR_CALL_ID[lg], reply_markup=get_force_reply()
+    )
 
 
 def start_bot():

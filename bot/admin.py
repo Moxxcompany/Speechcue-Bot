@@ -8,6 +8,7 @@ from .models import (
     FeedbackDetails,
     CallDuration,
     BatchCallLogs,
+    ScheduledCalls,
 )
 
 
@@ -99,6 +100,17 @@ class BatchCallLogsAdmin(admin.ModelAdmin):
     list_filter = ("user_id", "call_status")
 
 
+class ScheduledCallsAdmin(admin.ModelAdmin):
+    list_display = (
+        "user_id_id",
+        "campaign_id",
+        "schedule_time",
+        "caller_id",
+        "task",
+        "pathway_id",
+    )
+
+
 # Registering the models in the Django admin
 admin.site.register(Pathways, PathwaysAdmin)
 admin.site.register(CallLogsTable, CallLogsTableAdmin)
@@ -108,3 +120,4 @@ admin.site.register(FeedbackLogs, FeedbackLogsAdmin)
 admin.site.register(FeedbackDetails, FeedbackDetailsAdmin)
 admin.site.register(CallDuration, CallDurationAdmin)
 admin.site.register(BatchCallLogs, BatchCallLogsAdmin)
+admin.site.register(ScheduledCalls, ScheduledCallsAdmin)

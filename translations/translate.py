@@ -40,7 +40,6 @@ merged_all_keys_dict = {}
 
 all_keys = set(english_keys + french_keys + chinese_keys + hindi_keys)
 
-# Prepare the merged dictionary where each key has translations for all languages
 for key in all_keys:
     merged_all_keys_dict[key] = {
         "English": extract_dictionary(english_file_path, key),
@@ -49,7 +48,6 @@ for key in all_keys:
         "Hindi": extract_dictionary(hindi_file_path, key),
     }
 
-# Saving the complete merged dictionary with all keys in a formatted way
 output_all_keys_file_path = "translations.py"
 
 with open(output_all_keys_file_path, "w", encoding="utf-8") as output_file:

@@ -2,6 +2,7 @@ import json
 import logging
 
 import requests
+from celery import shared_task
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
@@ -13,6 +14,9 @@ from bot.models import (
     FeedbackDetails,
     FeedbackLogs,
     BatchCallLogs,
+    ScheduledCalls,
+    CampaignLogs,
+    AI_Assisted_Tasks,
 )
 from bot.utils import add_node, get_pathway_data, remove_punctuation_and_spaces
 from payment.models import (
@@ -21,6 +25,7 @@ from payment.models import (
     ManageFreePlanSingleIVRCall,
     DTMF_Inbox,
 )
+from translations.Chinese import CAMPAIGN
 from translations.English import DTMF_INBOX
 from user.models import TelegramUser
 
@@ -35,16 +40,6 @@ def terms_and_conditions(request):
     Function-based view to display the terms and conditions page.
     """
     return render(request, "terms_and_conditions.html")
-
-
-def stop_single_active_call(call_id):
-
-    url = f"https://api.bland.ai/v1/calls/{call_id}/stop"
-    headers = {"authorization": f"{settings.BLAND_API_KEY}"}
-    response = requests.request("POST", url, headers=headers)
-    print(response.text)
-
-    return response
 
 
 def empty_nodes(pathway_name, pathway_description, pathway_id):
@@ -567,7 +562,7 @@ def handle_view_single_flow(pathway_id):
         return {{error}: "Failed to retrieve pathways"}, 400
 
 
-def send_call_through_pathway(pathway_id, phone_number, user_id):
+def send_call_through_pathway(pathway_id, phone_number, user_id, caller_id):
 
     endpoint = "https://api.bland.ai/v1/calls"
     payload = {
@@ -580,8 +575,10 @@ def send_call_through_pathway(pathway_id, phone_number, user_id):
         "Authorization": f"{settings.BLAND_API_KEY}",
         "Content-Type": "application/json",
     }
-
+    if caller_id:
+        payload["from"] = caller_id
     response = requests.request("POST", endpoint, json=payload, headers=headers)
+    print("response ", response.text)
     if response.status_code == 200:
         pathway = response.json()
         call_id = pathway.get("call_id")
@@ -626,11 +623,22 @@ def get_voices():
     return response.json()
 
 
-def bulk_ivr_flow(call_data, pathway_id, user_id):
-    url = "https://api.bland.ai/v1/batches"
-    payload = json.dumps(
-        {"call_data": call_data, "test_mode": False, "pathway_id": str(pathway_id)}
-    )
+def bulk_ivr_flow(
+    call_data, user_id, caller_id, campaign_id, task=None, pathway_id=None
+):
+    url = f"{base_url}/v1/batches"
+    payload = {
+        "call_data": call_data,
+        "test_mode": False,
+        "campaign_id": str(campaign_id),
+    }
+    if caller_id:
+        payload["from"] = caller_id
+    if pathway_id:
+        payload["pathway_id"] = str(pathway_id)
+    if task:
+        payload["base_prompt"] = task
+    payload = json.dumps(payload)
     headers = {
         "Authorization": f"{settings.BLAND_API_KEY}",
         "Content-Type": "application/json",
@@ -639,21 +647,37 @@ def bulk_ivr_flow(call_data, pathway_id, user_id):
     response = requests.request("POST", url, headers=headers, data=payload)
 
     print(response.text)
+    if response.status_code == 200:
+        batch_id = response.json().get("batch_id")
 
-    batch_id = response.json().get("batch_id")
+        print(batch_id, "batch_id_batch_id")
+        payload = {
+            "include_calls": "true",
+            "include_transcripts": "true",
+            "include_analysis": "true",
+        }
 
-    print(batch_id, "batch_id_batch_id")
-    payload = {}
-    headers = {"authorization": f"{settings.BLAND_API_KEY}"}
+        headers = {"authorization": f"{settings.BLAND_API_KEY}"}
+        url = f"https://api.bland.ai/v1/batches/{batch_id}"
+        response = requests.request("GET", url, headers=headers, data=payload)
 
-    response = requests.request("GET", url, headers=headers, data=payload)
+        # print("Separate changes : ", response.text)
 
-    print("Separate changes : ", response.text)
-
-    list_response = get_call_list_from_batch(batch_id, user_id)
-    print(f"list status : {list_response.status_code}")
-    if list_response.status_code != 200:
-        print(list_response.content)
+        list_response = get_call_list_from_batch(batch_id, user_id)
+        print(f"list status : {list_response.status_code}")
+        if list_response.status_code != 200:
+            print(list_response.content)
+        user = TelegramUser.objects.get(user_id=user_id)
+        campaign = CampaignLogs.objects.get(campaign_id=campaign_id)
+        campaign.batch_id = batch_id
+        campaign.total_calls = len(call_data)
+        campaign.save()
+        if ScheduledCalls.objects.filter(user_id=user, campaign_id=campaign).exists():
+            scheduled_call = ScheduledCalls.objects.get(
+                user_id=user, campaign_id=campaign
+            )
+            scheduled_call.call_status = True
+            scheduled_call.save()
 
     return response
 
@@ -737,10 +761,9 @@ def get_variables(call_id):
 def stop_single_active_call(call_id):
 
     url = f"https://api.bland.ai/v1/calls/{call_id}/stop"
-
     headers = {"authorization": f"{settings.BLAND_API_KEY}"}
-
     response = requests.request("POST", url, headers=headers)
+    print(response.text)
 
     return response
 
@@ -798,11 +821,9 @@ def get_call_list_from_batch(batch_id, user_id):
         return JsonResponse({"error": f"An error occurred: {str(e)}"}, status=400)
 
     try:
-        # Process JSON response
         response = data.json()
         print(f"Response data: {response}")
 
-        # Extract batch_params information
         batch_params = response.get("batch_params", {})
         batch_id = batch_params.get("id")
         pathway_id = batch_params.get("call_params", {}).get("pathway_id")
@@ -812,14 +833,12 @@ def get_call_list_from_batch(batch_id, user_id):
         print(f"Batch ID: {batch_id}")
         print(f"Call data: {call_data}")
 
-        # Check if call_data is empty
         if not call_data:
             logging.error("Call data is empty, cannot iterate over an empty list.")
             return JsonResponse(
                 {"error": "No call data available in the response"}, status=400
             )
 
-        # Loop through each call data
         for call in call_data:
             call_id = call.get("call_id")
             to_number = call.get("to")
@@ -844,7 +863,6 @@ def get_call_list_from_batch(batch_id, user_id):
             batch_call_log.save()
             print(f"Batch call log saved for Call ID: {call_id}")
 
-            # Save to CallLogsTable with unique call_id
             CallLogsTable.objects.create(
                 call_id=call_id,
                 call_number=to_number,
@@ -885,30 +903,56 @@ def check_pathway_block(pathway_id):
 
     if status_code == 200:
         nodes = pathway_data.get("nodes", [])
-        return bool(nodes)  # Returns True if nodes list is not empty, otherwise False
+        return bool(nodes)
     else:
-        # Log the error or handle it as needed
         print("Error retrieving pathway:", pathway_data)
         return False
 
 
-# @csrf_exempt
-# def get_dtmf_input_from_webhook(request):
-#     if request.method == "POST":
-#         data = json.loads(request.body)
-#         user_dtmf_input = data.get("user_dtmf_input")
-#
-#         try:
-#             account = DTMF_Inbox.objects.get(account_number=account_number)
-#             return JsonResponse({
-#                 "status": "success",
-#                 "message": "Account number verified.",
-#                 "age": account.age
-#             })
-#         except Account.DoesNotExist:
-#             return JsonResponse({
-#                 "status": "failed",
-#                 "message": "Invalid account number."
-#             })
-#
-#     return JsonResponse({"message": "Invalid request method."})
+def send_task_through_call(task, phone_number, caller_id, user_id):
+    url = "https://us.api.bland.ai/v1/calls"
+
+    payload = {"phone_number": f"{phone_number}", "task": task}
+    if caller_id:
+        payload["from"] = caller_id
+
+    print(payload)
+    headers = {
+        "Authorization": f"{settings.BLAND_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    response = requests.request("POST", url, json=payload, headers=headers)
+    print("Response in the endpoint:", response.text)
+    if response.status_code == 200:
+        pathway = response.json()
+        call_id = pathway.get("call_id")
+        plan = UserSubscription.objects.get(user_id=user_id).plan_id
+        user = TelegramUser.objects.get(user_id=user_id)
+        task_id = AI_Assisted_Tasks.objects.get(
+            task_description=task, user_id=user.user_id
+        ).id
+
+        if plan.plan_price == 0:
+
+            print("creating an entry in the Manage free single IVR tables")
+            max_duration = UserSubscription.objects.get(user_id=user_id).single_ivr_left
+            payload.update({"max_duration": f"{max_duration}"})
+            print(f"Updated payload for the free plan is {payload}")
+            user = TelegramUser.objects.get(user_id=user_id)
+            ManageFreePlanSingleIVRCall.objects.create(
+                call_id=call_id,
+                pathway_id=task_id,
+                call_number=phone_number,
+                user_id=user,
+                call_status="new",
+            )
+        print(f"Call id : {call_id}")
+
+        CallLogsTable.objects.create(
+            call_id=call_id,
+            call_number=phone_number,
+            pathway_id=task_id,
+            user_id=user_id,
+            call_status="new",
+        )
+    return response

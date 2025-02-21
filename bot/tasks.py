@@ -1,9 +1,13 @@
+import ast
 import os
-
+from datetime import timedelta
+from huey import crontab
+from huey.contrib.djhuey import db_task, periodic_task, HUEY
 from celery import shared_task
 from django.db.models import Sum
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django_celery_beat.models import PeriodicTask, CrontabSchedule
 from dotenv.main import load_dotenv
 
 from TelegramBot.English import (
@@ -16,10 +20,8 @@ from TelegramBot.English import (
 )
 from TelegramBot.crypto_cache import *
 from payment.models import (
-    VirtualAccountsTable,
     OveragePricingTable,
     UserTransactionLogs,
-    MainWalletTable,
     TransactionType,
     ManageFreePlanSingleIVRCall,
     UserSubscription,
@@ -39,9 +41,10 @@ from translations.translations import (
     FREE_TRIAL_AVAILED,
     SUBSCRIPTION_RENEWAL_MESSAGE,
     RENEWAL_FAILED,
+    CAMPAIGN_INITIATED,
 )
 from user.models import TelegramUser
-from .models import CallDuration, BatchCallLogs, CallLogsTable
+from .models import CallDuration, BatchCallLogs, CallLogsTable, ReminderTable
 from .utils import (
     get_user_subscription_by_call_id,
     convert_crypto_to_usd,
@@ -542,3 +545,187 @@ def process_call_logs():
             print(f"Finished processing call ID: {call.call_id}")
         except Exception as e:
             print(f"Error processing call ID {call.call_id}: {str(e)}")
+
+
+from celery import shared_task
+from django.utils import timezone
+from .models import ScheduledCalls
+from bot.views import bulk_ivr_flow
+
+
+@shared_task
+def send_scheduled_ivr_calls():
+    """
+    Periodically checks for scheduled IVR calls and triggers the bulk_ivr_flow function
+    at the scheduled time. This ensures that either 'task' or 'pathway_id' is passed
+    to the IVR flow depending on which one is available in the database.
+    """
+    current_time = timezone.now()
+
+    # Fetch scheduled calls that are due (schedule_time <= current_time)
+    scheduled_calls = ScheduledCalls.objects.filter(schedule_time__lte=current_time)
+
+    print(f"Found {len(scheduled_calls)} scheduled calls to process.")
+
+    for call in scheduled_calls:
+        try:
+            print(f"Processing scheduled IVR call for user {call.user_id}...")
+
+            if call.task and not call.pathway_id:
+                print(f"Passing task: {call.task}")
+                bulk_ivr_flow(
+                    call.call_data,
+                    user_id=call.user_id,
+                    caller_id=call.caller_id,
+                    task=call.task,
+                )
+            elif not call.task and call.pathway_id:
+                # If pathway_id exists and task is null, pass pathway_id to the IVR flow
+                print(f"Passing pathway_id: {call.pathway_id}")
+                bulk_ivr_flow(
+                    call.call_data,
+                    user_id=call.user_id,
+                    caller_id=call.caller_id,
+                    pathway_id=call.pathway_id,
+                )
+            else:
+                print(
+                    f"Both task and pathway_id are missing for user {call.user_id}, skipping."
+                )
+                continue
+
+            # Optionally mark the call as sent or update its status
+            call.call_status = "sent"  # Update call status to 'sent'
+            call.save()
+            print(f"Scheduled IVR call for user {call.user_id} has been sent.")
+
+        except Exception as e:
+            print(
+                f"Error processing scheduled IVR call for user {call.user_id}: {str(e)}"
+            )
+
+    print("Finished processing scheduled IVR calls.")
+
+
+# --------------------------HUEY-----------------------------------
+@db_task()
+def execute_bulk_ivr(scheduled_call_id):
+    """
+    Huey task to execute the bulk_ivr_flow function at the scheduled time.
+    """
+
+    try:
+        # Fetch the scheduled call details
+        scheduled_call = ScheduledCalls.objects.get(id=scheduled_call_id)
+        if scheduled_call.canceled:
+            print(f"Scheduled call {scheduled_call_id} has been canceled.")
+            return
+        try:
+            call_data = ast.literal_eval(
+                scheduled_call.call_data
+            )  # Safely evaluate the string to a list
+            if not isinstance(call_data, list):
+                raise ValueError("call_data must be a list.")
+                print("Converted call_data:", call_data)
+        except Exception as e:
+            print(f"Error converting call_data: {str(e)}")
+
+        response = bulk_ivr_flow(
+            call_data=call_data,
+            user_id=str(scheduled_call.user_id_id),
+            caller_id=scheduled_call.caller_id,
+            campaign_id=str(scheduled_call.campaign_id_id),
+            task=scheduled_call.task,
+            pathway_id=scheduled_call.pathway_id,
+        )
+
+        scheduled_call.call_status = True
+        scheduled_call.save()
+        lg = get_user_language(scheduled_call.user_id_id)
+        if response.status_code != 200:
+            bot.send_message(
+                scheduled_call.user_id_id,
+                f"Failed to initiate campaign {scheduled_call.campaign_id.campaign_name}.",
+            )
+            return
+        bot.send_message(scheduled_call.user_id_id, CAMPAIGN_INITIATED[lg])
+
+    except ScheduledCalls.DoesNotExist:
+        print(f"Scheduled call with ID {scheduled_call_id} does not exist.")
+    except Exception as e:
+        print(f"Error occurred while processing scheduled call: {str(e)}")
+
+
+@db_task()
+def send_reminder(scheduled_call_id, reminder_time):
+    """
+    Huey task to send a reminder for a scheduled call.
+    """
+    try:
+        # Fetch the scheduled call
+        scheduled_call = ScheduledCalls.objects.get(id=scheduled_call_id)
+
+        # Check if the call has been canceled or already executed
+        if scheduled_call.canceled or scheduled_call.call_status:
+            print(
+                f"Call {scheduled_call_id} is canceled or already executed. Skipping reminder."
+            )
+            return
+
+        # Send the reminder (e.g., via Telegram bot)
+        user_id = scheduled_call.user_id.user_id
+        reminder_message = (
+            f"Reminder: Your call is scheduled at {scheduled_call.schedule_time}.\n"
+            f"Time left: {reminder_time} minutes."
+        )
+        bot.send_message(user_id, reminder_message)
+
+        # Mark the reminder as sent (if using the Reminder model)
+        reminder = ReminderTable.objects.create(
+            scheduled_call=scheduled_call,
+            reminder_time=scheduled_call.schedule_time
+            - timedelta(minutes=reminder_time),
+            sent=True,
+        )
+        reminder.save()
+
+        print(f"Reminder sent for call {scheduled_call_id}.")
+
+    except ScheduledCalls.DoesNotExist:
+        print(f"Scheduled call with ID {scheduled_call_id} does not exist.")
+    except Exception as e:
+        print(f"Error sending reminder: {str(e)}")
+
+
+def cancel_scheduled_call(scheduled_call_id):
+    """
+    Cancel a scheduled call by its ID.
+    """
+    try:
+        # Fetch the scheduled call
+        scheduled_call = ScheduledCalls.objects.get(id=scheduled_call_id)
+
+        # Check if the call has already been executed or canceled
+        if scheduled_call.call_status:
+            bot.send_message(
+                scheduled_call.user_id_id, "Campaign is active and cannot be canceled."
+            )
+            return
+
+        if scheduled_call.canceled:
+            print("Campaign has already been canceled.")
+            return
+
+        task = HUEY.get_task_by_id(f"execute_bulk_ivr:{scheduled_call_id}")
+        if task:
+            task.revoke()
+
+        scheduled_call.canceled = True
+        scheduled_call.save()
+
+        return "Call successfully canceled."
+
+    except ScheduledCalls.DoesNotExist:
+        return "Scheduled call not found."
+    except Exception as e:
+        return f"Error canceling scheduled call: {str(e)}"

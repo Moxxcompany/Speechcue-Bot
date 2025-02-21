@@ -69,6 +69,22 @@ from translations.translations import (
     MALE,
     DTMF_INBOX,
     CALL_STATUS,
+    AI_ASSISTED_FLOW,
+    CUSTOM_MADE_TASKS,
+    CREATE_TASK,
+    AI_MADE_TASKS,
+    ADVANCED_USER_FLOW_KEYBOARD,
+    AI_ASSISTED_FLOW_KEYBOARD,
+    CREATE_IVR_FLOW_AI,
+    VIEW_FLOWS_AI,
+    DELETE_FLOW_AI,
+    ADVANCED_USER_FLOW,
+    CAMPAIGN_MANAGEMENT,
+    SCHEDULED_CAMPAIGNS,
+    ACTIVE_CAMPAIGNS,
+    RETURN_HOME,
+    CAMPAIGN_CALLS,
+    RECENT_CALLS,
 )
 
 
@@ -106,6 +122,23 @@ def get_reply_keyboard(options):
     return markup
 
 
+def get_task_type_keyboard(user_id):
+    lg = get_user_language(user_id)
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+    markup.add(types.KeyboardButton(AI_MADE_TASKS[lg]))
+    markup.add(types.KeyboardButton(CUSTOM_MADE_TASKS[lg]))
+    markup.add(types.KeyboardButton(CREATE_TASK[lg]))
+    return markup
+
+
+def get_create_task_keyboard(user_id):
+    lg = get_user_language(user_id)
+    markup = types.ReplyKeyboardMarkup(one_time_keyboard=True, resize_keyboard=True)
+    markup.add(types.KeyboardButton(AI_ASSISTED_FLOW[lg]))
+    markup.add(types.KeyboardButton(ADVANCED_USER_FLOW[lg]))
+    return markup
+
+
 def get_delete_confirmation_keyboard(user_id):
     lg = get_user_language(user_id)
     options = [CONFIRM_DELETE[lg], BACK_BUTTON[lg]]
@@ -126,6 +159,8 @@ def get_main_menu_keyboard(user_id):
     billing_btn = KeyboardButton(BILLING_AND_SUBSCRIPTION[lg])
     ivr_flows_btn = KeyboardButton(IVR_CALL[lg])
     ivr_call_btn = KeyboardButton(IVR_FLOW[lg])
+    campaign_management_btn = KeyboardButton(CAMPAIGN_MANAGEMENT[lg])
+
     # user_feedback_btn = KeyboardButton(USER_FEEDBACK[lg])
     dtmf_inbox_btn = KeyboardButton(DTMF_INBOX[lg])
     account_btn = KeyboardButton(ACCOUNT[lg])
@@ -135,6 +170,7 @@ def get_main_menu_keyboard(user_id):
     # markup.add(user_feedback_btn)
     markup.add(dtmf_inbox_btn)
     markup.add(account_btn)
+    markup.add(campaign_management_btn)
 
     return markup
 
@@ -144,6 +180,23 @@ def get_force_reply():
 
 
 def ivr_flow_keyboard(user_id):
+    lg = get_user_language(user_id)
+    options = [AI_ASSISTED_FLOW_KEYBOARD[lg], ADVANCED_USER_FLOW_KEYBOARD[lg]]
+    return get_reply_keyboard(options)
+
+
+def ai_assisted_user_flow_keyboard(user_id):
+    lg = get_user_language(user_id)
+    options = [
+        CREATE_IVR_FLOW_AI[lg],
+        VIEW_FLOWS_AI[lg],
+        DELETE_FLOW_AI[lg],
+        BACK_BUTTON[lg],
+    ]
+    return get_reply_keyboard(options)
+
+
+def advanced_user_flow_keyboard(user_id):
     lg = get_user_language(user_id)
     options = [CREATE_IVR_FLOW[lg], VIEW_FLOWS[lg], DELETE_FLOW[lg], BACK_BUTTON[lg]]
     return get_reply_keyboard(options)
@@ -409,4 +462,22 @@ def get_node_complete_menu(user_id):
 def get_add_another_node_or_done_keyboard(user_id):
     lg = get_user_language(user_id)
     options = [ADD_ANOTHER_NODE[lg], DONE[lg]]
+    return get_reply_keyboard(options)
+
+
+# -------------Campaign Managemenet---------------
+
+
+def get_campaign_management_keyboard(user_id):
+    lg = get_user_language(user_id)
+    options = [SCHEDULED_CAMPAIGNS[lg], ACTIVE_CAMPAIGNS[lg], RETURN_HOME[lg]]
+    return get_reply_keyboard(options)
+
+
+# -------------Inbox---------------------
+
+
+def inbox_keyboard(user_id):
+    lg = get_user_language(user_id)
+    options = [SINGLE_IVR[lg], CAMPAIGN_CALLS[lg], RECENT_CALLS[lg]]
     return get_reply_keyboard(options)

@@ -1,16 +1,10 @@
-import uuid
 from django.contrib import admin
-from bot.models import CallDuration
 from payment.models import (
     SubscriptionPlans,
-    MainWalletTable,
-    VirtualAccountsTable,
     UserSubscription,
     OveragePricingTable,
     ManageFreePlanSingleIVRCall,
     UserTransactionLogs,
-    TransactionType,
-    PricingUnits,
     DTMF_Inbox,
 )
 
@@ -55,46 +49,6 @@ class SubscriptionPlansAdmin(admin.ModelAdmin):
         ),
         ("Support Details", {"fields": ("customer_support_level",)}),
     )
-
-
-@admin.register(MainWalletTable)
-class MainWalletTableAdmin(admin.ModelAdmin):
-    list_display = (
-        "currency",
-        "xpub",
-        "address",
-        "virtual_account",
-        "mnemonic",
-        "deposit_address",
-        "private_key",
-        "subscription_id",
-        "fee",
-        "gas_price",
-        "gas_limit",
-    )
-    search_fields = ("currency", "address")
-    list_filter = ("currency",)
-
-
-@admin.register(VirtualAccountsTable)
-class VirtualAccountsTableAdmin(admin.ModelAdmin):
-    list_display = (
-        "get_user_id",
-        "balance",
-        "currency",
-        "account_detail",
-        "account_id",
-        "subscription_id",
-        "deposit_address",
-        "main_wallet_deposit_address",
-    )
-    search_fields = ("user__username", "account_detail", "currency")
-    list_filter = ("currency",)
-
-    def get_user_id(self, obj):
-        return obj.user.user_id
-
-    get_user_id.short_description = "User ID"
 
 
 @admin.register(UserSubscription)

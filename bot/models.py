@@ -3,6 +3,8 @@ import uuid
 from django.contrib.postgres.fields.array import ArrayField
 from django.db import models
 
+from user.models import TelegramUser
+
 
 class Pathways(models.Model):
     pathway_id = models.TextField(primary_key=True)
@@ -90,10 +92,80 @@ class FrequentlyAskedQuestions(models.Model):
         return self.question
 
 
-class Tasks(models.Model):
+class AI_Assisted_Tasks(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    task = models.TextField(blank=True, null=True)
+    task_name = models.CharField(max_length=255, blank=True, null=True)
+    task_description = models.TextField(blank=True, null=True)
     transcript = models.TextField(blank=True, null=True)
+    user_id = models.BigIntegerField(blank=True, null=True)
 
     def __str__(self):
         return self.task
+
+
+class CallerIds(models.Model):
+    caller_id = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return self.caller_id
+
+
+class CampaignLogs(models.Model):
+    user_id = models.ForeignKey(
+        TelegramUser, on_delete=models.CASCADE, related_name="campaign_user", null=True
+    )
+    campaign_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    campaign_name = models.CharField(max_length=255, blank=True, null=True)
+    total_calls = models.IntegerField(null=True, blank=True)
+    avg_call_duration = models.FloatField(null=True, blank=True)
+    start_date = models.DateTimeField(null=True, blank=True)
+    end_date = models.DateTimeField(null=True, blank=True)
+    batch_id = models.CharField(max_length=255, null=True, blank=True)
+
+    def __str__(self):
+        return self.campaign_name
+
+
+class ScheduledCalls(models.Model):
+    user_id = models.ForeignKey(
+        TelegramUser, on_delete=models.CASCADE, related_name="schedule_call_user"
+    )
+    campaign_id = models.ForeignKey(
+        CampaignLogs,
+        on_delete=models.CASCADE,
+        related_name="schedule_call_log",
+        null=True,
+        blank=True,
+    )
+    schedule_time = models.DateTimeField(null=True, blank=True)
+    call_data = models.TextField(blank=True, null=True)
+    caller_id = models.CharField(max_length=255, null=True, blank=True)
+    task = models.TextField(blank=True, null=True)
+    pathway_id = models.CharField(max_length=300, null=True, blank=True)
+    call_status = models.BooleanField(default=False)
+    canceled = models.BooleanField(default=False)
+
+
+class ReminderTable(models.Model):
+    user_id = models.ForeignKey(
+        TelegramUser, on_delete=models.CASCADE, related_name="reminder_user"
+    )
+    campaign_id = models.ForeignKey(
+        CampaignLogs,
+        on_delete=models.CASCADE,
+        related_name="reminder_campaign_log",
+        null=True,
+        blank=True,
+    )
+    reminder_time = models.DateTimeField(null=True, blank=True)
+    scheduled_call = models.ForeignKey(
+        ScheduledCalls,
+        on_delete=models.CASCADE,
+        related_name="reminders",
+        null=True,
+        blank=True,
+    )
+    sent = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Reminder for Call {self.scheduled_call.id} at {self.reminder_time}"

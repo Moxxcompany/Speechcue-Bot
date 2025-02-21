@@ -2,6 +2,7 @@ from django_celery_beat.models import PeriodicTask, IntervalSchedule, CrontabSch
 
 
 def create_periodic_task():
+
     schedule_check_call, created = IntervalSchedule.objects.get_or_create(
         every=1,
         period=IntervalSchedule.MINUTES,
@@ -22,6 +23,17 @@ def create_periodic_task():
         name="Process Call Logs to update DTMF Inbox",
         task="bot.tasks.process_call_logs",
     )
+
+    # schedule_create_user_tasks, created = IntervalSchedule.objects.get_or_create(
+    #     every=1,
+    #     period=IntervalSchedule.MINUTES,
+    # )
+    #
+    # PeriodicTask.objects.update_or_create(
+    #     interval=schedule_create_user_tasks,
+    #     name="schedule bulk calls",
+    #     task="bot.tasks.create_user_tasks",
+    # )
 
     schedule_charge_user, created = IntervalSchedule.objects.get_or_create(
         every=720,
@@ -53,6 +65,7 @@ def create_periodic_task():
         name="Calculate additional minutes for single ivr calls",
         task="bot.tasks.call_status_free_plan",
     )
+
     schedule_check_subscription, created = CrontabSchedule.objects.get_or_create(
         minute="0",
         hour="0",

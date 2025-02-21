@@ -7,44 +7,39 @@ from TelegramBot import settings
 from user.models import TelegramUser
 
 
-#-------------------- Env Variables --------------------
+# -------------------- Env Variables --------------------
 
-x_api_key = os.getenv('x-api-key')
-dynopay_base_url = os.getenv('dynopay_base_url')
-
-
+x_api_key = os.getenv("x-api-key")
+dynopay_base_url = os.getenv("dynopay_base_url")
 
 
-#-------------------- USER SIGN UP --------------------
+# -------------------- USER SIGN UP --------------------
 
 
 def setup_user(user_id, email, mobile, name, username):
     try:
-
-
+        print(x_api_key)
         url = f"{dynopay_base_url}/user/createUser"
-        payload = json.dumps({
-            "email": email,
-            "name": name,
-            "mobile": mobile
-        })
-        headers = {
-            'x-api-key': x_api_key,
-            'Content-Type': 'application/json'
-        }
+        payload = json.dumps({"email": email, "name": name, "mobile": mobile})
+        headers = {"x-api-key": x_api_key, "Content-Type": "application/json"}
 
         try:
             response = requests.request("POST", url, headers=headers, data=payload)
             print(response.text)
             if response.status_code != 200:
+                user = TelegramUser.objects.get(user_id=user_id)
+                user.delete()
                 return {"status": response.status_code, "text": response.text}
 
-            data = response.json().get('data', {})
-            token = data.get('token')
-            customer_id = data.get('customer_id')
+            data = response.json().get("data", {})
+            token = data.get("token")
+            customer_id = data.get("customer_id")
 
             if not token or not customer_id:
-                return {"status": 500, "text": "API response did not contain token or customer_id"}
+                return {
+                    "status": 500,
+                    "text": "API response did not contain token or customer_id",
+                }
 
         except RequestException as api_error:
             print("API request encountered an error:", api_error)
@@ -71,7 +66,9 @@ def setup_user(user_id, email, mobile, name, username):
         print("An unexpected error occurred:", e)
         return {"status": 500, "text": f"An unexpected error occurred: {str(e)}"}
 
-#------------------- Check Balance --------------------
+
+# ------------------- Check Balance --------------------
+
 
 def check_user_balance(user_id):
 
@@ -80,10 +77,7 @@ def check_user_balance(user_id):
     print(f"token : {token}")
     print(f"x-api-key : {x_api_key}")
     payload = {}
-    headers = {
-        'x-api-key': f'{x_api_key}',
-        'Authorization': f'Bearer {token}'
-    }
+    headers = {"x-api-key": f"{x_api_key}", "Authorization": f"Bearer {token}"}
     print("headers : {}".format(headers))
 
     response = requests.request("GET", url, headers=headers, data=payload)
@@ -92,26 +86,28 @@ def check_user_balance(user_id):
 
     return response
 
-def create_crypto_payment(user_id, amount, currency, redirect_uri, auto_renewal, top_up=False):
+
+def create_crypto_payment(
+    user_id, amount, currency, redirect_uri, auto_renewal, top_up=False
+):
     url = f"{dynopay_base_url}/user/cryptoPayment"
 
     # Prepare payload with optional meta_data
-    payload = json.dumps({
-        "amount": float(amount),
-        "currency": currency,
-        "redirect_uri": redirect_uri,
-        "topUp":top_up,
-        "meta_data": {
-            "product_name": f"{user_id}",
-            "product": f"{auto_renewal}"
+    payload = json.dumps(
+        {
+            "amount": float(amount),
+            "currency": currency,
+            "redirect_uri": redirect_uri,
+            "topUp": top_up,
+            "meta_data": {"product_name": f"{user_id}", "product": f"{auto_renewal}"},
         }
-    })
+    )
     print(f"payload : {payload}")
     token = TelegramUser.objects.get(user_id=user_id).token
     headers = {
-        'x-api-key': x_api_key,
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {token}'
+        "x-api-key": x_api_key,
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}",
     }
     response = requests.post(url, headers=headers, data=payload)
     print(response.text)
@@ -121,13 +117,11 @@ def create_crypto_payment(user_id, amount, currency, redirect_uri, auto_renewal,
 def credit_wallet_balance(user_id, amount):
     token = TelegramUser.objects.get(user_id=user_id).token
     headers = {
-        'x-api-key': x_api_key,
-        'Content-Type': 'application/json',
-        'Authorization': f'Bearer {token}'
+        "x-api-key": x_api_key,
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}",
     }
-    payload = json.dumps({
-        "amount": float(amount)
-    })
+    payload = json.dumps({"amount": float(amount)})
     print(f"payload : {payload}")
 
     url = f"{dynopay_base_url}/user/useWallet"
@@ -135,20 +129,19 @@ def credit_wallet_balance(user_id, amount):
     print(response.text)
     return response
 
+
 def get_user_single_transaction(user_id, transaction_id):
     token = TelegramUser.objects.get(user_id=user_id).token
     url = f"{dynopay_base_url}/user/getSingleTransaction/{transaction_id}"
 
     payload = {}
-    headers = {
-        'x-api-key': x_api_key,
-        'Authorization': f'Bearer {token}'
-    }
+    headers = {"x-api-key": x_api_key, "Authorization": f"Bearer {token}"}
 
     response = requests.request("GET", url, headers=headers, data=payload)
 
     print(response.text)
     return response
+
 
 def get_all_user_transactions(user_id):
     token = TelegramUser.objects.get(user_id=user_id).token
@@ -156,10 +149,7 @@ def get_all_user_transactions(user_id):
     url = f"{dynopay_base_url}/user/getTransactions"
 
     payload = {}
-    headers = {
-        'x-api-key': x_api_key,
-        'Authorization': f'Bearer {token}'
-    }
+    headers = {"x-api-key": x_api_key, "Authorization": f"Bearer {token}"}
 
     response = requests.request("GET", url, headers=headers, data=payload)
 
