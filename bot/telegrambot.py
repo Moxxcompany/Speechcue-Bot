@@ -1989,14 +1989,16 @@ def payment_deposit_webhook(request):
             user_id = int(data["user_id"])
             lg = get_user_language(user_id)
             auto_renewal = data["auto_renewal"]
-            amount = float(data["amount"])
-            currency = data["currency"]
+            
+            # Use USD amount directly from DynoPay webhook (no conversion needed)
+            price_in_dollar = float(data["usd_amount"])
+            
             bot.send_message(user_id, DEPOSIT_SUCCESSFUL[lg])
             plan_id = TelegramUser.objects.get(user_id=user_id).plan
             plan_price = float(
                 SubscriptionPlans.objects.get(plan_id=plan_id).plan_price
             )  # Convert to float if necessary
-            price_in_dollar = convert_crypto_to_usd(amount, currency)
+            
             if plan_price > price_in_dollar:
                 bot.send_message(
                     user_id,
@@ -2040,8 +2042,10 @@ def get_webhook_data(request):
     paid_amount = data.get("paid_amount")
     paid_currency = data.get("paid_currency")
     auto_renewal = meta_data.get("product")
+    
     # DynoPay sends back the original USD amount we requested in 'amount' field
-    original_usd_amount = data.get("amount", 0)
+    # Also available in meta_data['original_amount'] for redundancy
+    original_usd_amount = data.get("amount") or meta_data.get("original_amount", 0)
     lg = get_user_language(user_id)
 
     message = (
@@ -2081,8 +2085,8 @@ def crypto_transaction_webhook(request):
             currency = data["currency"]
             lg = get_user_language(user_id)
 
-            # Convert crypto amount to USD and credit internal wallet
-            usd_amount = convert_crypto_to_usd(amount, currency)
+            # Use USD amount directly from DynoPay webhook (no conversion needed)
+            usd_amount = float(data["usd_amount"])
             result = credit_wallet(
                 int(user_id), usd_amount,
                 description=f"Crypto top-up: {amount} {currency} (${usd_amount:.2f} USD)",
