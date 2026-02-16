@@ -76,6 +76,86 @@ def _extract_dtmf_from_transcript(transcript_object):
     return "".join(dtmf_digits) if dtmf_digits else ""
 
 
+def _charge_overage_realtime(call_id, user_id, additional_minutes):
+    """
+    Charge overage immediately when a call ends — replaces the 5-min Celery poll.
+    Returns True if charged successfully, False otherwise.
+    """
+    if additional_minutes <= 0:
+        return False
+
+    try:
+        overage_pricing = OveragePricingTable.objects.filter(pricing_unit="MIN").first()
+        if not overage_pricing:
+            logger.warning(f"[realtime_overage] No MIN pricing row — skipping charge for {call_id}")
+            return False
+
+        price_per_min = float(overage_pricing.overage_pricing)
+        total_charges = price_per_min * additional_minutes
+
+        wallet = check_user_balance(user_id)
+        available_balance = float(wallet.get("data", {}).get("amount", 0))
+
+        if total_charges > available_balance:
+            logger.warning(
+                f"[realtime_overage] Insufficient balance for {call_id}: "
+                f"need=${total_charges:.2f}, have=${available_balance:.2f}"
+            )
+            try:
+                user = TelegramUser.objects.get(user_id=user_id)
+                bot.send_message(
+                    user_id,
+                    f"⚠️ Overage: {additional_minutes:.2f} extra minutes (${total_charges:.2f}) "
+                    f"but wallet has ${available_balance:.2f}. Please top up.",
+                )
+            except Exception:
+                pass
+            return False
+
+        result = debit_wallet(
+            user_id, total_charges,
+            description=f"Overage: {additional_minutes:.2f} extra minutes",
+            tx_type="OVR",
+        )
+        if result["status"] != 200:
+            logger.warning(f"[realtime_overage] Debit failed for {call_id}: {result}")
+            return False
+
+        transaction_id = result["data"]["transaction_id"]
+        logger.info(
+            f"[realtime_overage] Charged ${total_charges:.2f} for {call_id} "
+            f"({additional_minutes:.2f}min @ ${price_per_min}/min) tx={transaction_id}"
+        )
+
+        # Mark CallDuration as charged + notified
+        user = TelegramUser.objects.get(user_id=user_id)
+        UserTransactionLogs.objects.create(
+            user_id=user,
+            reference=transaction_id,
+            transaction_type=TransactionType.OVERAGE,
+        )
+        CallDuration.objects.filter(call_id=call_id).update(charged=True, notified=True)
+
+        # Notify user immediately
+        try:
+            bot.send_message(
+                user_id,
+                f"📊 *Overage Charged*\n"
+                f"Call: `{call_id[:12]}`\n"
+                f"Extra: {additional_minutes:.2f} min\n"
+                f"Charged: ${total_charges:.2f} (${price_per_min}/min)\n"
+                f"Wallet: ${available_balance - total_charges:.2f}",
+                parse_mode="Markdown",
+            )
+        except Exception:
+            pass
+
+        return True
+    except Exception as e:
+        logger.error(f"[realtime_overage] Error for {call_id}: {e}")
+        return False
+
+
 # =============================================================================
 # call_started — log the start of a call
 # =============================================================================
