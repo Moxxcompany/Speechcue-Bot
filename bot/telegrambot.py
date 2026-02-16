@@ -97,6 +97,19 @@ from bot.bot_config import *  # noqa
 
 from bot.callback_query_handlers import *  # noqa
 
+from payment.models import SubscriptionPlans, DTMF_Inbox, UserSubscription as UserSubscriptionModel, WalletTransaction, TransactionType
+from translations.translations import (
+    WELCOME_BACK, DASHBOARD_SUMMARY, PLAN_LABEL, WALLET_LABEL, NUMBERS_LABEL,
+    MINUTES_LEFT_LABEL, PHONE_NUMBERS_MENU, INBOX_MENU, WALLET_AND_BILLING,
+    MAKE_CALL_MENU, IVR_FLOWS_MENU, CAMPAIGNS_MENU, PHONE_NUMBERS_HUB,
+    INBOX_HUB, NO_CALLS_YET, NO_TRANSACTIONS_YET, NO_RECORDINGS_YET,
+    NO_NUMBERS_YET, QUICK_START_TITLE, QUICK_START_STEP_1, QUICK_START_STEP_2,
+    QUICK_START_STEP_3, QUICK_START_STEP_4, FREE_PLAN_ACTIVATED,
+    HOW_IT_WORKS_TEXT, CALL_HISTORY_MENU, CALL_RECORDINGS_MENU,
+    TRANSACTION_HISTORY, VIEW_ALL_CALLS, VIEW_ALL_TRANSACTIONS,
+    SMS_INBOX_MENU, MY_NUMBERS, MAIN_MENU_BTN, BACK_BTN,
+)
+
 VALID_NODE_TYPES = [
     "End Call 🛑",
     "Call Transfer 🔄",
