@@ -243,7 +243,6 @@ def pre_call_check_bulk(user_id, phone_numbers, call_type="bulk"):
         subscription = None
         has_active_sub = False
 
-    domestic_ok = True
     domestic_wallet_needed = Decimal("0.00")
 
     if domestic_count > 0:
