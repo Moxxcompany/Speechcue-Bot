@@ -2994,7 +2994,7 @@ def get_action_list(message):
         if message.text not in node_complete:
             user_data[user_id]["step"] = "error_nodes_complete"
     else:
-        bot.send_message(user_id, f"{PROCESSING_ERROR} {response}")
+        bot.send_message(user_id, f"{PROCESSING_ERROR[lg]} {response}")
 
 
 @bot.message_handler(
