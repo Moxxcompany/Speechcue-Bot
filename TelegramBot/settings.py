@@ -37,14 +37,15 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
 # settings.py
-REDIS_HOST = "localhost"  # Or the host where your Redis server is running
-REDIS_PORT = 6379  # Default Redis port
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_HOST = REDIS_URL.split("@")[-1].split(":")[0] if "@" in REDIS_URL else "localhost"
+REDIS_PORT = int(REDIS_URL.split(":")[-1].split("/")[0]) if REDIS_URL else 6379
 REDIS_DB = 0
 # Redis as the broker
-CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_BROKER_URL = REDIS_URL
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
-CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
+CELERY_RESULT_BACKEND = REDIS_URL
 
 # Celery Beat Schedule — periodic tasks
 CELERY_BEAT_SCHEDULE = {
@@ -128,7 +129,7 @@ WSGI_APPLICATION = "TelegramBot.wsgi.application"
 # }
 HUEY = {
     "name": "TelegramBot",
-    "connection": {"host": "localhost", "port": 6379},
+    "connection": {"url": REDIS_URL},
     "consumer": {
         "workers": 4,
         "worker_type": "thread",
