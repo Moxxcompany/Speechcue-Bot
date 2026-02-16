@@ -1063,7 +1063,7 @@ def handle_end_day(message):
             f"{start_date.strftime(date_format)} to {end_date.strftime(date_format)}"
         )
         print(f"Date range for user {user_id}: {date_range}")
-        bot.send_message(user_id, f"Selected date range: {date_range}")
+        bot.send_message(user_id, f"{DATE_RANGE_SELECTED[lg]} {date_range}")
 
         if start_date > end_date:
             bot.send_message(
@@ -3606,7 +3606,7 @@ def get_task_description(message):
     user_id = message.chat.id
     task_name = message.text
     if AI_Assisted_Tasks.objects.filter(task_name=task_name).exists():
-        bot.send_message(user_id, "Task with a similar name exists! Try a new one!")
+        bot.send_message(user_id, f"{TASK_NAME_EXISTS[lg]}")
         return
     user_data[user_id]["task_name"] = task_name
     user_data[user_id]["step"] = "task_description"
@@ -4089,7 +4089,7 @@ def handle_datetime_input_for_schedule(message):
         delay_time = (utc_time - current_time).total_seconds()
         execute_bulk_ivr.schedule(args=(schedule_call.id,), delay=delay_time)
 
-        bot.send_message(user_id, "Call scheduled successfully!")
+        bot.send_message(user_id, f"{CALL_SCHEDULED_SUCCESS[lg]}")
 
         scheduled_time_str = user_datetime.strftime("%Y-%m-%d %H:%M %Z")
         utc_time_str = utc_time.strftime("%Y-%m-%d %H:%M UTC")  # UTC time
@@ -4107,7 +4107,7 @@ def handle_datetime_input_for_schedule(message):
 
     except Exception as e:
         print(f"Error with datetime input for user {user_id}: {str(e)}")
-        bot.send_message(user_id, f"Invalid Data Time format!")
+        bot.send_message(user_id, f"{INVALID_DATE_FORMAT[lg]}")
         schedule_for_later(message)
 
 
@@ -4128,7 +4128,7 @@ def handle_reminder(message):
 
     # Check if there's enough time to schedule reminders
     if time_diff < timedelta(minutes=5):
-        bot.send_message(user_id, "The campaign is scheduled too soon for reminders.")
+        bot.send_message(user_id, f"{CAMPAIGN_TOO_SOON_FOR_REMINDERS[lg]}")
         schedule_confirmation(message)
         return
 
@@ -4212,7 +4212,7 @@ def handle_reminder_input_for_schedule(message):
 
     print(f"Sending confirmation to user {user_id}:\n{confirmation_message}")
     bot.send_message(user_id, confirmation_message)
-    bot.send_message(user_id, "Your campaign has been scheduled successfully!")
+    bot.send_message(user_id, f"{CAMPAIGN_SCHEDULED_SUCCESS[lg]}")
 
 
 @bot.message_handler(func=lambda message: message.text in SINGLE_IVR.values())
