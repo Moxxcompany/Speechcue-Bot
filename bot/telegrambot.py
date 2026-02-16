@@ -4004,7 +4004,14 @@ def handle_language_selection(call):
         user_data[user_id] = {}
     user_data[user_id]["set_language"] = selected_language
     token = user.token
-    signup(call.message)
+    try:
+        print(f"[language_selection] Calling signup for user {user_id}")
+        signup(call.message)
+        print(f"[language_selection] signup completed for user {user_id}")
+    except Exception as e:
+        import traceback
+        print(f"[language_selection] ERROR in signup: {e}")
+        traceback.print_exc()
 
 
 def handle_terms_and_conditions(message):
