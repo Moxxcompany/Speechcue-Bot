@@ -4306,16 +4306,17 @@ def subscribed_users_message_ivr(user_id):
                 f"🌟 Active Plan: {plan.name} ({current_day_of_subscription} of {plan.validity_days} Days)\n"
                 f"📞 Single IVR: {single_calls}\n"
                 f"⏱️ Bulk Calls: {bulk_calls}\n"
-                f"💳  Note: Bulk IVR charges auto-deduct from wallet at $0.15/min if minutes are exhausted. "
+                f"💳  Note: Overage auto-deducts from wallet at $0.35/min. Intl calls billed per-minute from wallet."
             )
 
         bot.send_message(user_id, msg, reply_markup=get_task_type_keyboard(user_id))
     else:
         msg = (
             f"💵 Pay-as-you-go pricing (wallet deduction): \n"
-            f"📞 Single IVR: $0.30/call\n"
-            f"📋 Bulk IVR: $0.15/min\n"
-            f"🛑 Note: Minimum $25 wallet balance required. "
+            f"📞 Single IVR: $0.35/min\n"
+            f"📋 Bulk IVR: $0.35/min\n"
+            f"🌍 International: $0.45-$0.85/min\n"
+            f"🛑 Minimum wallet balance for 2 minutes required before each call."
         )
         markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
         markup.add(types.KeyboardButton(MAKE_IVR_CALL[lg]))
