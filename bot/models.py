@@ -131,6 +131,11 @@ class UserPhoneNumber(models.Model):
     # Call forwarding settings
     forwarding_enabled = models.BooleanField(default=False)
     forwarding_number = models.CharField(max_length=50, blank=True, default="")
+    # Business hours settings
+    business_hours_enabled = models.BooleanField(default=False)
+    business_hours_start = models.TimeField(null=True, blank=True)  # e.g. 09:00
+    business_hours_end = models.TimeField(null=True, blank=True)    # e.g. 17:00
+    business_hours_timezone = models.CharField(max_length=50, blank=True, default="US/Eastern")
 
     class Meta:
         indexes = [
