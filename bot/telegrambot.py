@@ -2082,7 +2082,8 @@ def get_webhook_data(request):
 
 @csrf_exempt
 def crypto_transaction_webhook(request):
-    """DynoPay webhook for wallet top-up. Credits internal wallet on confirmation."""
+    """DynoPay webhook for wallet top-up. Credits internal wallet on confirmation.
+    Also handles auto-purchase of phone numbers when a pending purchase exists."""
     if request.method == "POST":
         try:
             data = get_webhook_data(request)
@@ -2099,6 +2100,10 @@ def crypto_transaction_webhook(request):
             )
             if result["status"] == 200:
                 bot.send_message(user_id, f"{TOP_UP_SUCCESSFUL[lg]} (+${usd_amount:.2f})")
+
+                # Check for pending phone number purchase and auto-execute
+                _fulfill_pending_phone_purchase(int(user_id))
+
             else:
                 bot.send_message(user_id, f"{PROCESSING_ERROR[lg]}\n{result.get('message', '')}")
             return JsonResponse({"status": "success"}, status=200)
@@ -2108,6 +2113,124 @@ def crypto_transaction_webhook(request):
             )
 
     return JsonResponse({"status": "error", "message": METHOD_NOT_ALLOWED}, status=405)
+
+
+def _fulfill_pending_phone_purchase(user_id):
+    """Check for and fulfill any pending phone number purchase after crypto wallet credit."""
+    pending = PendingPhoneNumberPurchase.objects.filter(
+        user__user_id=user_id, is_fulfilled=False, is_failed=False
+    ).order_by("created_at").first()
+
+    if not pending:
+        return  # No pending purchase
+
+    lg = get_user_language(user_id)
+    cost = float(pending.monthly_cost)
+
+    # Check wallet has enough balance
+    try:
+        user = TelegramUser.objects.get(user_id=user_id)
+        if float(user.wallet_balance) < cost:
+            bot.send_message(
+                user_id,
+                f"⚠️ Wallet credited but insufficient for phone number purchase.\n"
+                f"Need: ${cost:.2f} | Balance: ${user.wallet_balance:.2f}\n"
+                f"Please top up more to complete the purchase.",
+            )
+            return
+    except TelegramUser.DoesNotExist:
+        return
+
+    bot.send_message(user_id, "⏳ Auto-purchasing your phone number... Please wait.")
+
+    # Debit wallet
+    from payment.views import debit_wallet, refund_wallet
+    debit_result = debit_wallet(
+        user_id, cost,
+        description=f"Phone number purchase ({pending.country_code})",
+        tx_type="SUB",
+    )
+    if debit_result["status"] != 200:
+        pending.is_failed = True
+        pending.failure_reason = f"Wallet debit failed: {debit_result.get('message', '')}"
+        pending.save()
+        bot.send_message(
+            user_id,
+            f"Phone number purchase failed: {debit_result['message']}",
+            reply_markup=get_main_menu_keyboard(user_id),
+        )
+        return
+
+    # Purchase from Retell
+    nickname = f"user_{user_id}"
+    retell_result = purchase_phone_number(
+        area_code=pending.area_code,
+        country_code=pending.country_code,
+        toll_free=pending.is_toll_free,
+        nickname=nickname,
+    )
+
+    if not retell_result:
+        # Refund wallet
+        refund_wallet(user_id, cost, description="Phone number purchase failed — refund")
+        pending.is_failed = True
+        pending.failure_reason = "Retell API purchase failed"
+        pending.save()
+        bot.send_message(
+            user_id,
+            "Failed to purchase number from provider. Wallet has been refunded.\n"
+            "Please try again via /start > Buy Number.",
+            reply_markup=get_main_menu_keyboard(user_id),
+        )
+        return
+
+    # Save to database
+    from django.utils import timezone as tz
+    from dateutil.relativedelta import relativedelta
+
+    now = tz.now()
+    user_obj = TelegramUser.objects.get(user_id=user_id)
+    phone_record = UserPhoneNumber.objects.create(
+        user=user_obj,
+        phone_number=retell_result.phone_number,
+        country_code=pending.country_code,
+        area_code=pending.area_code,
+        is_toll_free=pending.is_toll_free,
+        nickname=nickname,
+        monthly_cost=cost,
+        next_renewal_date=now + relativedelta(months=1),
+        is_active=True,
+        auto_renew=True,
+    )
+
+    # Bind agent
+    try:
+        from bot.models import Pathways
+        user_pathway = Pathways.objects.filter(user_id=user_obj).first()
+        if user_pathway:
+            update_phone_number_agent(
+                retell_result.phone_number,
+                outbound_agent_id=user_pathway.pathway_id,
+                nickname=nickname,
+            )
+    except Exception as e:
+        logger.warning(f"Agent binding skipped for auto-purchase {retell_result.phone_number}: {e}")
+
+    # Mark fulfilled
+    pending.is_fulfilled = True
+    pending.save()
+
+    bot.send_message(
+        user_id,
+        f"✅ *Phone Number Auto-Purchased!*\n\n"
+        f"📞 Your number: `{retell_result.phone_number}`\n"
+        f"🌍 Country: {pending.country_code}\n"
+        f"💰 Cost: ${cost:.2f}/month (auto-renew from wallet)\n"
+        f"📅 Next renewal: {phone_record.next_renewal_date.strftime('%Y-%m-%d')}\n\n"
+        f"This number will now appear in your caller ID selection.",
+        reply_markup=get_main_menu_keyboard(user_id),
+        parse_mode="Markdown",
+    )
 
 
 def make_payment(user_id, amount):
