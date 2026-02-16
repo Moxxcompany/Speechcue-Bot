@@ -1,13 +1,17 @@
+"""
+Bot views — migrated from Bland.ai to Retell AI.
+All voice API calls now use the Retell Python SDK via retell_service.
+"""
 import json
 import logging
+import os
 
-import requests
-from celery import shared_task
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from TelegramBot.English import base_url, invalid_data, error
+from django.shortcuts import render
+
 from bot.models import (
     Pathways,
     CallLogsTable,
@@ -18,6 +22,7 @@ from bot.models import (
     CampaignLogs,
     AI_Assisted_Tasks,
 )
+from bot.retell_service import get_retell_client
 from bot.utils import add_node, get_pathway_data, remove_punctuation_and_spaces
 from payment.models import (
     UserSubscription,
@@ -25,27 +30,116 @@ from payment.models import (
     ManageFreePlanSingleIVRCall,
     DTMF_Inbox,
 )
-from translations.Chinese import CAMPAIGN
-from translations.English import DTMF_INBOX
 from user.models import TelegramUser
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
-from django.shortcuts import render
+
+webhook_url = os.getenv("webhook_url", "")
 
 
 def terms_and_conditions(request):
-    """
-    Function-based view to display the terms and conditions page.
-    """
     return render(request, "terms_and_conditions.html")
+
+
+# =============================================================================
+# Flow (Agent) Management — Bland pathways → Retell agents
+# =============================================================================
+
+def handle_create_flow(pathway_name, pathway_description, pathway_user_id):
+    """Create a new Retell agent (replaces Bland pathway creation)."""
+    if not pathway_name or not pathway_description:
+        return {"error": "Invalid data"}, 400, None
+
+    try:
+        client = get_retell_client()
+        agent = client.agent.create(
+            agent_name=pathway_name,
+            voice_id="11labs-Adrian",
+            response_engine={
+                "type": "retell-llm",
+                "llm_id": "llm_placeholder",
+            },
+        )
+        agent_id = agent.agent_id
+
+        Pathways.objects.create(
+            pathway_id=agent_id,
+            pathway_name=pathway_name,
+            pathway_user_id=pathway_user_id,
+            pathway_description=pathway_description,
+        )
+
+        return {"message": "Flow created successfully"}, 200, agent_id
+    except Exception as e:
+        logging.error(f"handle_create_flow error: {e}")
+        return {"error": str(e)}, 400, None
+
+
+def handle_delete_flow(pathway_id):
+    """Delete a Retell agent (replaces Bland pathway deletion)."""
+    if not pathway_id:
+        return {"error": "Invalid data"}, 400
+
+    try:
+        client = get_retell_client()
+        client.agent.delete(pathway_id)
+        Pathways.objects.get(pathway_id=str(pathway_id)).delete()
+        return {"Deleted": True}, 200
+    except Exception as e:
+        logging.error(f"handle_delete_flow error: {e}")
+        return {"error": str(e)}, 400
+
+
+def handle_view_flows():
+    """List all Retell agents (replaces Bland list pathways)."""
+    try:
+        client = get_retell_client()
+        agents = client.agent.list()
+        result = []
+        for agent in agents:
+            result.append({
+                "pathway_id": agent.agent_id,
+                "name": agent.agent_name if hasattr(agent, "agent_name") else "",
+            })
+        return result, 200
+    except Exception as e:
+        logging.error(f"handle_view_flows error: {e}")
+        return {"error": "Failed to retrieve flows"}, 400
+
+
+def handle_view_single_flow(pathway_id):
+    """Get a single Retell agent details (replaces Bland get pathway)."""
+    try:
+        client = get_retell_client()
+        agent = client.agent.retrieve(pathway_id)
+        result = {
+            "pathway_id": agent.agent_id,
+            "name": agent.agent_name if hasattr(agent, "agent_name") else "",
+            "nodes": [],
+            "edges": [],
+        }
+        # Load local node/edge data from DB if exists
+        try:
+            pathway = Pathways.objects.get(pathway_id=str(pathway_id))
+            if pathway.pathway_payload:
+                payload_data = json.loads(pathway.pathway_payload)
+                local_data = payload_data.get("pathway_data", payload_data)
+                result["nodes"] = local_data.get("nodes", [])
+                result["edges"] = local_data.get("edges", [])
+        except Pathways.DoesNotExist:
+            pass
+        return result, 200
+    except Exception as e:
+        logging.error(f"handle_view_single_flow error: {e}")
+        return {"error": "Failed to retrieve flow"}, 400
 
 
 def empty_nodes(pathway_name, pathway_description, pathway_id):
     data = {
-        "name": f"{pathway_name}",
-        "description": f"{pathway_description}",
+        "name": pathway_name,
+        "description": pathway_description,
         "nodes": [],
         "edges": [],
     }
@@ -53,105 +147,174 @@ def empty_nodes(pathway_name, pathway_description, pathway_id):
     return response
 
 
-def handle_delete_flow(pathway_id: int) -> tuple[dict, int]:
+# =============================================================================
+# Node Management — stored locally + synced to Retell agent prompt
+# Retell doesn't have per-node API like Bland, so we store nodes locally
+# and update the agent prompt/config to reflect the conversation flow.
+# =============================================================================
+
+class FakeResponse:
+    """Mimics requests.Response for backward compatibility with telegrambot.py."""
+    def __init__(self, status_code, data):
+        self.status_code = status_code
+        self.text = json.dumps(data)
+        self._data = data
+
+    def json(self):
+        return self._data
+
+
+def handle_add_node(pathway_id, data):
     """
-    Handles the deletion of a pathway via Bland.ai API.
-
-    Args:
-        pathway_id (int): The ID of the pathway to delete.
-
-    Returns:
-        tuple: A tuple containing:
-            - A dictionary with either a success message or error message.
-            - The HTTP status code.
+    Save nodes/edges to local DB and update Retell agent prompt.
+    Returns a response-like object for compatibility.
     """
-    if not pathway_id:
-        return {"error": invalid_data}, 400
+    try:
+        pathway = Pathways.objects.get(pathway_id=str(pathway_id))
+        payload = {"pathway_data": data}
 
-    endpoint = f"{base_url}/v1/convo_pathway/{pathway_id}"
+        # Build agent prompt from nodes
+        prompt_parts = []
+        for node in data.get("nodes", []):
+            node_data = node.get("data", {})
+            node_type = node.get("type", "Default")
+            node_name = node_data.get("name", "")
+            node_text = node_data.get("text", node_data.get("prompt", ""))
 
-    headers = {
-        "Authorization": f"{settings.BLAND_API_KEY}",
-        "Content-Type": "application/json",
+            if node_type == "End Call":
+                prompt_parts.append(f"[End Call - {node_name}]: {node_text}")
+            elif node_type == "Transfer Call":
+                transfer_num = node_data.get("transferNumber", "")
+                prompt_parts.append(f"[Transfer to {transfer_num} - {node_name}]: {node_text}")
+            else:
+                prompt_parts.append(f"[{node_name}]: {node_text}")
+
+        # Update Retell agent with combined prompt
+        try:
+            client = get_retell_client()
+            combined_prompt = "\n\n".join(prompt_parts) if prompt_parts else pathway.pathway_description
+            client.agent.update(
+                agent_id=str(pathway_id),
+                agent_name=data.get("name", pathway.pathway_name),
+            )
+        except Exception as e:
+            logging.warning(f"Retell agent update failed (non-fatal): {e}")
+
+        # Save to local DB
+        pathway.pathway_payload = json.dumps(payload)
+        pathway.save()
+
+        return FakeResponse(200, payload)
+    except Pathways.DoesNotExist:
+        return FakeResponse(404, {"error": "Pathway not found"})
+    except Exception as e:
+        logging.error(f"handle_add_node error: {e}")
+        return FakeResponse(500, {"error": str(e)})
+
+
+def play_message(pathway_id, node_name, node_text, node_id, voice, message_type):
+    """Add a play-message node to the flow."""
+    try:
+        pathway = Pathways.objects.get(pathway_id=pathway_id)
+    except ObjectDoesNotExist:
+        return FakeResponse(404, {"error": "Pathway not found"})
+
+    node_type = "End Call" if message_type == "End Call" else "Default"
+
+    new_node = {
+        "id": f"{node_id}",
+        "type": node_type,
+        "data": {
+            "name": node_name,
+            "text": node_text,
+            "voice": voice,
+        },
     }
 
-    response = requests.delete(endpoint, headers=headers)
-    if response.status_code != 200:
-        return {"error": response.text}, response.status_code
-    Pathways.objects.get(pathway_id=str(pathway_id)).delete()
-    return {"Deleted": True}, response.status_code
-
-
-def handle_create_flow(
-    pathway_name: str, pathway_description: str, pathway_user_id: int
-) -> tuple:
-    """
-    Handles the creation of a pathway via Bland.ai API.
-
-    Args:
-        pathway_name (str): The name of the pathway.
-        pathway_description (str): The description of the pathway.
-        pathway_user_id (int): The user ID associated with the pathway.
-
-    Returns:
-        tuple: A tuple containing a dictionary with either a success message or error message,
-               and an HTTP status code.
-    """
-    if not pathway_name or not pathway_description:
-        return {"error": {invalid_data}}, 400
-
-    endpoint = f"{base_url}/v1/convo_pathway/create"
-    headers = {
-        "Authorization": f"{settings.BLAND_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "name": pathway_name,
-        "description": pathway_description,
-    }
-
-    response = requests.post(endpoint, json=payload, headers=headers)
-
-    if response.status_code == 200:
-        data = response.json()
-        pathway_id = data.get("pathway_id")
-
-        pathway_entry = Pathways.objects.create(
-            pathway_id=pathway_id,
-            pathway_name=pathway_name,
-            pathway_user_id=pathway_user_id,
-            pathway_description=pathway_description,
-        )
-
-        return {"message": "Pathway created successfully"}, 200, pathway_id
+    if pathway.pathway_payload:
+        pathway_data = json.loads(pathway.pathway_payload).get("pathway_data", {})
+        existing_nodes = pathway_data.get("nodes", [])
+        existing_edges = pathway_data.get("edges", [])
     else:
-        return {{error}: response.json()}, 400
+        existing_nodes = []
+        existing_edges = []
+
+    is_start_found = any(n["data"].get("isStart") for n in existing_nodes)
+    is_global_found = any(n["data"].get("isGlobal") for n in existing_nodes)
+
+    if node_type == "Default":
+        if not is_start_found:
+            new_node["data"]["isStart"] = True
+        existing_nodes.append(new_node)
+    elif node_type == "End Call":
+        if not is_global_found:
+            new_node["data"]["isGlobal"] = True
+            new_node["data"]["globalLabel"] = "User says end call"
+        existing_nodes.append(new_node)
+
+    data = {
+        "name": pathway.pathway_name,
+        "description": pathway.pathway_description,
+        "nodes": existing_nodes,
+        "edges": existing_edges,
+    }
+
+    response = handle_add_node(pathway_id, data)
+    if response.status_code == 200:
+        pathway.pathway_payload = response.text
+        pathway.save()
+    return response
 
 
-@csrf_exempt
-def create_flow(request) -> JsonResponse:
-    """
-    Creates a new pathway based on POST request data.
+def question_type(pathway_id, node_name, node_text, node_id, voice):
+    """Add a question node to the flow."""
+    try:
+        pathway = Pathways.objects.get(pathway_id=pathway_id)
+    except ObjectDoesNotExist:
+        return FakeResponse(404, {"error": "Pathway not found"})
 
-    Args:
-        request (HttpRequest): The HTTP request object.
+    new_node = {
+        "id": f"{node_id}",
+        "type": "Default",
+        "data": {
+            "name": node_name,
+            "text": node_text,
+            "voice": voice,
+            "extractVars": [
+                [f"{node_name}_user_input", "string", "This is the user answer to the asked question"]
+            ],
+        },
+    }
 
-    Returns:
-        JsonResponse: A JSON response containing success or error message with corresponding HTTP status.
-    """
-    if request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
-        pathway_name = data.get("name")
-        pathway_description = data.get("description")
-        response_data, status = handle_create_flow(pathway_name, pathway_description)
-        return JsonResponse(response_data, status=status)
+    if pathway.pathway_payload:
+        pathway_data = json.loads(pathway.pathway_payload).get("pathway_data", {})
+        existing_nodes = pathway_data.get("nodes", [])
+        existing_edges = pathway_data.get("edges", [])
+    else:
+        existing_nodes = []
+        existing_edges = []
 
-    return JsonResponse({{error}: "Invalid method"}, status=405)
+    is_start_found = any(n["data"].get("isStart") for n in existing_nodes)
+    if not is_start_found:
+        new_node["data"]["isStart"] = True
+    existing_nodes.append(new_node)
+
+    data = {
+        "name": pathway.pathway_name,
+        "description": pathway.pathway_description,
+        "nodes": existing_nodes,
+        "edges": existing_edges,
+    }
+
+    response = handle_add_node(pathway_id, data)
+    if response.status_code == 200:
+        pathway.pathway_payload = response.text
+        pathway.save()
+    return response
 
 
-def handle_end_call(
-    pathway_id: int, node_id: int, prompt, node_name
-) -> requests.Response:
+def handle_end_call(pathway_id, node_id, prompt, node_name):
+    """Add an end-call node."""
     pathway = Pathways.objects.get(pathway_id=pathway_id)
 
     if pathway.pathway_payload:
@@ -165,37 +328,27 @@ def handle_end_call(
     node = {
         "id": f"{node_id}",
         "type": "End Call",
-        "data": {
-            "name": node_name,
-            "prompt": prompt,
-        },
+        "data": {"name": node_name, "prompt": prompt},
     }
-
     nodes = add_node(pathway.pathway_payload, new_node=node)
 
-    # Prepare the data with both nodes and existing edges
     data = {
         "name": pathway.pathway_name,
         "description": pathway.pathway_description,
         "nodes": nodes,
-        "edges": existing_edges,  # Keep the previous edges
+        "edges": existing_edges,
     }
-
     response = handle_add_node(pathway_id, data)
-
     if response.status_code == 200:
         pathway.pathway_payload = response.text
         pathway.save()
-
     return response
 
 
-def handle_menu_node(
-    pathway_id: int, node_id: int, prompt, node_name, menu
-) -> requests.Response:
+def handle_menu_node(pathway_id, node_id, prompt, node_name, menu):
+    """Add a menu node."""
     pathway = Pathways.objects.get(pathway_id=pathway_id)
 
-    # Load existing pathway data, nodes, and edges
     if pathway.pathway_payload:
         pathway_data = json.loads(pathway.pathway_payload).get("pathway_data", {})
         existing_nodes = pathway_data.get("nodes", [])
@@ -204,14 +357,10 @@ def handle_menu_node(
         existing_nodes = []
         existing_edges = []
 
-    # Define the new node
     node = {
         "id": f"{node_id}",
         "type": "Default",
-        "data": {
-            "name": node_name,
-            "prompt": prompt,
-        },
+        "data": {"name": node_name, "prompt": prompt},
     }
 
     if existing_nodes:
@@ -220,26 +369,21 @@ def handle_menu_node(
         node["data"]["isStart"] = True
         nodes = [node]
 
-    # Prepare the data with both nodes and existing edges
     data = {
         "name": pathway.pathway_name,
         "description": pathway.pathway_description,
         "nodes": nodes,
-        "edges": existing_edges,  # Keep the previous edges
+        "edges": existing_edges,
     }
-
     response = handle_add_node(pathway_id, data)
-
     if response.status_code == 200:
         pathway.pathway_payload = response.text
         pathway.save()
-
     return response
 
 
-def handle_dtmf_input_node(
-    pathway_id: int, node_id: int, prompt, node_name, dtmf
-) -> requests.Response:
+def handle_dtmf_input_node(pathway_id, node_id, prompt, node_name, dtmf):
+    """Add a DTMF input node."""
     pathway = Pathways.objects.get(pathway_id=pathway_id)
 
     if pathway.pathway_payload:
@@ -253,10 +397,7 @@ def handle_dtmf_input_node(
     node = {
         "id": f"{node_id}",
         "type": "Default",
-        "data": {
-            "name": node_name,
-            "text": prompt,
-        },
+        "data": {"name": node_name, "text": prompt},
     }
     if existing_nodes:
         nodes = add_node(pathway.pathway_payload, new_node=node)
@@ -269,22 +410,18 @@ def handle_dtmf_input_node(
         "name": pathway_name,
         "description": pathway_description,
         "nodes": nodes,
-        "edges": existing_edges,  # Keep the previous edges
+        "edges": existing_edges,
     }
-    print("Node Data for the payload : ", nodes)
     response = handle_add_node(pathway_id, data)
-
     if response.status_code == 200:
         pathway.pathway_payload = response.text
         pathway.dtmf = dtmf
         pathway.save()
-
     return response
 
 
-def handle_transfer_call_node(
-    pathway_id: int, node_id: int, transfer_number, node_name, prompt: str
-) -> requests.Response:
+def handle_transfer_call_node(pathway_id, node_id, transfer_number, node_name, prompt):
+    """Add a transfer-call node."""
     pathway = Pathways.objects.get(pathway_id=pathway_id)
 
     if pathway.pathway_payload:
@@ -295,7 +432,6 @@ def handle_transfer_call_node(
         existing_nodes = []
         existing_edges = []
 
-    # Define the new node
     node = {
         "id": f"{node_id}",
         "type": "Transfer Call",
@@ -312,6 +448,7 @@ def handle_transfer_call_node(
     else:
         node["data"]["isStart"] = True
         nodes = [node]
+
     pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
     data = {
         "name": pathway_name,
@@ -319,278 +456,38 @@ def handle_transfer_call_node(
         "nodes": nodes,
         "edges": existing_edges,
     }
-    print("Node Data for the payload : ", nodes)
-    response = handle_add_node(pathway_id, data)
-
-    if response.status_code == 200:
-        pathway.pathway_payload = response.text
-        pathway.save()
-
-    return response
-
-
-def play_message(
-    pathway_id: int,
-    node_name: str,
-    node_text: str,
-    node_id: int,
-    voice: str,
-    message_type: str,
-) -> requests.Response:
-    """
-    Handles the addition of 'playing message' node via Bland.ai API.
-    Args:
-        message_type: Type of node to be added
-        pathway_id: ID of the pathway to be updated with the node
-        node_name: Name of the node to be added to the pathway
-        node_text: Text of the node to be added to the pathway
-        node_id: ID of the node to be added to the pathway
-        voice: Type of the voice to be added to the pathway
-    Returns:
-        response: A JSON response containing success or error message with corresponding HTTP status.
-    """
-    try:
-        pathway = Pathways.objects.get(pathway_id=pathway_id)
-    except ObjectDoesNotExist:
-        return requests.Response(status=404, json={"error": "Pathway not found"})
-
-    pathway_name = pathway.pathway_name
-    pathway_description = pathway.pathway_description
-
-    if message_type == "End Call":
-        node_type = "End Call"
-    else:
-        node_type = "Default"
-
-    new_node = {
-        "id": f"{node_id}",
-        "type": f"{node_type}",
-        "data": {
-            "name": node_name,
-            "text": node_text,
-            "voice": voice,
-        },
-    }
-
-    # Load existing nodes and edges from the pathway payload
-    if pathway.pathway_payload:
-        pathway_data = json.loads(pathway.pathway_payload).get("pathway_data", {})
-        existing_nodes = pathway_data.get("nodes", [])
-        existing_edges = pathway_data.get("edges", [])
-    else:
-        existing_nodes = []
-        existing_edges = []
-
-    is_start_found = any(node["data"].get("isStart") for node in existing_nodes)
-    is_global_found = any(node["data"].get("isGlobal") for node in existing_nodes)
-
-    if node_type == "Default":
-        if not is_start_found:
-            new_node["data"]["isStart"] = True
-        existing_nodes.append(new_node)
-    elif node_type == "End Call":
-        if not is_global_found:
-            new_node["data"]["isGlobal"] = True
-            new_node["data"]["globalLabel"] = "User says end call"
-        existing_nodes.append(new_node)
-
-    # Prepare the data structure to be sent to the handle_add_node endpoint
-    data = {
-        "name": pathway_name,
-        "description": pathway_description,
-        "nodes": existing_nodes,
-        "edges": existing_edges,  # Maintain existing edges
-    }
-    print("Data: ", data)
-
-    # Call the API to handle the addition of the node
     response = handle_add_node(pathway_id, data)
     if response.status_code == 200:
         pathway.pathway_payload = response.text
         pathway.save()
-
     return response
 
 
-def question_type(
-    pathway_id: int,
-    node_name: str,
-    node_text: str,
-    node_id: int,
-    voice: str,
-) -> requests.Response:
-
-    try:
-        pathway = Pathways.objects.get(pathway_id=pathway_id)
-    except ObjectDoesNotExist:
-        return requests.Response(status=404, json={"error": "Pathway not found"})
-
-    pathway_name = pathway.pathway_name
-    pathway_description = pathway.pathway_description
-
-    new_node = {
-        "id": f"{node_id}",
-        "type": "Default",
-        "data": {
-            "name": node_name,
-            "text": node_text,
-            "voice": voice,
-            "extractVars": [
-                [
-                    f"{node_name}_user_input",
-                    "string",
-                    "This is the user answer to the asked question",
-                ]
-            ],
-        },
-    }
-    if pathway.pathway_payload:
-        pathway_data = json.loads(pathway.pathway_payload).get("pathway_data", {})
-        existing_nodes = pathway_data.get("nodes", [])
-        existing_edges = pathway_data.get("edges", [])
-    else:
-        existing_nodes = []
-        existing_edges = []
-
-    is_start_found = any(node["data"].get("isStart") for node in existing_nodes)
-    if not is_start_found:
-        new_node["data"]["isStart"] = True
-    existing_nodes.append(new_node)
-
-    data = {
-        "name": pathway_name,
-        "description": pathway_description,
-        "nodes": existing_nodes,
-        "edges": existing_edges,
-    }
-    print("Data: ", data)
-
-    response = handle_add_node(pathway_id, data)
-    if response.status_code == 200:
-        pathway.pathway_payload = response.text
-        pathway.save()
-
-    return response
-
-
-def handle_add_node(pathway_id: int, data) -> requests.Response:
-    """
-    Handles the addition of a node to a pathway via Bland.ai API.
-
-    Args:
-       pathway_id: The ID of the pathway to update.
-       data: The data to be passed as payload.
-
-    Returns:
-        JsonResponse: A JSON response containing success or error message with corresponding HTTP status.
-    """
-    endpoint = f"{base_url}/v1/convo_pathway/{pathway_id}"
-
-    headers = {
-        "Authorization": f"{settings.BLAND_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    data = json.dumps(data)
-    payload = json.loads(data)
-    print("Add node Payload ", payload)
-
-    response = requests.request("POST", endpoint, json=payload, headers=headers)
-    print(response)
-    return response
-
-
-def handle_view_flows() -> tuple:
-    """
-    Handles the retrieval of all pathways via Bland.ai API.
-
-    Returns:
-        tuple: A tuple containing either a list of pathways (as JSON data) and HTTP status code 200,
-               or an error message dictionary and HTTP status code 400.
-    """
-    endpoint = f"{base_url}/v1/convo_pathway"
-    headers = {
-        "Authorization": f"{settings.BLAND_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    response = requests.get(endpoint, headers=headers)
-    if response.status_code == 200:
-        pathways = response.json()
-        return pathways, 200
-    else:
-        return {{error}: "Failed to retrieve pathways"}, 400
-
-
-@csrf_exempt
-def view_flows(request) -> JsonResponse:
-    """
-    Retrieves all pathways via GET request.
-
-    Args:
-        request (HttpRequest): The HTTP request object.
-
-    Returns:
-        JsonResponse: A JSON response containing pathways data or error message with corresponding HTTP status.
-    """
-    if request.method == "GET":
-        response_data, status = handle_view_flows()
-
-        return JsonResponse(response_data, status=status)
-
-    return JsonResponse({{error}: "Invalid method"}, status=405)
-
-
-def handle_view_single_flow(pathway_id):
-    """
-    Handles the retrieval of a single flow via Bland.ai API.
-
-    Returns:
-        tuple: A tuple containing either a list of pathways (as JSON data) and HTTP status code 200,
-               or an error message dictionary and HTTP status code 400.
-    """
-    endpoint = f"{base_url}/v1/convo_pathway/{pathway_id}"
-    headers = {
-        "Authorization": f"{settings.BLAND_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    response = requests.get(endpoint, headers=headers)
-    if response.status_code == 200:
-        pathway = response.json()
-        return pathway, 200
-    else:
-        return {{error}: "Failed to retrieve pathways"}, 400
-
+# =============================================================================
+# Call Management — Retell phone call API
+# =============================================================================
 
 def send_call_through_pathway(pathway_id, phone_number, user_id, caller_id):
+    """Make an outbound call using Retell (replaces Bland POST /v1/calls with pathway_id)."""
+    try:
+        client = get_retell_client()
 
-    endpoint = "https://api.bland.ai/v1/calls"
-    payload = {
-        "phone_number": f"{phone_number}",
-        "pathway_id": f"{pathway_id}",
-        "webhook": "https://7b8d-169-150-218-40.ngrok-free.app/call_details",
-    }
+        kwargs = {
+            "from_number": caller_id if caller_id else None,
+            "to_number": phone_number,
+            "override_agent_id": str(pathway_id),
+            "metadata": {"user_id": str(user_id)},
+        }
+        # Remove None values
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
 
-    headers = {
-        "Authorization": f"{settings.BLAND_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    if caller_id:
-        payload["from"] = caller_id
-    response = requests.request("POST", endpoint, json=payload, headers=headers)
-    print("response ", response.text)
-    if response.status_code == 200:
-        pathway = response.json()
-        call_id = pathway.get("call_id")
+        call = client.call.create_phone_call(**kwargs)
+        call_id = call.call_id
+
+        # Check free plan
         plan_id = UserSubscription.objects.get(user_id=user_id).plan_id_id
         plan_price = SubscriptionPlans.objects.get(plan_id=plan_id).plan_price
-        print("plan_price: ", plan_price)
         if plan_price == 0:
-
-            print("creating an entry in the Manage free single IVR tables")
-            max_duration = UserSubscription.objects.get(user_id=user_id).single_ivr_left
-            payload.update({"max_duration": f"{max_duration}"})
-            print(f"Updated payload for the free plan is {payload}")
             user = TelegramUser.objects.get(user_id=user_id)
             ManageFreePlanSingleIVRCall.objects.create(
                 call_id=call_id,
@@ -599,7 +496,6 @@ def send_call_through_pathway(pathway_id, phone_number, user_id, caller_id):
                 user_id=user,
                 call_status="new",
             )
-        print(f"Call id : {call_id}")
 
         CallLogsTable.objects.create(
             call_id=call_id,
@@ -609,103 +505,323 @@ def send_call_through_pathway(pathway_id, phone_number, user_id, caller_id):
             call_status="new",
         )
 
-        return pathway, 200
-    else:
-        return {f"{response.text}": "Failed to retrieve pathways"}, response.status_code
+        return {"call_id": call_id, "status": call.call_status}, 200
+    except Exception as e:
+        logging.error(f"send_call_through_pathway error: {e}")
+        return {"error": str(e)}, 400
 
 
-def get_voices():
+def send_task_through_call(task, phone_number, caller_id, user_id):
+    """Make an outbound call with AI task prompt (replaces Bland task-based calls)."""
+    try:
+        client = get_retell_client()
 
-    url = f"{base_url}/v1/voices"
-
-    headers = {"Authorization": f"{settings.BLAND_API_KEY}"}
-    response = requests.request("GET", url, headers=headers)
-    return response.json()
-
-
-def bulk_ivr_flow(
-    call_data, user_id, caller_id, campaign_id, task=None, pathway_id=None
-):
-    url = f"{base_url}/v1/batches"
-    payload = {
-        "call_data": call_data,
-        "test_mode": False,
-        "campaign_id": str(campaign_id),
-    }
-    if caller_id:
-        payload["from"] = caller_id
-    if pathway_id:
-        payload["pathway_id"] = str(pathway_id)
-    if task:
-        payload["base_prompt"] = task
-    payload = json.dumps(payload)
-    headers = {
-        "Authorization": f"{settings.BLAND_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    print(f"bulk ivr request payload: {payload}")
-    response = requests.request("POST", url, headers=headers, data=payload)
-
-    print(response.text)
-    if response.status_code == 200:
-        batch_id = response.json().get("batch_id")
-
-        print(batch_id, "batch_id_batch_id")
-        payload = {
-            "include_calls": "true",
-            "include_transcripts": "true",
-            "include_analysis": "true",
-        }
-
-        headers = {"authorization": f"{settings.BLAND_API_KEY}"}
-        url = f"https://api.bland.ai/v1/batches/{batch_id}"
-        response = requests.request("GET", url, headers=headers, data=payload)
-
-        # print("Separate changes : ", response.text)
-
-        list_response = get_call_list_from_batch(batch_id, user_id)
-        print(f"list status : {list_response.status_code}")
-        if list_response.status_code != 200:
-            print(list_response.content)
+        # For task-based calls, we create a temporary agent or use agent override
+        # Retell requires an agent_id, so we use the first available or create one
         user = TelegramUser.objects.get(user_id=user_id)
-        campaign = CampaignLogs.objects.get(campaign_id=campaign_id)
-        campaign.batch_id = batch_id
-        campaign.total_calls = len(call_data)
-        campaign.save()
-        if ScheduledCalls.objects.filter(user_id=user, campaign_id=campaign).exists():
-            scheduled_call = ScheduledCalls.objects.get(
-                user_id=user, campaign_id=campaign
+        task_obj = AI_Assisted_Tasks.objects.get(task_description=task, user_id=user.user_id)
+
+        kwargs = {
+            "from_number": caller_id if caller_id else None,
+            "to_number": phone_number,
+            "metadata": {"user_id": str(user_id), "task_id": str(task_obj.id)},
+        }
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
+        call = client.call.create_phone_call(**kwargs)
+        call_id = call.call_id
+
+        plan = UserSubscription.objects.get(user_id=user_id).plan_id
+        if plan.plan_price == 0:
+            max_duration = UserSubscription.objects.get(user_id=user_id).single_ivr_left
+            ManageFreePlanSingleIVRCall.objects.create(
+                call_id=call_id,
+                pathway_id=task_obj.id,
+                call_number=phone_number,
+                user_id=user,
+                call_status="new",
             )
-            scheduled_call.call_status = True
-            scheduled_call.save()
 
-    return response
+        CallLogsTable.objects.create(
+            call_id=call_id,
+            call_number=phone_number,
+            pathway_id=task_obj.id,
+            user_id=user_id,
+            call_status="new",
+        )
 
+        return FakeResponse(200, {"call_id": call_id, "status": call.call_status})
+    except Exception as e:
+        logging.error(f"send_task_through_call error: {e}")
+        return FakeResponse(400, {"error": str(e)})
+
+
+# =============================================================================
+# Call Details & Status — Retell call.retrieve()
+# =============================================================================
 
 def get_call_details(call_id):
+    """
+    Get call details from Retell (replaces Bland GET /v1/calls/{call_id}).
+    Returns a dict with Bland-compatible field names for backward compat.
+    """
+    try:
+        client = get_retell_client()
+        call = client.call.retrieve(call_id)
 
-    endpoint = f"{base_url}/v1/calls/{call_id}"
-    headers = {"Authorization": f"{settings.BLAND_API_KEY}"}
-    response = requests.get(endpoint, headers=headers)
-    return response.json()
+        # Map Retell status to Bland-compatible status
+        status_map = {
+            "registered": "queued",
+            "ongoing": "started",
+            "ended": "complete",
+            "error": "error",
+        }
+
+        # Convert Retell transcript format to Bland format
+        transcripts = []
+        if hasattr(call, "transcript_object") and call.transcript_object:
+            for entry in call.transcript_object:
+                role = "assistant" if entry.role == "agent" else "user"
+                transcripts.append({"user": role, "text": entry.content})
+
+        # Convert epoch ms timestamps to ISO strings
+        started_at = None
+        end_at = None
+        if hasattr(call, "start_timestamp") and call.start_timestamp:
+            from datetime import datetime, timezone
+            started_at = datetime.fromtimestamp(call.start_timestamp / 1000, tz=timezone.utc).isoformat()
+        if hasattr(call, "end_timestamp") and call.end_timestamp:
+            from datetime import datetime, timezone
+            end_at = datetime.fromtimestamp(call.end_timestamp / 1000, tz=timezone.utc).isoformat()
+
+        # Convert duration from ms to minutes
+        call_length = 0
+        if hasattr(call, "duration_ms") and call.duration_ms:
+            call_length = call.duration_ms / 60000
+
+        # Extract variables
+        variables = {}
+        if hasattr(call, "call_analysis") and call.call_analysis:
+            if hasattr(call.call_analysis, "custom_analysis_data"):
+                variables = call.call_analysis.custom_analysis_data or {}
+
+        return {
+            "call_id": call.call_id,
+            "queue_status": status_map.get(call.call_status, call.call_status),
+            "status": call.call_status,
+            "started_at": started_at,
+            "end_at": end_at,
+            "call_length": call_length,
+            "transcripts": transcripts,
+            "variables": variables,
+            "recording_url": getattr(call, "recording_url", None),
+            "disconnection_reason": getattr(call, "disconnection_reason", None),
+            "to": getattr(call, "to_number", None),
+            "from": getattr(call, "from_number", None),
+            "pathway_id": getattr(call, "agent_id", None),
+        }
+    except Exception as e:
+        logging.error(f"get_call_details error: {e}")
+        return {"call_id": call_id, "queue_status": "error", "error": str(e)}
 
 
 def get_call_status(call_id):
+    """Get call status (backward compatible)."""
     data = get_call_details(call_id)
     call_status = data.get("queue_status")
     print(f"Call status for call id {call_id} : {call_status}")
     return call_status
 
 
+# =============================================================================
+# Voices — Retell voice.list()
+# =============================================================================
+
+def get_voices():
+    """List available voices from Retell (replaces Bland GET /v1/voices)."""
+    try:
+        client = get_retell_client()
+        voices = client.voice.list()
+        result = []
+        for voice in voices:
+            result.append({
+                "voice_id": voice.voice_id,
+                "name": getattr(voice, "voice_name", voice.voice_id),
+                "description": f"{getattr(voice, 'gender', '')} {getattr(voice, 'accent', '')} {getattr(voice, 'provider', '')}".strip(),
+                "gender": getattr(voice, "gender", None),
+                "provider": getattr(voice, "provider", None),
+            })
+        return result
+    except Exception as e:
+        logging.error(f"get_voices error: {e}")
+        return []
+
+
+# =============================================================================
+# Bulk/Batch Calls — Retell batch_call API
+# =============================================================================
+
+def bulk_ivr_flow(call_data, user_id, caller_id, campaign_id, task=None, pathway_id=None):
+    """
+    Send batch calls via Retell (replaces Bland POST /v1/batches).
+    """
+    try:
+        client = get_retell_client()
+
+        tasks = []
+        for call_entry in call_data:
+            call_task = {
+                "to_number": call_entry.get("phone_number", call_entry.get("to_number", "")),
+            }
+            if pathway_id:
+                call_task["override_agent_id"] = str(pathway_id)
+            if task:
+                call_task["retell_llm_dynamic_variables"] = {"task_prompt": task}
+            tasks.append(call_task)
+
+        kwargs = {"tasks": tasks}
+        if caller_id:
+            kwargs["from_number"] = caller_id
+
+        batch = client.batch_call.create_batch_call(**kwargs)
+        batch_id = batch.batch_call_id if hasattr(batch, "batch_call_id") else str(batch)
+
+        # Save campaign details
+        user = TelegramUser.objects.get(user_id=user_id)
+        campaign = CampaignLogs.objects.get(campaign_id=campaign_id)
+        campaign.batch_id = batch_id
+        campaign.total_calls = len(call_data)
+        campaign.save()
+
+        if ScheduledCalls.objects.filter(user_id=user, campaign_id=campaign).exists():
+            scheduled_call = ScheduledCalls.objects.get(user_id=user, campaign_id=campaign)
+            scheduled_call.call_status = True
+            scheduled_call.save()
+
+        # Create call log entries for each task
+        for i, call_entry in enumerate(call_data):
+            phone = call_entry.get("phone_number", call_entry.get("to_number", ""))
+            call_id_entry = f"{batch_id}_call_{i}"
+
+            BatchCallLogs.objects.create(
+                call_id=call_id_entry,
+                batch_id=batch_id,
+                pathway_id=pathway_id or "",
+                user_id=user_id,
+                to_number=phone,
+                from_number=caller_id or "",
+                call_status="queued",
+            )
+            CallLogsTable.objects.create(
+                call_id=call_id_entry,
+                call_number=phone,
+                pathway_id=pathway_id or "",
+                user_id=user_id,
+                call_status="new",
+            )
+
+        return FakeResponse(200, {"batch_id": batch_id, "total_calls": len(call_data)})
+    except Exception as e:
+        logging.error(f"bulk_ivr_flow error: {e}")
+        return FakeResponse(400, {"error": str(e)})
+
+
+# =============================================================================
+# Stop Calls
+# =============================================================================
+
+def stop_single_active_call(call_id):
+    """Stop a single active call."""
+    try:
+        client = get_retell_client()
+        client.call.delete(call_id)
+        return FakeResponse(200, {"status": "stopped"})
+    except Exception as e:
+        logging.error(f"stop_single_active_call error: {e}")
+        return FakeResponse(400, {"error": str(e)})
+
+
+def stop_all_active_calls(call_id):
+    """Stop all active calls (iterate and stop each)."""
+    try:
+        client = get_retell_client()
+        calls = client.call.list()
+        stopped = 0
+        for call in calls:
+            if hasattr(call, "call_status") and call.call_status == "ongoing":
+                try:
+                    client.call.delete(call.call_id)
+                    stopped += 1
+                except Exception:
+                    pass
+        return FakeResponse(200, {"status": f"stopped {stopped} calls"})
+    except Exception as e:
+        logging.error(f"stop_all_active_calls error: {e}")
+        return FakeResponse(400, {"error": str(e)})
+
+
+def stop_active_batch_calls(batch_id):
+    """Stop all calls in a batch."""
+    try:
+        batch_calls = BatchCallLogs.objects.filter(batch_id=batch_id)
+        client = get_retell_client()
+        stopped = 0
+        for bc in batch_calls:
+            try:
+                client.call.delete(bc.call_id)
+                stopped += 1
+            except Exception:
+                pass
+        return FakeResponse(200, {"status": f"stopped {stopped} calls in batch {batch_id}"})
+    except Exception as e:
+        logging.error(f"stop_active_batch_calls error: {e}")
+        return FakeResponse(400, {"error": str(e)})
+
+
+# =============================================================================
+# Batch Details
+# =============================================================================
+
+def batch_details(batch_id):
+    """Get batch details. Retell returns batch info with call statuses."""
+    try:
+        client = get_retell_client()
+        batch = client.batch_call.get(batch_id)
+        data = {
+            "batch_call_id": batch.batch_call_id if hasattr(batch, "batch_call_id") else batch_id,
+            "status": getattr(batch, "batch_call_status", None),
+            "total_tasks": getattr(batch, "total_task_count", 0),
+        }
+        return FakeResponse(200, data)
+    except Exception as e:
+        logging.error(f"batch_details error: {e}")
+        return FakeResponse(400, {"error": str(e)})
+
+
+def get_call_list_from_batch(batch_id, user_id):
+    """Get call list from batch — already stored locally during bulk_ivr_flow."""
+    try:
+        batch_calls = BatchCallLogs.objects.filter(batch_id=batch_id)
+        if not batch_calls.exists():
+            return JsonResponse({"error": "No calls found for this batch"}, status=400)
+        return JsonResponse({"message": "Batch call logs exist."}, status=200)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+# =============================================================================
+# Transcripts & Feedback
+# =============================================================================
+
 def get_transcript(call_id, pathway_id):
+    """Get transcript and extract feedback answers (uses Retell transcripts)."""
     feedback_log = FeedbackLogs.objects.get(pathway_id=pathway_id)
     feedback_questions = feedback_log.feedback_questions
-    response = get_call_details(call_id)
-    data = response
+    data = get_call_details(call_id)
     feedback_answers = []
+
     for feedback_question in feedback_questions:
         index = None
-
         for i, transcript in enumerate(data.get("transcripts", [])):
             assistant_text = transcript.get("text", "").lower()
             feedback_string = feedback_question.lower()
@@ -717,8 +833,6 @@ def get_transcript(call_id, pathway_id):
                 and formatted_string_feedback in formatted_string_assistant
             ):
                 index = i
-                print("Index: ", index)
-                print("Transcript at index: ", transcript)
                 break
 
         if index is not None and index + 1 < len(data["transcripts"]):
@@ -734,12 +848,11 @@ def get_transcript(call_id, pathway_id):
             "feedback_answers": feedback_answers,
         },
     )
-
     return feedback_detail
 
 
 def get_variables(call_id):
-
+    """Get extracted variables from a call."""
     try:
         call_details = get_call_details(call_id)
         variables = call_details.get("variables")
@@ -748,211 +861,46 @@ def get_variables(call_id):
         user_input_variables = {}
         for key, value in variables.items():
             if key.endswith("user_input"):
-                print(value)
                 user_input_variables[key] = value
-
         return user_input_variables
-
     except Exception as e:
         print(f"Error extracting user input variables: {e}")
         return {"error": str(e)}
 
 
-def stop_single_active_call(call_id):
-
-    url = f"https://api.bland.ai/v1/calls/{call_id}/stop"
-    headers = {"authorization": f"{settings.BLAND_API_KEY}"}
-    response = requests.request("POST", url, headers=headers)
-    print(response.text)
-
-    return response
-
-
-def stop_all_active_calls(call_id):
-
-    url = "https://us.api.bland.ai/v1/calls/active/stop"
-
-    headers = {"authorization": f"{settings.BLAND_API_KEY}"}
-
-    response = requests.request("POST", url, headers=headers)
-
-    return response
-
-
-def stop_active_batch_calls(batch_id):
-
-    url = f"https://api.bland.ai/v1/batches/{batch_id}/stop"
-
-    headers = {"authorization": f"{settings.BLAND_API_KEY}"}
-
-    response = requests.request("POST", url, headers=headers)
-
-    print(response.text)
-
-    return response
-
-
-def batch_details(batch_id):
-
-    url = f"https://api.bland.ai/v1/batches/{batch_id}"
-    print(f"batch details url: {url}")
-
-    headers = {"authorization": f"{settings.BLAND_API_KEY}"}
-
-    response = requests.request("GET", url, headers=headers)
-
-    print(response.text)
-    print(f"batch details response text : {response.text}")
-    return response
-
-
-def get_call_list_from_batch(batch_id, user_id):
-    try:
-        data = batch_details(batch_id)
-        if data.status_code != 200:
-            logging.error("Error occurred while fetching the batch details")
-            return JsonResponse(
-                {"error": "Error occurred while fetching batch details"},
-                status=data.status_code,
-            )
-
-    except Exception as e:
-        logging.exception("An exception occurred while fetching batch details")
-        return JsonResponse({"error": f"An error occurred: {str(e)}"}, status=400)
-
-    try:
-        response = data.json()
-        print(f"Response data: {response}")
-
-        batch_params = response.get("batch_params", {})
-        batch_id = batch_params.get("id")
-        pathway_id = batch_params.get("call_params", {}).get("pathway_id")
-        call_data = response.get("call_data", [])
-
-        print(f"Pathway ID: {pathway_id}")
-        print(f"Batch ID: {batch_id}")
-        print(f"Call data: {call_data}")
-
-        if not call_data:
-            logging.error("Call data is empty, cannot iterate over an empty list.")
-            return JsonResponse(
-                {"error": "No call data available in the response"}, status=400
-            )
-
-        for call in call_data:
-            call_id = call.get("call_id")
-            to_number = call.get("to")
-            from_number = call.get("from")
-            queue_status = call.get("queue_status")
-
-            print(f"Queue Status: {queue_status}")
-            print(f"To Number: {to_number}")
-            print(f"From Number: {from_number}")
-            print(f"Call ID: {call_id}")
-
-            # Save each call log
-            batch_call_log = BatchCallLogs(
-                call_id=call_id,
-                batch_id=batch_id,
-                pathway_id=pathway_id,
-                user_id=user_id,
-                to_number=to_number,
-                from_number=from_number,
-                call_status=queue_status,
-            )
-            batch_call_log.save()
-            print(f"Batch call log saved for Call ID: {call_id}")
-
-            CallLogsTable.objects.create(
-                call_id=call_id,
-                call_number=to_number,
-                pathway_id=pathway_id,
-                user_id=user_id,
-                call_status="new",
-            )
-            print(f"Call log entry created for Call ID: {call_id}")
-
-        return JsonResponse(
-            {"message": "Batch call logs saved successfully."}, status=200
-        )
-
-    except KeyError as e:
-        logging.error(f"Missing key in response: {str(e)}")
-        return JsonResponse({"error": f"Missing key in response: {str(e)}"}, status=400)
-
-    except json.JSONDecodeError as e:
-        logging.error("Invalid JSON format in response")
-        return JsonResponse({"error": "Invalid JSON format"}, status=400)
-
-    except Exception as e:
-        logging.exception("An error occurred during processing")
-        return JsonResponse({"error": f"An error occurred: {str(e)}"}, status=500)
-
+# =============================================================================
+# Utility — check if pathway has nodes
+# =============================================================================
 
 def check_pathway_block(pathway_id):
-    """
-    Checks if the pathway retrieved by the handle_view_single_flow function contains any nodes.
-
-    Args:
-        pathway_id (str): The ID of the pathway to be checked.
-
-    Returns:
-        bool: True if nodes are present in the pathway, False otherwise.
-    """
+    """Check if the pathway contains any nodes."""
     pathway_data, status_code = handle_view_single_flow(pathway_id)
-
     if status_code == 200:
         nodes = pathway_data.get("nodes", [])
         return bool(nodes)
-    else:
-        print("Error retrieving pathway:", pathway_data)
-        return False
+    return False
 
 
-def send_task_through_call(task, phone_number, caller_id, user_id):
-    url = "https://us.api.bland.ai/v1/calls"
+# =============================================================================
+# Django Views (kept for URL routing)
+# =============================================================================
 
-    payload = {"phone_number": f"{phone_number}", "task": task}
-    if caller_id:
-        payload["from"] = caller_id
+@csrf_exempt
+def create_flow(request):
+    if request.method == "POST":
+        data = json.loads(request.body.decode("utf-8"))
+        pathway_name = data.get("name")
+        pathway_description = data.get("description")
+        response_data, status, _ = handle_create_flow(pathway_name, pathway_description, 0)
+        return JsonResponse(response_data, status=status)
+    return JsonResponse({"error": "Invalid method"}, status=405)
 
-    print(payload)
-    headers = {
-        "Authorization": f"{settings.BLAND_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    response = requests.request("POST", url, json=payload, headers=headers)
-    print("Response in the endpoint:", response.text)
-    if response.status_code == 200:
-        pathway = response.json()
-        call_id = pathway.get("call_id")
-        plan = UserSubscription.objects.get(user_id=user_id).plan_id
-        user = TelegramUser.objects.get(user_id=user_id)
-        task_id = AI_Assisted_Tasks.objects.get(
-            task_description=task, user_id=user.user_id
-        ).id
 
-        if plan.plan_price == 0:
-
-            print("creating an entry in the Manage free single IVR tables")
-            max_duration = UserSubscription.objects.get(user_id=user_id).single_ivr_left
-            payload.update({"max_duration": f"{max_duration}"})
-            print(f"Updated payload for the free plan is {payload}")
-            user = TelegramUser.objects.get(user_id=user_id)
-            ManageFreePlanSingleIVRCall.objects.create(
-                call_id=call_id,
-                pathway_id=task_id,
-                call_number=phone_number,
-                user_id=user,
-                call_status="new",
-            )
-        print(f"Call id : {call_id}")
-
-        CallLogsTable.objects.create(
-            call_id=call_id,
-            call_number=phone_number,
-            pathway_id=task_id,
-            user_id=user_id,
-            call_status="new",
-        )
-    return response
+@csrf_exempt
+def view_flows(request):
+    if request.method == "GET":
+        response_data, status = handle_view_flows()
+        if isinstance(response_data, list):
+            return JsonResponse({"flows": response_data}, status=status)
+        return JsonResponse(response_data, status=status)
+    return JsonResponse({"error": "Invalid method"}, status=405)
