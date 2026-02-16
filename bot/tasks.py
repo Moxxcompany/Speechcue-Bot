@@ -80,27 +80,23 @@ def update_batch_calls_status_to_terminated(batch_id, started_at):
 
 @shared_task
 def check_call_status():
+    """Monitor batch call durations via Retell API."""
+    from bot.views import get_call_details
 
-    bland_api_key = os.getenv("BLAND_API_KEY")
-    print("Starting check_call_status task with API key: ", bland_api_key)
+    print("Starting check_call_status task (Retell)")
 
     tracked_calls = BatchCallLogs.objects.filter(
         call_status__in=["new", "queued", "started"]
     )
 
     for call in tracked_calls:
-        headers = {"authorization": f"{bland_api_key}"}
-
         try:
-            response = fetch_with_retry(
-                f"https://api.bland.ai/v1/calls/{call.call_id}", headers
-            )
+            call_data = get_call_details(call.call_id)
             print(f"Processing call ID: {call.call_id}")
-        except ValueError as e:
+        except Exception as e:
             print(f"Failed to fetch call details: {str(e)}")
             continue
 
-        call_data = response.json()
         queue_status = call_data.get("queue_status", "")
         started_at_str = call_data.get("started_at", None)
         end_at_str = call_data.get("end_at", None)
