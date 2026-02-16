@@ -163,24 +163,23 @@ def get_inline_keyboard(options):
 
 def get_main_menu_keyboard(user_id):
     lg = get_user_language(user_id)
-    markup = ReplyKeyboardMarkup()
-    top_up_btn = KeyboardButton(TOP_UP[lg])
-    billing_btn = KeyboardButton(BILLING_AND_SUBSCRIPTION[lg])
-    ivr_flows_btn = KeyboardButton(IVR_CALL[lg])
-    ivr_call_btn = KeyboardButton(IVR_FLOW[lg])
-    campaign_management_btn = KeyboardButton(CAMPAIGN_MANAGEMENT[lg])
-
-    # user_feedback_btn = KeyboardButton(USER_FEEDBACK[lg])
-    dtmf_inbox_btn = KeyboardButton(DTMF_INBOX[lg])
-    account_btn = KeyboardButton(ACCOUNT[lg])
-    markup.add(top_up_btn)
-    markup.add(billing_btn)
-    markup.add(ivr_flows_btn, ivr_call_btn)
-    # markup.add(user_feedback_btn)
-    markup.add(dtmf_inbox_btn)
-    markup.add(account_btn)
-    markup.add(campaign_management_btn)
-
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row(
+        KeyboardButton(f"📞 {PHONE_NUMBERS_MENU[lg]}"),
+        KeyboardButton(f"🎙 {IVR_FLOWS_MENU[lg]}"),
+    )
+    markup.row(
+        KeyboardButton(f"☎️ {MAKE_CALL_MENU[lg]}"),
+        KeyboardButton(f"📋 {CAMPAIGNS_MENU[lg]}"),
+    )
+    markup.row(
+        KeyboardButton(f"📬 {INBOX_MENU[lg]}"),
+        KeyboardButton(f"💰 {WALLET_AND_BILLING[lg]}"),
+    )
+    markup.row(
+        KeyboardButton(f"👤 {ACCOUNT[lg]}"),
+        KeyboardButton(f"❓ {HELP[lg]}"),
+    )
     return markup
 
 
