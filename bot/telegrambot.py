@@ -4875,6 +4875,7 @@ def handle_forwarding_toggle(call):
     if record.forwarding_enabled:
         record.forwarding_enabled = False
         record.save()
+        _sync_inbound_settings_to_retell(user_id, record)
         bot.send_message(
             user_id,
             f"📞 Call forwarding disabled for `{phone}`.",
@@ -4885,6 +4886,7 @@ def handle_forwarding_toggle(call):
         if record.forwarding_number:
             record.forwarding_enabled = True
             record.save()
+            _sync_inbound_settings_to_retell(user_id, record)
             bot.send_message(
                 user_id,
                 f"📞 Call forwarding enabled for `{phone}` → `{record.forwarding_number}`.",
