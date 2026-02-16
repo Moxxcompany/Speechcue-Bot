@@ -57,9 +57,9 @@ CELERY_BEAT_SCHEDULE = {
         "task": "bot.tasks.renew_phone_numbers",
         "schedule": 86400.0,  # every 24 hours
     },
-    "charge-overage-every-5min": {
+    "charge-overage-hourly-sweep": {
         "task": "bot.tasks.charge_user_for_additional_minutes",
-        "schedule": 300.0,  # every 5 minutes
+        "schedule": 3600.0,  # hourly safety-net (real-time billing in webhook)
     },
     "notify-users-every-10min": {
         "task": "bot.tasks.notify_users",
