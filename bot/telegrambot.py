@@ -4799,16 +4799,44 @@ def handle_number_settings(call):
             callback_data=f"fwd_set_{phone}"
         ))
 
+    # Business hours toggle
+    if record.business_hours_enabled and record.business_hours_start and record.business_hours_end:
+        bh_status = f"ON ({record.business_hours_start.strftime('%H:%M')}-{record.business_hours_end.strftime('%H:%M')} {record.business_hours_timezone})"
+    else:
+        bh_status = "OFF ❌"
+    markup.add(types.InlineKeyboardButton(
+        f"🕐 Business Hours: {bh_status}",
+        callback_data=f"bh_toggle_{phone}"
+    ))
+    if not record.business_hours_enabled:
+        markup.add(types.InlineKeyboardButton(
+            "🕐 Set Business Hours",
+            callback_data=f"bh_set_{phone}"
+        ))
+
     markup.add(types.InlineKeyboardButton("⬅️ Back", callback_data="my_numbers"))
 
     bot.send_message(
         user_id,
         f"⚙️ *Settings for* `{phone}`\n\n"
         f"📬 Voicemail: {vm_status}\n"
-        f"📞 Forwarding: {fwd_status}",
+        f"📞 Forwarding: {fwd_status}\n"
+        f"🕐 Business Hours: {bh_status}",
         reply_markup=markup,
         parse_mode="Markdown",
     )
+
+
+def _sync_inbound_settings_to_retell(user_id, phone_record):
+    """Sync voicemail/forwarding/business hours settings to the Retell agent bound to this number."""
+    try:
+        user_obj = TelegramUser.objects.get(user_id=user_id)
+        user_pathway = Pathways.objects.filter(user_id=user_obj).first()
+        if user_pathway:
+            update_agent_inbound_settings(user_pathway.pathway_id, phone_record)
+            logger.info(f"Synced inbound settings to agent {user_pathway.pathway_id} for {phone_record.phone_number}")
+    except Exception as e:
+        logger.warning(f"Failed to sync inbound settings for user {user_id}: {e}")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("vm_toggle_"))
