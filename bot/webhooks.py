@@ -265,6 +265,69 @@ def _process_free_plan_call_duration(call_id, agent_id, free_call, started_at, e
         logger.error(f"[free_plan] Duration processing error for {call_id}: {e}")
 
 
+
+def _process_international_billing(call_id, to_number, duration_minutes):
+    """
+    Bill international calls from wallet in real-time.
+    US/Canada calls are handled by plan minutes/overage — skip here.
+    """
+    try:
+        region, rate, is_domestic = classify_destination(to_number)
+        if is_domestic:
+            return  # US/Canada — handled by plan minutes or overage task
+
+        # Find user_id from CallLogsTable
+        call_log = CallLogsTable.objects.filter(call_id=call_id).first()
+        if not call_log:
+            logger.warning(f"[intl_billing] No call log for {call_id}")
+            return
+
+        user_id = call_log.user_id
+        charge = rate * Decimal(str(round(duration_minutes, 2)))
+
+        result = debit_wallet(
+            user_id, float(charge),
+            description=f"Intl call to {region}: {duration_minutes:.2f}min @ ${rate}/min",
+            tx_type="OVR",
+        )
+
+        if result["status"] == 200:
+            logger.info(
+                f"[intl_billing] Charged ${charge:.2f} for {region} call "
+                f"({duration_minutes:.2f}min) user={user_id} call={call_id}"
+            )
+            # Notify user
+            try:
+                lg = get_user_language(user_id)
+                bot.send_message(
+                    user_id,
+                    f"📞 International call to {region} completed.\n"
+                    f"⏱ Duration: {duration_minutes:.2f} min\n"
+                    f"💳 Charged: ${charge:.2f} (${rate}/min)\n"
+                    f"💰 Remaining balance: ${result['data']['balance']}",
+                )
+            except Exception:
+                pass
+        elif result["status"] == 402:
+            logger.warning(
+                f"[intl_billing] Insufficient balance for intl call: "
+                f"user={user_id}, charge=${charge:.2f}, call={call_id}"
+            )
+            try:
+                bot.send_message(
+                    user_id,
+                    f"⚠️ Insufficient wallet balance for international call charge.\n"
+                    f"Amount due: ${charge:.2f} for {region} call.\n"
+                    f"Please top up your wallet immediately.",
+                )
+            except Exception:
+                pass
+        else:
+            logger.error(f"[intl_billing] Debit failed: {result}")
+    except Exception as e:
+        logger.error(f"[intl_billing] Error processing intl billing for {call_id}: {e}")
+
+
 # =============================================================================
 # call_analyzed — post-call analysis (bonus: Retell provides sentiment, summary)
 # =============================================================================
