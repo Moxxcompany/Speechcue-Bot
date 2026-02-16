@@ -306,31 +306,11 @@ def update_dtmf_inbox(call_details):
 @shared_task
 def process_call_logs():
     """
-    Fetch call details for all calls in the CallLogsTable, extract required information,
-    and update the DTMF_Inbox table.
+    DEPRECATED — Replaced by retell_webhook (call_ended event).
+    DTMF extraction now happens instantly when Retell fires call_ended webhook.
     """
-    processed_call_ids = DTMF_Inbox.objects.values_list("call_id", flat=True)
-    all_calls = CallLogsTable.objects.exclude(call_id__in=processed_call_ids)
-
-    print(f"Starting process_call_logs task. Total calls to process: {len(all_calls)}")
-
-    for call in all_calls:
-        try:
-            print(f"Fetching details for call ID: {call.call_id}")
-            call_data = get_call_details(call.call_id)
-            if not call_data:
-                print(f"No call details found for call ID: {call.call_id}")
-                continue
-
-            print(f"Extracting details for call ID: {call.call_id}")
-            extracted_details = extract_call_details(call_data)
-            extracted_details["user_id"] = call.user_id
-            print(f"Extracted details: {extracted_details}")
-
-            update_dtmf_inbox(extracted_details)
-            print(f"Finished processing call ID: {call.call_id}")
-        except Exception as e:
-            print(f"Error processing call ID {call.call_id}: {str(e)}")
+    logger.info("process_call_logs: DEPRECATED — now handled by Retell webhook (call_ended)")
+    return "Handled by webhook"
 
 
 from celery import shared_task
