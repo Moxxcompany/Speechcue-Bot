@@ -1,157 +1,228 @@
-import json
-import os
-from django.core.exceptions import ObjectDoesNotExist
-from requests.exceptions import RequestException
-import requests
-from TelegramBot import settings
+"""
+Internal Wallet System — replaces DynoPay external API.
+All wallet operations are local PostgreSQL transactions.
+"""
+import logging
+from decimal import Decimal
+
+from django.db import transaction
+
 from user.models import TelegramUser
+from payment.models import WalletTransaction, TransactionType, UserTransactionLogs
 
-
-# -------------------- Env Variables --------------------
-
-x_api_key = os.getenv("x-api-key")
-dynopay_base_url = os.getenv("dynopay_base_url")
-
-
-# -------------------- USER SIGN UP --------------------
+logger = logging.getLogger(__name__)
 
 
 def setup_user(user_id, email, mobile, name, username):
+    """
+    Create or get a TelegramUser with an internal wallet (balance starts at 0).
+    No external API call needed — purely local.
+    """
     try:
-        print(x_api_key)
-        url = f"{dynopay_base_url}/user/createUser"
-        payload = json.dumps({"email": email, "name": name, "mobile": mobile})
-        headers = {"x-api-key": x_api_key, "Content-Type": "application/json"}
-
-        try:
-            response = requests.request("POST", url, headers=headers, data=payload)
-            print(response.text)
-            if response.status_code != 200:
-                user = TelegramUser.objects.get(user_id=user_id)
-                user.delete()
-                return {"status": response.status_code, "text": response.text}
-
-            data = response.json().get("data", {})
-            token = data.get("token")
-            customer_id = data.get("customer_id")
-
-            if not token or not customer_id:
-                return {
-                    "status": 500,
-                    "text": "API response did not contain token or customer_id",
-                }
-
-        except RequestException as api_error:
-            print("API request encountered an error:", api_error)
-            return {"status": 502, "text": f"API request failed: {str(api_error)}"}
-
-        try:
-            user = TelegramUser.objects.get(user_id=user_id)
+        user, created = TelegramUser.objects.get_or_create(
+            user_id=user_id,
+            defaults={
+                "user_name": username,
+                "language": "English",
+                "subscription_status": "inactive",
+                "free_plan": True,
+                "wallet_balance": Decimal("0.00"),
+            },
+        )
+        if not created:
             user.user_name = username
-            user.token = token
-            user.customer_id = customer_id
-            user.save()
-            print("User successfully updated in the database.")
-            return {"status": 200, "text": "User setup successfully"}
+            user.save(update_fields=["user_name"])
 
-        except ObjectDoesNotExist:
-            print(f"No TelegramUser found with user_id: {user_id}")
-            return {"status": 404, "text": "User not found in database"}
-
-        except Exception as db_error:
-            print("An error occurred while updating the user:", db_error)
-            return {"status": 500, "text": f"Database error: {str(db_error)}"}
-
+        return {"status": 200, "text": "User setup complete"}
     except Exception as e:
-        print("An unexpected error occurred:", e)
-        return {"status": 500, "text": f"An unexpected error occurred: {str(e)}"}
-
-
-# ------------------- Check Balance --------------------
+        logger.error(f"setup_user error: {e}")
+        return {"status": 500, "text": str(e)}
 
 
 def check_user_balance(user_id):
-
-    url = f"{dynopay_base_url}/user/getBalance"
-    token = TelegramUser.objects.get(user_id=user_id).token
-    print(f"token : {token}")
-    print(f"x-api-key : {x_api_key}")
-    payload = {}
-    headers = {"x-api-key": f"{x_api_key}", "Authorization": f"Bearer {token}"}
-    print("headers : {}".format(headers))
-
-    response = requests.request("GET", url, headers=headers, data=payload)
-
-    print(response.text)
-
-    return response
-
-
-def create_crypto_payment(
-    user_id, amount, currency, redirect_uri, auto_renewal, top_up=False
-):
-    url = f"{dynopay_base_url}/user/cryptoPayment"
-
-    # Prepare payload with optional meta_data
-    payload = json.dumps(
-        {
-            "amount": float(amount),
-            "currency": currency,
-            "redirect_uri": redirect_uri,
-            "topUp": top_up,
-            "meta_data": {"product_name": f"{user_id}", "product": f"{auto_renewal}"},
+    """
+    Get wallet balance from local DB.
+    Returns dict mimicking the old DynoPay response shape for compatibility.
+    """
+    try:
+        user = TelegramUser.objects.get(user_id=user_id)
+        return {
+            "status": 200,
+            "data": {
+                "amount": str(user.wallet_balance),
+                "currency": "USD",
+            },
         }
-    )
-    print(f"payload : {payload}")
-    token = TelegramUser.objects.get(user_id=user_id).token
-    headers = {
-        "x-api-key": x_api_key,
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {token}",
-    }
-    response = requests.post(url, headers=headers, data=payload)
-    print(response.text)
-    return response
+    except TelegramUser.DoesNotExist:
+        return {"status": 404, "data": {"amount": "0.00", "currency": "USD"}}
 
+
+def credit_wallet(user_id, amount, description="Deposit", reference=None, tx_type=TransactionType.DEPOSIT):
+    """
+    Add funds to wallet. Used for top-ups and refunds.
+    Returns dict with status and new balance.
+    """
+    amount = Decimal(str(amount))
+    if amount <= 0:
+        return {"status": 400, "message": "Amount must be positive"}
+
+    try:
+        with transaction.atomic():
+            user = TelegramUser.objects.select_for_update().get(user_id=user_id)
+            balance_before = user.wallet_balance
+            user.wallet_balance += amount
+            user.save(update_fields=["wallet_balance"])
+
+            tx = WalletTransaction.objects.create(
+                user=user,
+                transaction_type=tx_type,
+                amount=amount,
+                balance_before=balance_before,
+                balance_after=user.wallet_balance,
+                description=description,
+                reference=reference,
+            )
+
+        return {
+            "status": 200,
+            "data": {
+                "transaction_id": str(tx.transaction_id),
+                "balance": str(user.wallet_balance),
+            },
+        }
+    except TelegramUser.DoesNotExist:
+        return {"status": 404, "message": "User not found"}
+    except Exception as e:
+        logger.error(f"credit_wallet error for user {user_id}: {e}")
+        return {"status": 500, "message": str(e)}
+
+
+def debit_wallet(user_id, amount, description="Charge", reference=None, tx_type=TransactionType.SUBSCRIPTION):
+    """
+    Deduct funds from wallet. Used for subscriptions, overage charges, etc.
+    Returns dict with status. Fails if insufficient balance.
+    """
+    amount = Decimal(str(amount))
+    if amount <= 0:
+        return {"status": 400, "message": "Amount must be positive"}
+
+    try:
+        with transaction.atomic():
+            user = TelegramUser.objects.select_for_update().get(user_id=user_id)
+            if user.wallet_balance < amount:
+                return {"status": 402, "message": "Insufficient balance"}
+
+            balance_before = user.wallet_balance
+            user.wallet_balance -= amount
+            user.save(update_fields=["wallet_balance"])
+
+            tx = WalletTransaction.objects.create(
+                user=user,
+                transaction_type=tx_type,
+                amount=amount,
+                balance_before=balance_before,
+                balance_after=user.wallet_balance,
+                description=description,
+                reference=reference,
+            )
+
+        return {
+            "status": 200,
+            "data": {
+                "transaction_id": str(tx.transaction_id),
+                "balance": str(user.wallet_balance),
+            },
+        }
+    except TelegramUser.DoesNotExist:
+        return {"status": 404, "message": "User not found"}
+    except Exception as e:
+        logger.error(f"debit_wallet error for user {user_id}: {e}")
+        return {"status": 500, "message": str(e)}
+
+
+def refund_wallet(user_id, amount, description="Refund", reference=None):
+    """
+    Refund funds to wallet. Creates a REFUND transaction.
+    """
+    return credit_wallet(
+        user_id, amount,
+        description=description,
+        reference=reference,
+        tx_type=TransactionType.REFUND,
+    )
+
+
+# ---------- Backward-compatible aliases (used by telegrambot.py & tasks.py) ----------
 
 def credit_wallet_balance(user_id, amount):
-    token = TelegramUser.objects.get(user_id=user_id).token
-    headers = {
-        "x-api-key": x_api_key,
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {token}",
-    }
-    payload = json.dumps({"amount": float(amount)})
-    print(f"payload : {payload}")
+    """
+    Backward-compatible: deducts from wallet (DynoPay's 'useWallet' was a debit).
+    Returns a response-like object for compatibility.
+    """
+    result = debit_wallet(user_id, amount, description="Payment deduction")
 
-    url = f"{dynopay_base_url}/user/useWallet"
-    response = requests.post(url, headers=headers, data=payload)
-    print(response.text)
-    return response
+    class FakeResponse:
+        def __init__(self, data):
+            self._data = data
+            self.status_code = data["status"]
+            self.text = str(data)
+        def json(self):
+            return self._data
+
+    return FakeResponse(result)
+
+
+def create_crypto_payment(user_id, amount, currency, redirect_uri, auto_renewal, top_up):
+    """
+    Placeholder: Crypto payment creation.
+    For now, returns a stub. Replace with real crypto provider (BlockBee, etc.) later.
+    """
+    logger.warning("create_crypto_payment called — crypto payments not yet integrated with internal wallet")
+
+    class FakeResponse:
+        status_code = 501
+        text = "Crypto payments are being migrated. Please use wallet balance."
+        def json(self):
+            return {"message": self.text}
+
+    return FakeResponse()
 
 
 def get_user_single_transaction(user_id, transaction_id):
-    token = TelegramUser.objects.get(user_id=user_id).token
-    url = f"{dynopay_base_url}/user/getSingleTransaction/{transaction_id}"
+    """Get a single transaction by ID from local DB."""
+    try:
+        tx = WalletTransaction.objects.get(transaction_id=transaction_id)
+        return {
+            "status": 200,
+            "data": {
+                "transaction_id": str(tx.transaction_id),
+                "type": tx.get_transaction_type_display(),
+                "amount": str(tx.amount),
+                "balance_before": str(tx.balance_before),
+                "balance_after": str(tx.balance_after),
+                "description": tx.description,
+                "created_at": str(tx.created_at),
+            },
+        }
+    except WalletTransaction.DoesNotExist:
+        return {"status": 404, "data": None}
 
-    payload = {}
-    headers = {"x-api-key": x_api_key, "Authorization": f"Bearer {token}"}
 
-    response = requests.request("GET", url, headers=headers, data=payload)
-
-    print(response.text)
-    return response
-
-
-def get_all_user_transactions(user_id):
-    token = TelegramUser.objects.get(user_id=user_id).token
-
-    url = f"{dynopay_base_url}/user/getTransactions"
-
-    payload = {}
-    headers = {"x-api-key": x_api_key, "Authorization": f"Bearer {token}"}
-
-    response = requests.request("GET", url, headers=headers, data=payload)
-
-    print(response.text)
-    return response
+def get_all_user_transactions(user_id, limit=50):
+    """Get all transactions for a user from local DB."""
+    txs = WalletTransaction.objects.filter(user_id=user_id)[:limit]
+    return {
+        "status": 200,
+        "data": [
+            {
+                "transaction_id": str(tx.transaction_id),
+                "type": tx.get_transaction_type_display(),
+                "amount": str(tx.amount),
+                "balance_before": str(tx.balance_before),
+                "balance_after": str(tx.balance_after),
+                "description": tx.description,
+                "created_at": str(tx.created_at),
+            }
+            for tx in txs
+        ],
+    }
