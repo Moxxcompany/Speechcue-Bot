@@ -1254,11 +1254,20 @@ def get_profile_language(message):
     name = message.text
     username = username_formating(name)
     username = f"{username}_{user_id}"
-    user_data[user_id] = {"step": "get_email", "name": name, "username": username}
+    user_data[user_id] = {"step": "", "name": name, "username": username}
     bot.send_message(
         user_id, f"{NICE_TO_MEET_YOU[lg]}!😊 {name}, " f"{PROFILE_SETTING_PROMPT[lg]}⏳"
     )
-    bot.send_message(user_id, EMAIL_PROMPT[lg], reply_markup=get_force_reply())
+    # Skip email and mobile steps — auto-generate defaults
+    auto_email = f"{user_id}@speechcue.bot"
+    auto_mobile = f"+10000000000"
+    response = setup_user(user_id, auto_email, auto_mobile, name, username)
+    if response["status"] != 200:
+        bot.send_message(user_id, f"{REQUEST_FAILED[lg]}\n{response['text']}")
+    else:
+        bot.send_message(user_id, f"🎉 {SETUP_COMPLETE[lg]}")
+        user_data[user_id]["step"] = ""
+        handle_terms_and_conditions(message)
 
 
 @bot.message_handler(
