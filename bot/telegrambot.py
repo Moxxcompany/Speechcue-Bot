@@ -840,7 +840,7 @@ def handle_pathway_selection(call):
         callback_data = f"call_{log.call_id}"
         markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
 
-    markup.add(types.InlineKeyboardButton(BACK[lg], callback_data=f"back_dtmf"))
+    markup.add(types.InlineKeyboardButton(BACK[lg], callback_data="back_dtmf"))
     bot.send_message(user_id, SELECT_CALL_ID[lg], reply_markup=markup)
 
 
@@ -874,7 +874,7 @@ def handle_call_selection(call):
 
     # Add back button
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton(BACK[lg], callback_data=f"back_dtmf"))
+    markup.add(types.InlineKeyboardButton(BACK[lg], callback_data="back_dtmf"))
 
     bot.send_message(
         user_id,
@@ -1108,7 +1108,7 @@ def handle_end_day(message):
     except KeyError as e:
         print(f"KeyError encountered for user {user_id}: {e}")
         bot.send_message(user_id, PROCESSING_ERROR[lg])
-    except ValueError as v:
+    except ValueError:
         handle_back_in_user_feedback(message, INVALID_DATE_RANGE_PROMPT[lg])
 
 
@@ -1270,7 +1270,7 @@ def get_profile_language(message):
     )
     # Skip email and mobile steps — auto-generate defaults
     auto_email = f"{user_id}@speechcue.bot"
-    auto_mobile = f"+10000000000"
+    auto_mobile = "+10000000000"
     response = setup_user(user_id, auto_email, auto_mobile, name, username)
     if response["status"] != 200:
         bot.send_message(user_id, f"{REQUEST_FAILED[lg]}\n{response['text']}")
@@ -2144,7 +2144,7 @@ def _fulfill_pending_phone_purchase(user_id):
     bot.send_message(user_id, "⏳ Auto-purchasing your phone number... Please wait.")
 
     # Debit wallet
-    from payment.views import debit_wallet, refund_wallet
+    from payment.views import debit_wallet
     debit_result = debit_wallet(
         user_id, cost,
         description=f"Phone number purchase ({pending.country_code})",
@@ -2283,8 +2283,8 @@ def make_payment(user_id, amount):
     if tx_type == "buy_number":
         bot.send_message(
             user_id,
-            f"💎 After crypto payment is confirmed, your wallet will be credited "
-            f"and the phone number will be purchased automatically.\n",
+            "💎 After crypto payment is confirmed, your wallet will be credited "
+            "and the phone number will be purchased automatically.\n",
         )
 
     send_qr_code(user_id, address, crypto_amount, qr_code_base64)
@@ -3810,7 +3810,7 @@ def task_creation(message):
         )
         user_data[user_id]["step"] = ""
         return
-    except Exception as error:
+    except Exception:
         bot.send_message(
             user_id,
             PROCESSING_ERROR_MESSAGE[lg],
@@ -4478,7 +4478,7 @@ def handle_confirm_release(call):
     else:
         bot.send_message(
             user_id,
-            f"Failed to release number. Please try again or contact support.",
+            "Failed to release number. Please try again or contact support.",
             reply_markup=get_main_menu_keyboard(user_id),
         )
 
@@ -4895,7 +4895,7 @@ def handle_forwarding_toggle(call):
             user_data[user_id]["fwd_phone"] = phone
             bot.send_message(
                 user_id,
-                f"📞 Enter the phone number to forward calls to (E.164 format, e.g., +14155551234):",
+                "📞 Enter the phone number to forward calls to (E.164 format, e.g., +14155551234):",
             )
 
 
@@ -4912,7 +4912,7 @@ def handle_forwarding_set(call):
 
     bot.send_message(
         user_id,
-        f"📞 Enter the phone number to forward calls to (E.164 format, e.g., +14155551234):",
+        "📞 Enter the phone number to forward calls to (E.164 format, e.g., +14155551234):",
     )
 
 
@@ -5410,11 +5410,11 @@ def subscribed_users_message_ivr(user_id):
         bot.send_message(user_id, msg, reply_markup=get_task_type_keyboard(user_id))
     else:
         msg = (
-            f"💵 Pay-as-you-go pricing (wallet deduction): \n"
-            f"📞 Single IVR: $0.35/min\n"
-            f"📋 Bulk IVR: $0.35/min\n"
-            f"🌍 International: $0.45-$0.85/min\n"
-            f"🛑 Minimum wallet balance for 2 minutes required before each call."
+            "💵 Pay-as-you-go pricing (wallet deduction): \n"
+            "📞 Single IVR: $0.35/min\n"
+            "📋 Bulk IVR: $0.35/min\n"
+            "🌍 International: $0.45-$0.85/min\n"
+            "🛑 Minimum wallet balance for 2 minutes required before each call."
         )
         markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
         markup.add(types.KeyboardButton(MAKE_IVR_CALL[lg]))
@@ -5520,7 +5520,7 @@ def handle_call_back_view_task(call):
 
         bot.send_message(
             user_id,
-            f"Deleted Successfully!",
+            "Deleted Successfully!",
             reply_markup=ai_assisted_user_flow_keyboard(),
         )
     except AI_Assisted_Tasks.DoesNotExist:
