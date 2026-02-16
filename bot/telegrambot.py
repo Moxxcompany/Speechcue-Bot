@@ -4977,6 +4977,7 @@ def handle_forwarding_number_input(message):
         record.forwarding_number = fwd_number
         record.forwarding_enabled = True
         record.save()
+        _sync_inbound_settings_to_retell(user_id, record)
         bot.send_message(
             user_id,
             f"✅ Call forwarding set for `{phone}` → `{fwd_number}`.",
