@@ -46,7 +46,7 @@ from translations.translations import (
     CAMPAIGN_INITIATED,
 )
 from user.models import TelegramUser
-from .models import CallDuration, BatchCallLogs, CallLogsTable, ReminderTable, ActiveCall
+from .models import CallDuration, BatchCallLogs, CallLogsTable, ReminderTable, ActiveCall, UserPhoneNumber
 from .utils import (
     get_user_subscription_by_call_id,
     convert_dollars_to_crypto,
@@ -54,6 +54,7 @@ from .utils import (
     extract_call_details,
 )
 from .call_gate import US_CA_OVERAGE_RATE
+from .retell_service import release_phone_number
 from .bot_config import *
 from .views import stop_active_batch_calls, stop_single_active_call
 
