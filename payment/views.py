@@ -1,7 +1,7 @@
 """
 Hybrid Wallet System:
   - Internal PostgreSQL wallet for balance management (credit, debit, refund)
-  - DynoPay for crypto payment generation (address, QR code) and user registration
+  - DynoPay for crypto payment generation (address, QR code) via single wallet token
   - On crypto payment confirmation (webhook), funds are credited to internal wallet
 """
 import json
@@ -18,20 +18,18 @@ from payment.models import WalletTransaction, TransactionType, UserTransactionLo
 
 logger = logging.getLogger(__name__)
 
-# DynoPay config — used ONLY for crypto payment generation
-x_api_key = os.getenv("x-api-key")
-dynopay_base_url = os.getenv("dynopay_base_url")
+# DynoPay config — single wallet token for all crypto payments
+DYNOPAY_BASE_URL = os.getenv("DYNOPAY_BASE_URL", "https://api.dynopay.com/api")
+DYNOPAY_API_KEY = os.getenv("DYNOPAY_API_KEY", "")
+DYNOPAY_WALLET_TOKEN = os.getenv("DYNOPAY_WALLET_TOKEN", "")
 
 
 # =============================================================================
-# DynoPay: User registration (needed for crypto payment auth token)
+# User Setup (no DynoPay user creation needed — uses master wallet token)
 # =============================================================================
 
 def setup_user(user_id, email, mobile, name, username):
-    """
-    1. Create/update TelegramUser locally with $0 wallet balance.
-    2. Register with DynoPay to get token + customer_id (for crypto payments).
-    """
+    """Create or get a TelegramUser with $0 wallet balance. No external API needed."""
     try:
         user, created = TelegramUser.objects.get_or_create(
             user_id=user_id,
@@ -47,31 +45,6 @@ def setup_user(user_id, email, mobile, name, username):
             user.user_name = username
             user.save(update_fields=["user_name"])
 
-        # Register with DynoPay for crypto payment capabilities
-        if not user.token:
-            try:
-                url = f"{dynopay_base_url}/user/createUser"
-                payload = json.dumps({"email": email, "name": name, "mobile": mobile})
-                headers = {"x-api-key": x_api_key, "Content-Type": "application/json"}
-                response = requests.post(url, headers=headers, data=payload)
-
-                if response.status_code == 200:
-                    data = response.json().get("data", {})
-                    token = data.get("token")
-                    customer_id = data.get("customer_id")
-                    if token and customer_id:
-                        user.token = token
-                        user.customer_id = customer_id
-                        user.save(update_fields=["token", "customer_id"])
-                        logger.info(f"DynoPay user created for {user_id}")
-                    else:
-                        logger.warning(f"DynoPay response missing token/customer_id for {user_id}")
-                else:
-                    logger.warning(f"DynoPay createUser failed ({response.status_code}): {response.text}")
-            except RequestException as e:
-                logger.warning(f"DynoPay createUser network error for {user_id}: {e}")
-                # Non-fatal — user can still use wallet, just can't do crypto top-ups yet
-
         return {"status": 200, "text": "User setup complete"}
     except Exception as e:
         logger.error(f"setup_user error: {e}")
@@ -79,7 +52,7 @@ def setup_user(user_id, email, mobile, name, username):
 
 
 # =============================================================================
-# Internal Wallet: Balance management (no DynoPay)
+# Internal Wallet: Balance management
 # =============================================================================
 
 def check_user_balance(user_id):
@@ -180,44 +153,73 @@ def refund_wallet(user_id, amount, description="Refund", reference=None):
 
 
 # =============================================================================
-# DynoPay: Crypto payment generation (address + QR code)
+# DynoPay: Crypto payment generation (using master wallet token)
 # =============================================================================
 
 def create_crypto_payment(user_id, amount, currency, redirect_uri, auto_renewal, top_up=False):
     """
     Call DynoPay API to generate a crypto payment address + QR code.
+    Uses master wallet token (DYNOPAY_WALLET_TOKEN) — no per-user token needed.
     On payment confirmation (via DynoPay webhook), we credit the internal wallet.
     """
-    url = f"{dynopay_base_url}/user/cryptoPayment"
-    token = TelegramUser.objects.get(user_id=user_id).token
+    if not DYNOPAY_API_KEY or not DYNOPAY_WALLET_TOKEN:
+        logger.error("DynoPay credentials not configured")
 
-    if not token:
         class ErrorResponse:
-            status_code = 400
-            text = "No DynoPay token — user needs to re-register for crypto payments"
+            status_code = 500
+            text = "Payment system not configured. Please contact support."
             def json(self):
                 return {"message": self.text}
         return ErrorResponse()
 
-    payload = json.dumps({
-        "amount": float(amount),
-        "currency": currency,
-        "redirect_uri": redirect_uri,
-        "topUp": top_up,
-        "meta_data": {
-            "product_name": f"{user_id}",
-            "product": f"{auto_renewal}",
-        },
-    })
+    # Map currency codes to DynoPay format
+    currency_map = {
+        "BTC": "BTC",
+        "ETH": "ETH",
+        "LTC": "LTC",
+        "DOGE": "DOGE",
+        "USDT_TRC20": "USDT-TRC20",
+        "USDT_ERC20": "USDT-ERC20",
+        "TRC-20 USDT": "USDT-TRC20",
+        "ERC-20 USDT": "USDT-ERC20",
+    }
+    dynopay_currency = currency_map.get(currency.upper(), currency.upper())
+
+    url = f"{DYNOPAY_BASE_URL}/user/cryptoPayment"
     headers = {
-        "x-api-key": x_api_key,
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {token}",
+        "accept": "application/json",
+        "content-type": "application/json",
+        "x-api-key": DYNOPAY_API_KEY,
+        "Authorization": f"Bearer {DYNOPAY_WALLET_TOKEN}",
     }
 
-    response = requests.post(url, headers=headers, data=payload)
-    logger.info(f"create_crypto_payment for user {user_id}: {response.status_code}")
-    return response
+    payload = {
+        "amount": float(amount),
+        "currency": dynopay_currency,
+        "webhook_url": redirect_uri,
+        "product_id": f"crypto_{dynopay_currency.lower()}",
+        "meta_data": {
+            "product_name": str(user_id),
+            "product": str(auto_renewal),
+            "refId": f"speechcue_{user_id}",
+            "user_id": str(user_id),
+            "top_up": str(top_up),
+        },
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
+        logger.info(f"DynoPay cryptoPayment for user {user_id}: {response.status_code}")
+        return response
+    except RequestException as e:
+        logger.error(f"DynoPay cryptoPayment network error: {e}")
+
+        class ErrorResponse:
+            status_code = 503
+            text = f"Payment service temporarily unavailable: {e}"
+            def json(self):
+                return {"message": self.text}
+        return ErrorResponse()
 
 
 # =============================================================================
@@ -228,7 +230,6 @@ def credit_wallet_balance(user_id, amount):
     """
     Backward-compatible wrapper: deducts from internal wallet.
     (DynoPay's 'useWallet' was a debit — name is confusing but kept for compat.)
-    Returns a response-like object.
     """
     result = debit_wallet(user_id, amount, description="Payment deduction")
 
@@ -244,7 +245,7 @@ def credit_wallet_balance(user_id, amount):
 
 
 # =============================================================================
-# Transaction queries (local DB — no DynoPay)
+# Transaction queries (local DB)
 # =============================================================================
 
 def get_user_single_transaction(user_id, transaction_id):
