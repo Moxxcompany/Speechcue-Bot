@@ -456,7 +456,7 @@ def check_subscription_status():
 
                     else:
                         print(
-                            f"Renewal failed for user {user.user_id}. Response: {response.text}"
+                            f"Renewal failed for user {user.user_id}. Result: {result}"
                         )
                         bot.send_message(
                             user.user_id,
