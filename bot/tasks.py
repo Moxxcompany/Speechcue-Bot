@@ -218,6 +218,116 @@ def monitor_active_calls():
 
 
 @shared_task
+def renew_phone_numbers():
+    """
+    Monthly phone number renewal — runs daily.
+    For each active number with auto_renew=True and past renewal date:
+      1. Check wallet balance >= monthly_cost
+      2. Debit wallet
+      3. Extend renewal date by 1 month
+      4. If insufficient balance: warn user, disable after 3 days grace
+    """
+    from dateutil.relativedelta import relativedelta
+
+    now = timezone.now()
+    due_numbers = UserPhoneNumber.objects.filter(
+        is_active=True,
+        next_renewal_date__lte=now,
+    )
+
+    if not due_numbers.exists():
+        return "No numbers due for renewal"
+
+    logger.info(f"[renew_numbers] Processing {due_numbers.count()} numbers")
+
+    for record in due_numbers:
+        user_id = record.user_id
+        try:
+            if not record.auto_renew:
+                # Grace period: 3 days after renewal date without auto-renew → release
+                grace_deadline = record.next_renewal_date + timedelta(days=3)
+                if now > grace_deadline:
+                    success = release_phone_number(record.phone_number)
+                    if success:
+                        record.is_active = False
+                        record.save()
+                        logger.info(f"[renew_numbers] Released {record.phone_number} (no auto-renew, grace expired)")
+                        try:
+                            bot.send_message(
+                                user_id,
+                                f"📞 Your number `{record.phone_number}` has been released "
+                                f"(auto-renewal was disabled and grace period expired).",
+                                parse_mode="Markdown",
+                            )
+                        except Exception:
+                            pass
+                continue
+
+            # Try to debit wallet
+            result = debit_wallet(
+                user_id, float(record.monthly_cost),
+                description=f"Phone number renewal: {record.phone_number}",
+                tx_type="SUB",
+            )
+
+            if result["status"] == 200:
+                record.next_renewal_date = now + relativedelta(months=1)
+                record.save()
+                logger.info(f"[renew_numbers] Renewed {record.phone_number} for user {user_id}")
+                try:
+                    bot.send_message(
+                        user_id,
+                        f"✅ Phone number `{record.phone_number}` renewed.\n"
+                        f"💰 Charged: ${record.monthly_cost}/mo\n"
+                        f"📅 Next renewal: {record.next_renewal_date.strftime('%Y-%m-%d')}",
+                        parse_mode="Markdown",
+                    )
+                except Exception:
+                    pass
+
+            elif result["status"] == 402:
+                # Insufficient balance — warn user
+                logger.warning(f"[renew_numbers] Insufficient balance for {record.phone_number}")
+                grace_deadline = record.next_renewal_date + timedelta(days=3)
+                days_left = (grace_deadline - now).days
+
+                if days_left <= 0:
+                    # Grace period expired — release number
+                    success = release_phone_number(record.phone_number)
+                    if success:
+                        record.is_active = False
+                        record.save()
+                        try:
+                            bot.send_message(
+                                user_id,
+                                f"🛑 Your number `{record.phone_number}` has been released "
+                                f"due to insufficient wallet balance.\n"
+                                f"Please top up and purchase a new number.",
+                                parse_mode="Markdown",
+                            )
+                        except Exception:
+                            pass
+                else:
+                    try:
+                        bot.send_message(
+                            user_id,
+                            f"⚠️ Phone number renewal failed for `{record.phone_number}`\n"
+                            f"Insufficient wallet balance (need ${record.monthly_cost}).\n"
+                            f"You have {days_left} days to top up before the number is released.",
+                            parse_mode="Markdown",
+                        )
+                    except Exception:
+                        pass
+
+        except Exception as e:
+            logger.error(f"[renew_numbers] Error processing {record.phone_number}: {e}")
+
+    return f"Processed {due_numbers.count()} numbers"
+
+
+
+
+@shared_task
 def charge_user_for_additional_minutes():
     print("Charge_user_for_additional_minutes RUNNING..... ")
 
