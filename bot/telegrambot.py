@@ -466,16 +466,21 @@ def handle_activate_free_plan(call):
     # Find the Free plan
     free_plan = SubscriptionPlans.objects.filter(name="Free").first()
     if free_plan:
-        sub, created = UserSubscription.objects.get_or_create(
-            user_id=user_id,
-            defaults={"subscription_status": "inactive"},
-        )
-        if sub.subscription_status != "active" or not sub.plan_id:
-            from bot.utils import set_user_subscription
-            set_user_subscription(user_id, str(free_plan.plan_id))
+        try:
+            sub = UserSubscription.objects.get(user_id=user_id)
+            if sub.subscription_status == "active" and sub.plan_id:
+                bot.send_message(user_id, f"✅ You already have an active plan: *{sub.plan_id.name}*", parse_mode="Markdown")
+                send_welcome(call.message)
+                return
+        except UserSubscription.DoesNotExist:
+            pass
+
+        # set_user_subscription expects the TelegramUser object and plan_id string
+        result = set_user_subscription(user, str(free_plan.plan_id))
+        if result == "200":
             bot.send_message(user_id, f"🎉 {FREE_PLAN_ACTIVATED[lg]}")
         else:
-            bot.send_message(user_id, f"✅ You already have an active plan: *{sub.plan_id.name}*", parse_mode="Markdown")
+            bot.send_message(user_id, f"Could not activate free plan: {result}")
     else:
         bot.send_message(user_id, "Free plan not available. Please choose a premium plan.")
         handle_activate_subscription(call)
