@@ -238,7 +238,7 @@ def credit_wallet_balance(user_id, amount):
             self._data = data
             self.status_code = data["status"]
             self.text = str(data)
-        def json(self):
+        def json(self):  # noqa: F811
             return self._data
 
     return FakeResponse(result)
