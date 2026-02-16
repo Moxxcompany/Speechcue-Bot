@@ -188,3 +188,90 @@ def register_supervisor_function_on_agent(agent_id, webhook_url):
     except Exception as e:
         logger.error(f"Failed to register supervisor function on agent {agent_id}: {e}")
         return False
+
+
+def update_agent_inbound_settings(agent_id, phone_record):
+    """
+    Auto-update a Retell agent's prompt/tools based on voicemail, forwarding,
+    and business hours settings from the UserPhoneNumber record.
+    Called whenever the user toggles these settings.
+    """
+    client = get_retell_client()
+    try:
+        agent = client.agent.retrieve(agent_id)
+        existing_prompt = getattr(agent, "response_engine", {})
+        general_prompt = getattr(agent, "general_prompt", "") or ""
+        existing_tools = getattr(agent, "tools", []) or []
+
+        # Build inbound instructions
+        inbound_instructions = []
+
+        # Voicemail
+        if phone_record.voicemail_enabled:
+            vm_msg = phone_record.voicemail_message
+            inbound_instructions.append(
+                f"VOICEMAIL MODE: If the call seems to be going to voicemail or if the caller "
+                f"has been waiting and no one is available, say the following message: "
+                f"\"{vm_msg}\" Then end the call politely."
+            )
+
+        # Call forwarding
+        if phone_record.forwarding_enabled and phone_record.forwarding_number:
+            fwd = phone_record.forwarding_number
+            inbound_instructions.append(
+                f"CALL FORWARDING: When you receive an inbound call, greet the caller briefly, "
+                f"then immediately transfer the call to {fwd} using a warm transfer."
+            )
+
+        # Business hours
+        if phone_record.business_hours_enabled and phone_record.business_hours_start and phone_record.business_hours_end:
+            start = phone_record.business_hours_start.strftime("%H:%M")
+            end = phone_record.business_hours_end.strftime("%H:%M")
+            tz = phone_record.business_hours_timezone or "US/Eastern"
+            inbound_instructions.append(
+                f"BUSINESS HOURS: This line operates {start} to {end} ({tz}). "
+                f"Call the get_current_time function to check the current time. "
+                f"If the current time is outside business hours, inform the caller that "
+                f"the office is closed and offer to take a voicemail message."
+            )
+
+        # Build final prompt addon
+        inbound_addon = ""
+        if inbound_instructions:
+            inbound_addon = (
+                "\n\n--- INBOUND CALL SETTINGS ---\n"
+                + "\n\n".join(inbound_instructions)
+                + "\n--- END INBOUND SETTINGS ---"
+            )
+
+        # Strip old inbound settings from the prompt
+        if "--- INBOUND CALL SETTINGS ---" in general_prompt:
+            general_prompt = general_prompt.split("--- INBOUND CALL SETTINGS ---")[0].rstrip()
+
+        # Append new settings
+        updated_prompt = general_prompt + inbound_addon
+
+        # Ensure transfer_call tool exists if forwarding is enabled
+        update_kwargs = {"general_prompt": updated_prompt}
+
+        if phone_record.forwarding_enabled and phone_record.forwarding_number:
+            has_transfer = any(
+                (hasattr(t, "type") and t.type == "transfer_call") or
+                (isinstance(t, dict) and t.get("type") == "transfer_call")
+                for t in existing_tools
+            )
+            if not has_transfer:
+                transfer_tool = {
+                    "type": "transfer_call",
+                    "name": "transfer_call",
+                    "number": phone_record.forwarding_number,
+                }
+                new_tools = list(existing_tools) + [transfer_tool]
+                update_kwargs["tools"] = new_tools
+
+        client.agent.update(agent_id=agent_id, **update_kwargs)
+        logger.info(f"Updated inbound settings on agent {agent_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to update inbound settings on agent {agent_id}: {e}")
+        return False
