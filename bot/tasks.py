@@ -31,7 +31,7 @@ from payment.models import (
 from bot.views import stop_single_active_call, get_call_details
 from payment.views import (
     check_user_balance,
-    credit_wallet_balance,
+    debit_wallet,
     get_user_single_transaction,
 )
 from translations.translations import (
