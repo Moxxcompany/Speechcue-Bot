@@ -110,6 +110,31 @@ class CallerIds(models.Model):
         return self.caller_id
 
 
+class UserPhoneNumber(models.Model):
+    """Tracks phone numbers purchased by users via Retell."""
+    user = models.ForeignKey(
+        "user.TelegramUser", on_delete=models.CASCADE, related_name="phone_numbers"
+    )
+    phone_number = models.CharField(max_length=50, unique=True)
+    country_code = models.CharField(max_length=5, default="US")
+    area_code = models.IntegerField(null=True, blank=True)
+    is_toll_free = models.BooleanField(default=False)
+    nickname = models.CharField(max_length=100, blank=True, default="")
+    monthly_cost = models.DecimalField(max_digits=6, decimal_places=2, default=2.00)
+    purchased_at = models.DateTimeField(auto_now_add=True)
+    next_renewal_date = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
+    auto_renew = models.BooleanField(default=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.phone_number} (user={self.user_id}, active={self.is_active})"
+
+
 class ActiveCall(models.Model):
     """Tracks live/ongoing calls for real-time billing."""
     call_id = models.CharField(max_length=255, primary_key=True)
