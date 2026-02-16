@@ -320,7 +320,7 @@ class BackendHealthTester:
                 if plans_count > 0:
                     # Get a sample plan
                     sample_plan = SubscriptionPlans.objects.first()
-                    print(f"   Sample plan: ID={sample_plan.id}, Price=${sample_plan.plan_price}")
+                    print(f"   Sample plan: ID={sample_plan.plan_id}, Price=${sample_plan.plan_price}")
                     print("   ✅ SubscriptionPlans table has data")
                     return True
                 else:
