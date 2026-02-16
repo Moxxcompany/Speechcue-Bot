@@ -3724,6 +3724,20 @@ def get_campaign_name(message):
 def send_caller_id_selection_prompt(user_id):
     lg = get_user_language(user_id)
     markup = types.InlineKeyboardMarkup()
+
+    # Show user's own purchased numbers first
+    user_numbers = UserPhoneNumber.objects.filter(
+        user__user_id=user_id, is_active=True
+    ).values_list("phone_number", flat=True)
+
+    if user_numbers:
+        for num in user_numbers:
+            markup.add(
+                types.InlineKeyboardButton(
+                    f"📱 {num} (My Number)", callback_data=f"callerid_{num}"
+                )
+            )
+
     random_caller_id_btn = types.InlineKeyboardButton(
         RANDOM_CALLER_ID[lg], callback_data="callerid_random"
     )
@@ -3738,7 +3752,13 @@ def send_caller_id_selection_prompt(user_id):
                     caller_id, callback_data=f"callerid_{caller_id}"
                 )
             )
+
+    # Phone number management buttons
     markup.add(types.InlineKeyboardButton(BUY_NUMBER[lg], callback_data="buy_number"))
+    if user_numbers:
+        markup.add(types.InlineKeyboardButton(
+            "📋 My Numbers", callback_data="my_numbers"
+        ))
 
     bot.send_message(user_id, CALLER_ID_SELECTION_PROMPT[lg], reply_markup=markup)
 
