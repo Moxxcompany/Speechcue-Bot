@@ -127,3 +127,64 @@ def sync_caller_ids_with_retell():
 
     logger.info(f"sync_caller_ids: kept={kept}, removed={removed}")
     return kept, removed
+
+
+def register_supervisor_function_on_agent(agent_id, webhook_url):
+    """
+    Register the check_supervisor_approval custom function tool on a Retell agent.
+    This enables the supervisor hold pattern for DTMF approval during single IVR calls.
+    """
+    client = get_retell_client()
+    try:
+        # Get existing agent config
+        agent = client.agent.retrieve(agent_id)
+        existing_tools = getattr(agent, "tools", []) or []
+
+        # Check if already registered
+        for tool in existing_tools:
+            if hasattr(tool, "name") and tool.name == "check_supervisor_approval":
+                logger.info(f"Supervisor function already registered on agent {agent_id}")
+                return True
+
+        # Build the custom function tool
+        supervisor_tool = {
+            "type": "custom_function",
+            "name": "check_supervisor_approval",
+            "description": (
+                "After collecting DTMF keypad digits from the caller, call this function "
+                "to send the digits for supervisor approval. Wait for the response. "
+                "If response is 're_enter', ask the caller to re-enter the digits. "
+                "If response is 'proceed', continue with the next step."
+            ),
+            "url": f"{webhook_url}/api/dtmf/supervisor-check",
+            "speak_during_execution": True,
+            "speak_after_execution": True,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "digits": {
+                        "type": "string",
+                        "description": "The DTMF digits entered by the caller",
+                    },
+                    "node_name": {
+                        "type": "string",
+                        "description": "The name or description of the current step",
+                    },
+                },
+                "required": ["digits"],
+            },
+        }
+
+        # Append to existing tools
+        new_tools = list(existing_tools) + [supervisor_tool]
+
+        # Update agent
+        client.agent.update(
+            agent_id=agent_id,
+            tools=new_tools,
+        )
+        logger.info(f"Supervisor function registered on agent {agent_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to register supervisor function on agent {agent_id}: {e}")
+        return False
