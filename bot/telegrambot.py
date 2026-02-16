@@ -3766,10 +3766,18 @@ def send_caller_id_selection_prompt(user_id):
     )
     markup.add(random_caller_id_btn)
 
+    # Validate CallerIds against Retell — only show numbers that actually exist
     caller_ids = CallerIds.objects.all().values_list("caller_id", flat=True)
-
     if caller_ids:
+        try:
+            retell_numbers = get_retell_phone_number_set()
+        except Exception:
+            retell_numbers = None  # Fallback: show all if Retell API fails
+
         for caller_id in caller_ids:
+            # Skip numbers not in Retell (if we could fetch the list)
+            if retell_numbers is not None and caller_id not in retell_numbers:
+                continue
             markup.add(
                 types.InlineKeyboardButton(
                     caller_id, callback_data=f"callerid_{caller_id}"
