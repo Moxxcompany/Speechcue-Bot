@@ -3457,7 +3457,7 @@ def handle_terms_response(call):
         )
 
         markup.add(view_terms_button, exit_button)
-        msg = f"⚠️ {ACCEPT_TERMS_AND_CONDITIONS}"
+        msg = f"⚠️ {ACCEPT_TERMS_AND_CONDITIONS[lg]}"
         bot.send_message(user_id, msg, reply_markup=markup)
 
 
