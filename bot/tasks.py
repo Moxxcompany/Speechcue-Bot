@@ -409,16 +409,18 @@ def check_subscription_status():
             plan = SubscriptionPlans.objects.get(plan_id=subscription.plan_id_id)
 
             if plan.plan_price > 0:
-                wallet_balance = check_user_balance(user.user_id).json()["data"][
-                    "amount"
-                ]
+                wallet = check_user_balance(user.user_id)
+                wallet_balance = wallet["data"]["amount"]
                 print(f"User {user.user_id} wallet balance: {wallet_balance}")
 
                 if float(wallet_balance) >= float(plan.plan_price):
                     print(f"User {user.user_id} has sufficient balance for renewal.")
-                    response = credit_wallet_balance(user.user_id, plan.plan_price)
+                    result = debit_wallet(
+                        user.user_id, plan.plan_price,
+                        description=f"Auto-renewal: {plan.name}",
+                    )
 
-                    if response.status_code == 200:
+                    if result["status"] == 200:
                         subscription.date_of_expiry = current_date + timezone.timedelta(
                             days=plan.validity_days
                         )
