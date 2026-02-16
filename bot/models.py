@@ -135,6 +135,51 @@ class UserPhoneNumber(models.Model):
         return f"{self.phone_number} (user={self.user_id}, active={self.is_active})"
 
 
+class PendingDTMFApproval(models.Model):
+    """Tracks supervisor approval for DTMF input during single IVR calls.
+    Retell custom function calls our endpoint, which creates this record
+    and polls until the bot user approves/rejects via Telegram."""
+    call_id = models.CharField(max_length=255)
+    user_id = models.BigIntegerField()
+    digits = models.CharField(max_length=50)
+    node_name = models.CharField(max_length=255, blank=True, default="")
+    status = models.CharField(
+        max_length=20, default="pending",
+        choices=[("pending", "Pending"), ("approved", "Approved"), ("rejected", "Rejected"), ("timeout", "Timeout")],
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["call_id", "status"]),
+        ]
+
+    def __str__(self):
+        return f"DTMFApproval(call={self.call_id}, digits={self.digits}, status={self.status})"
+
+
+class SMSInbox(models.Model):
+    """Stores inbound SMS messages received on user's purchased Retell numbers."""
+    user = models.ForeignKey(
+        "user.TelegramUser", on_delete=models.CASCADE, related_name="sms_inbox"
+    )
+    phone_number = models.CharField(max_length=50)  # The Retell number that received SMS
+    from_number = models.CharField(max_length=50)
+    message = models.TextField()
+    received_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "is_read"]),
+        ]
+        ordering = ["-received_at"]
+
+    def __str__(self):
+        return f"SMS from {self.from_number} to {self.phone_number}: {self.message[:50]}"
+
+
 class PendingPhoneNumberPurchase(models.Model):
     """Tracks phone number purchase intent when paying via crypto.
     After crypto payment confirms and wallet is credited, this record
