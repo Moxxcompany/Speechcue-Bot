@@ -97,7 +97,7 @@ from bot.bot_config import *  # noqa
 
 from bot.callback_query_handlers import *  # noqa
 
-from payment.models import SubscriptionPlans, DTMF_Inbox
+from payment.models import WalletTransaction, TransactionType
 from translations.translations import (
     WELCOME_BACK, DASHBOARD_SUMMARY, PLAN_LABEL, WALLET_LABEL, NUMBERS_LABEL,
     MINUTES_LEFT_LABEL, PHONE_NUMBERS_MENU, INBOX_MENU, WALLET_AND_BILLING,
