@@ -798,6 +798,7 @@ def retell_webhook(request):
         elif event == "call_ended":
             _handle_call_ended(call_data)
             _deliver_recording_to_user(call_data)
+            _bill_voicemail_if_applicable(call_data)
             # Clean up transcript cursor
             _transcript_cursor.pop(call_data.get("call_id", ""), None)
         elif event == "call_analyzed":
