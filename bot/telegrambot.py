@@ -5019,6 +5019,140 @@ def handle_forwarding_number_input(message):
     user_data[user_id].pop("fwd_phone", None)
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("bh_toggle_"))
+def handle_business_hours_toggle(call):
+    """Toggle business hours on/off for a purchased number."""
+    user_id = call.message.chat.id
+    phone = call.data.replace("bh_toggle_", "")
+
+    record = UserPhoneNumber.objects.filter(
+        user__user_id=user_id, phone_number=phone, is_active=True
+    ).first()
+    if not record:
+        bot.send_message(user_id, "Number not found.", reply_markup=get_main_menu_keyboard(user_id))
+        return
+
+    if record.business_hours_enabled:
+        record.business_hours_enabled = False
+        record.save()
+        _sync_inbound_settings_to_retell(user_id, record)
+        bot.send_message(
+            user_id,
+            f"🕐 Business hours disabled for `{phone}`. Calls accepted 24/7.",
+            reply_markup=get_main_menu_keyboard(user_id),
+            parse_mode="Markdown",
+        )
+    else:
+        if record.business_hours_start and record.business_hours_end:
+            record.business_hours_enabled = True
+            record.save()
+            _sync_inbound_settings_to_retell(user_id, record)
+            bot.send_message(
+                user_id,
+                f"🕐 Business hours enabled for `{phone}`.\n"
+                f"Hours: {record.business_hours_start.strftime('%H:%M')}-{record.business_hours_end.strftime('%H:%M')} ({record.business_hours_timezone})",
+                reply_markup=get_main_menu_keyboard(user_id),
+                parse_mode="Markdown",
+            )
+        else:
+            if user_id not in user_data:
+                user_data[user_id] = {}
+            user_data[user_id]["step"] = "set_business_hours"
+            user_data[user_id]["bh_phone"] = phone
+            bot.send_message(
+                user_id,
+                "🕐 Enter business hours in format: `HH:MM-HH:MM TIMEZONE`\n"
+                "Example: `09:00-17:00 US/Eastern`\n\n"
+                "Common timezones: US/Eastern, US/Central, US/Pacific, Europe/London, Asia/Tokyo",
+                parse_mode="Markdown",
+            )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("bh_set_"))
+def handle_business_hours_set(call):
+    """Prompt user to enter business hours."""
+    user_id = call.message.chat.id
+    phone = call.data.replace("bh_set_", "")
+
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]["step"] = "set_business_hours"
+    user_data[user_id]["bh_phone"] = phone
+
+    bot.send_message(
+        user_id,
+        "🕐 Enter business hours in format: `HH:MM-HH:MM TIMEZONE`\n"
+        "Example: `09:00-17:00 US/Eastern`\n\n"
+        "Common timezones: US/Eastern, US/Central, US/Pacific, Europe/London, Asia/Tokyo",
+        parse_mode="Markdown",
+    )
+
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get("step") == "set_business_hours")
+def handle_business_hours_input(message):
+    """Parse and save business hours."""
+    user_id = message.chat.id
+    phone = user_data[user_id].get("bh_phone", "")
+    text = message.text.strip()
+
+    import re
+    from datetime import time as dt_time
+
+    # Parse: HH:MM-HH:MM TIMEZONE
+    match = re.match(r"^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s+(.+)$", text)
+    if not match:
+        bot.send_message(
+            user_id,
+            "Invalid format. Please use: `HH:MM-HH:MM TIMEZONE`\nExample: `09:00-17:00 US/Eastern`",
+            parse_mode="Markdown",
+        )
+        return
+
+    start_str, end_str, tz_str = match.groups()
+
+    # Validate timezone
+    import pytz
+    try:
+        pytz.timezone(tz_str.strip())
+    except pytz.exceptions.UnknownTimeZoneError:
+        bot.send_message(user_id, f"Unknown timezone: {tz_str}. Try US/Eastern, US/Pacific, Europe/London, etc.")
+        return
+
+    # Parse times
+    try:
+        start_parts = start_str.split(":")
+        end_parts = end_str.split(":")
+        start_time = dt_time(int(start_parts[0]), int(start_parts[1]))
+        end_time = dt_time(int(end_parts[0]), int(end_parts[1]))
+    except (ValueError, IndexError):
+        bot.send_message(user_id, "Invalid time format. Use HH:MM (24-hour).")
+        return
+
+    record = UserPhoneNumber.objects.filter(
+        user__user_id=user_id, phone_number=phone, is_active=True
+    ).first()
+    if record:
+        record.business_hours_start = start_time
+        record.business_hours_end = end_time
+        record.business_hours_timezone = tz_str.strip()
+        record.business_hours_enabled = True
+        record.save()
+        _sync_inbound_settings_to_retell(user_id, record)
+        bot.send_message(
+            user_id,
+            f"✅ Business hours set for `{phone}`\n"
+            f"🕐 {start_time.strftime('%H:%M')} - {end_time.strftime('%H:%M')} ({tz_str.strip()})\n\n"
+            f"Outside these hours, callers will be routed to voicemail (if enabled).",
+            reply_markup=get_main_menu_keyboard(user_id),
+            parse_mode="Markdown",
+        )
+    else:
+        bot.send_message(user_id, "Number not found.", reply_markup=get_main_menu_keyboard(user_id))
+
+    user_data[user_id].pop("step", None)
+    user_data[user_id].pop("bh_phone", None)
+
+
 @bot.message_handler(func=lambda message: message.text in YES_PROCEED.values())
 def proceed_single_ivr(message):
     user_id = message.chat.id
