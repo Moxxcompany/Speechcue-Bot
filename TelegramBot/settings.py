@@ -148,7 +148,7 @@ HUEY = {
     },
     "immediate": False,
 }
-POSTGRES_URL = os.getenv("POSTGRES_URL")
+POSTGRES_URL = os.getenv("POSTGRES_URL") or os.getenv("POSTGRES_DB")
 if POSTGRES_URL:
     from urllib.parse import urlparse
     _pg = urlparse(POSTGRES_URL)
