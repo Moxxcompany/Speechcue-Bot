@@ -755,8 +755,13 @@ def retell_webhook(request):
             _handle_call_started(call_data)
         elif event == "call_ended":
             _handle_call_ended(call_data)
+            _deliver_recording_to_user(call_data)
+            # Clean up transcript cursor
+            _transcript_cursor.pop(call_data.get("call_id", ""), None)
         elif event == "call_analyzed":
             _handle_call_analyzed(call_data)
+        elif event == "transcript_updated":
+            _handle_transcript_updated(call_data)
         else:
             logger.warning(f"[retell_webhook] Unknown event: {event}")
 
