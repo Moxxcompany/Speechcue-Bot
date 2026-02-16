@@ -66,7 +66,7 @@ Analyze and setup the existing Speechcad Telegram IVR Bot codebase.
 
 ## Environment Details
 - **Backend**: http://localhost:8001 (uvicorn ASGI)
-- **External URL**: https://bdb606ba-668c-463e-877d-5d068e1627fe.preview.emergentagent.com
+- **External URL**: https://setup-wizard-95.preview.emergentagent.com
 - **Retell Webhook**: /api/webhook/retell
 - **Telegram Webhook**: /api/telegram/webhook/
 - **Admin**: http://localhost:8001/admin/ (admin/speechcadadmin1234)
