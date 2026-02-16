@@ -10,55 +10,74 @@
 
 ## Architecture
 - **Framework**: Django 4.2.13 (ASGI via uvicorn on port 8001)
-- **Database**: PostgreSQL on Railway
+- **Database**: SQLite (fallback; PostgreSQL ready via POSTGRES_URL env)
 - **Bot**: pyTelegramBotAPI (Telegram Bot)
 - **Voice AI**: Retell AI SDK
-- **Task Queue**: Celery + Redis (Railway Redis)
+- **Task Queue**: Celery + Redis (when Redis URL is configured)
 - **Payments**: DynoPay crypto + internal wallet system
 
 ## Webhook URLs (for Retell Dashboard)
-- **Retell Voice**: `.../api/webhook/retell`
-- **Supervisor DTMF Check**: `.../api/dtmf/supervisor-check`
-- **Inbound SMS**: `.../api/webhook/sms`
-- **Telegram**: `.../api/telegram/webhook/`
+- **Retell Voice**: `/api/webhook/retell`
+- **Supervisor DTMF Check**: `/api/dtmf/supervisor-check`
+- **Inbound SMS**: `/api/webhook/sms`
+- **Telegram**: `/api/telegram/webhook/`
+- **Time Check**: `/api/time-check`
 
 ## What's Been Implemented
 
-### Session 1-2 — Setup + Env (2026-02-16)
+### Previous Sessions (2026-02-16)
 - Full environment setup, PostgreSQL migration, real API keys
-
-### Session 3 — Core Fixes (2026-02-16)
 - CallerIds validation, agent binding on purchase, crypto auto-purchase
-
-### Session 4 — DTMF + SMS + Voicemail (2026-02-16)
 - Real-time DTMF streaming via transcript_updated
 - Supervisor DTMF approval (single calls only)
 - SMS Inbox delivery, DTMF node loop-back, recording delivery
 - Voicemail/forwarding settings per purchased number
+- All files pass lint cleanly
 
-### Session 5 — Lint Cleanup (2026-02-16)
-- Fixed all real lint errors: webhooks.py (3), views.py (4), payment/views.py (1), telegrambot.py (7 f-string fixes + 17 auto-fixes)
-- Added pyproject.toml with ruff config to suppress pre-existing star import warnings
-- **All files now pass lint cleanly**: webhooks.py ✅, views.py ✅, retell_service.py ✅, models.py ✅, tasks.py ✅, telegrambot.py ✅, payment/views.py ✅, urls.py ✅
+### Current Session — Setup & Analysis (2026-01-XX)
+- **Installed all Python dependencies** (Django, Retell SDK, pyTelegramBotAPI, Celery, etc.)
+- **Created .env** with placeholder credentials for Telegram, Retell, DynoPay, Redis
+- **Ran database migrations** (SQLite fallback) — all 3 pending migrations applied
+- **Backend running** on uvicorn port 8001 via supervisor ✅
+- **Frontend placeholder** created (React app) so supervisor doesn't crash
+- **Admin superuser** exists (admin / admin123)
+- **Subscription plans seeded**: 10 plans (Free, Prime, Elite, etc.)
+- **All webhook endpoints verified working**:
+  - `/api/webhook/retell` → 200 ✅
+  - `/api/webhook/sms` → 200 ✅
+  - `/api/dtmf/supervisor-check` → 200 ✅
+  - `/api/time-check` → 200 ✅
 
-## Lint Status
-- `bot/webhooks.py` — ✅ Clean
-- `bot/views.py` — ✅ Clean (fixed undefined logger, unused vars)
-- `bot/retell_service.py` — ✅ Clean
-- `bot/models.py` — ✅ Clean
-- `bot/tasks.py` — ✅ Clean
-- `bot/telegrambot.py` — ✅ Clean (pre-existing star-import F405 suppressed via pyproject.toml)
-- `payment/views.py` — ✅ Clean
-- `TelegramBot/urls.py` — ✅ Clean
+## Current Status
+- Backend: RUNNING ✅
+- Frontend: RUNNING (placeholder React app)
+- Database: SQLite (all migrations applied)
+- Bot: Token is placeholder — needs real Telegram Bot token to function
+- Retell: API key is placeholder — needs real key for voice API calls
+- Redis/Celery: Not running (needs Redis URL)
+
+## Environment Variables Needed (Real Values)
+| Variable | Current | Needed |
+|----------|---------|--------|
+| `API_TOKEN` | Placeholder | Real Telegram Bot token |
+| `RETELL_API_KEY` | Placeholder | Real Retell API key |
+| `DYNOPAY_API_KEY` | Placeholder | Real DynoPay key |
+| `DYNOPAY_WALLET_TOKEN` | Placeholder | Real wallet token |
+| `REDIS_URL` | localhost | Real Redis URL (for Celery) |
+| `POSTGRES_URL` | Not set | PostgreSQL URL (optional, SQLite works) |
 
 ## Prioritized Backlog
+### P0 - Immediate
+- [ ] Set real API tokens (Telegram, Retell, DynoPay)
+- [ ] Set Telegram webhook to pod URL
+- [ ] Start Celery worker + beat (requires Redis)
+
 ### P1 - Remaining
 - [ ] Inbound call billing (charge wallet for inbound minutes)
 - [ ] After-hours conditional routing
 - [ ] Retell agent prompt auto-update when voicemail/forwarding toggled
-- [ ] Set Telegram webhook to pod URL
-- [ ] Start Celery worker + beat
 
 ### P2 - Deferred
 - [ ] Outbound SMS (requires A2P 10DLC)
 - [ ] Web admin dashboard
+- [ ] Production PostgreSQL migration
