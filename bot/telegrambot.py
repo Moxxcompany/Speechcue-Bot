@@ -40,7 +40,6 @@ from bot.models import (
 from bot.utils import (
     generate_random_id,
     username_formating,
-    convert_crypto_to_usd,
     validate_edges,
     get_currency,
     set_user_subscription,
