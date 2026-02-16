@@ -320,42 +320,34 @@ def charge_user_for_additional_minutes():
         price_per_min = float(overage_pricing.overage_pricing)
         total_charges = price_per_min * call_duration.additional_minutes
         print(f"total charges for call id {call_duration.call_id} : {total_charges}")
-        wallet_balance = check_user_balance(call_duration.user_id)
-        print(f"wallet balance for user {call_duration.user_id} : {wallet_balance}")
-        wallet = wallet_balance.json()
+        wallet = check_user_balance(call_duration.user_id)
         available_balance = wallet["data"]["amount"]
+        print(f"wallet balance for user {call_duration.user_id} : {available_balance}")
         lg = user.language
         if float(total_charges) < float(available_balance):
-            response = credit_wallet_balance(call_duration.user_id, total_charges)
-            if response.status_code != 200:
+            result = debit_wallet(
+                call_duration.user_id, total_charges,
+                description=f"Overage: {call_duration.additional_minutes:.2f} extra minutes",
+                tx_type="OVR",
+            )
+            if result["status"] != 200:
                 bot.send_message(
                     call_duration.user_id,
-                    f"{PROCESSING_ERROR[lg]}\n" f"{response.text}",
+                    f"{PROCESSING_ERROR[lg]}\n{result.get('message', '')}",
                 )
                 return
-            print("response 200 crediting user wallet ")
+            print("response 200 debited user wallet")
+            transaction_id = result["data"]["transaction_id"]
+            print(f"Transaction id in charge_user_for_additional_minutes function : {transaction_id}")
 
-            print(f"response data : {response.text}")
-            data = response.json()
-            transaction_id = data["data"]["transaction_id"]
-            print(
-                f"Transaction id in charge_user_for_additional_minutes function : {transaction_id}"
+            UserTransactionLogs.objects.create(
+                user_id=user,
+                reference=transaction_id,
+                transaction_type=TransactionType.Overage,
             )
-            response = get_user_single_transaction(
-                call_duration.user_id, transaction_id
-            )
-            if response.status_code == 200:
-                transaction_data = response.json()
-
-                payment_reference = transaction_data["data"]["transaction_reference"]
-                UserTransactionLogs.objects.create(
-                    user_id=user,
-                    reference=payment_reference,
-                    transaction_type=TransactionType.Overage,
-                )
-                call_duration.charged = True
-                call_duration.save()
-                break
+            call_duration.charged = True
+            call_duration.save()
+            break
 
 
 @shared_task()
