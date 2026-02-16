@@ -40,14 +40,16 @@ Analyze and setup the existing Speechcad Telegram IVR Bot codebase.
 - [x] Analyzed full codebase structure and dependencies
 - [x] Installed all Python dependencies (Django, Retell SDK, Celery, Redis, etc.)
 - [x] Set up Redis server
-- [x] Configured Django to use SQLite (PostgreSQL not available in preview env)
-- [x] Created .env with all required environment variables
-- [x] Ran all 70+ database migrations successfully
+- [x] Connected to Railway PostgreSQL (nozomi.proxy.rlwy.net:19535/railway)
+- [x] Created .env with all environment variables (Telegram, Retell, DynoPay, Railway DB)
+- [x] Ran all 129 database migrations successfully against Railway PostgreSQL
 - [x] Seeded 10 subscription plans + overage pricing
 - [x] Fixed missing `get_plan_price` utility function
 - [x] Backend running and responding on port 8001
 - [x] Verified external webhook endpoints (Retell + Telegram)
-- [x] Django admin panel accessible (admin/speechcadadmin1234)
+- [x] Real Telegram Bot Token configured (8125289128:AAG...)
+- [x] DynoPay wallet integration configured (API key + wallet token)
+- [x] Removed unused Bland.ai keys
 
 ## Environment Details
 - **Backend**: http://localhost:8001 (uvicorn ASGI)
@@ -55,7 +57,7 @@ Analyze and setup the existing Speechcad Telegram IVR Bot codebase.
 - **Retell Webhook**: /api/webhook/retell
 - **Telegram Webhook**: /api/telegram/webhook/
 - **Admin**: http://localhost:8001/admin/ (admin/speechcadadmin1234)
-- **Database**: SQLite at /app/db.sqlite3
+- **Database**: Railway PostgreSQL (nozomi.proxy.rlwy.net:19535/railway)
 
 ## Prioritized Backlog
 ### P0 - Critical
