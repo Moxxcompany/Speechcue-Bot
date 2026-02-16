@@ -110,6 +110,31 @@ class CallerIds(models.Model):
         return self.caller_id
 
 
+class ActiveCall(models.Model):
+    """Tracks live/ongoing calls for real-time billing."""
+    call_id = models.CharField(max_length=255, primary_key=True)
+    user_id = models.BigIntegerField()
+    to_number = models.CharField(max_length=255)
+    from_number = models.CharField(max_length=255, null=True, blank=True)
+    region = models.CharField(max_length=100, default="US/Canada")
+    rate_per_minute = models.DecimalField(max_digits=8, decimal_places=4, default=0)
+    call_type = models.CharField(max_length=20, default="single")  # single / bulk
+    billing_source = models.CharField(max_length=20, default="plan")  # plan / wallet
+    start_time = models.DateTimeField()
+    last_billed_at = models.DateTimeField()
+    total_billed = models.DecimalField(max_digits=10, decimal_places=4, default=0)
+    warning_sent = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["is_active"]),
+        ]
+
+    def __str__(self):
+        return f"ActiveCall {self.call_id} user={self.user_id} {self.region}"
+
+
 class CampaignLogs(models.Model):
     user_id = models.ForeignKey(
         TelegramUser, on_delete=models.CASCADE, related_name="campaign_user", null=True
