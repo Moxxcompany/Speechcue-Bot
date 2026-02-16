@@ -6,6 +6,8 @@ import json
 import logging
 import os
 
+logger = logging.getLogger(__name__)
+
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
