@@ -39,7 +39,7 @@ class BackendHealthTester:
     def __init__(self):
         """Initialize tester with backend URL from environment"""
         # Use the webhook_url from environment (the pod URL)
-        self.base_url = os.getenv('webhook_url', 'https://a8bda08d-9e11-4703-9765-f6721e40b0f1.preview.emergentagent.com').rstrip('/')
+        self.base_url = os.getenv('webhook_url', 'https://initial-config-3.preview.emergentagent.com').rstrip('/')
         self.telegram_token = os.getenv('API_TOKEN', '')
         
         self.tests_run = 0

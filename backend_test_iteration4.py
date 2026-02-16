@@ -20,7 +20,7 @@ import time
 from datetime import datetime, timezone
 
 class RealTimeBillingTester:
-    def __init__(self, base_url="https://a8bda08d-9e11-4703-9765-f6721e40b0f1.preview.emergentagent.com"):
+    def __init__(self, base_url="https://initial-config-3.preview.emergentagent.com"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
