@@ -566,7 +566,7 @@ def trigger_retry_node(message):
     Args:
         message: The message object from the user.
     """
-    bot.send_message(message.chat.id, "Retry node")
+    bot.send_message(message.chat.id, f"{RETRY_NODE[lg]}")
 
 
 @bot.message_handler(func=lambda message: message.text in SKIP_NODE.values())
@@ -577,7 +577,7 @@ def trigger_skip_node(message):
     Args:
        message: The message object from the user.
     """
-    bot.send_message(message.chat.id, "Skip node")
+    bot.send_message(message.chat.id, f"{SKIP_NODE[lg]}")
 
 
 @bot.message_handler(
