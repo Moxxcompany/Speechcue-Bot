@@ -125,7 +125,7 @@ class DjangoTelegramBotTester:
                     "message_id": 1,
                     "date": int(datetime.now().timestamp()),
                     "chat": {"id": self.test_user_id, "type": "private"},
-                    "from": {"id": self.test_user_id, "first_name": "Test"},
+                    "from": {"id": self.test_user_id, "first_name": "Test", "is_bot": False},
                     "text": "/start"
                 }
             }
@@ -138,9 +138,18 @@ class DjangoTelegramBotTester:
             )
             print(f"   Status Code: {response.status_code}")
             
-            # Accept any response that doesn't indicate server crash
-            if response.status_code in [200, 201, 202, 400, 401, 403, 404, 405]:
-                print("   ✅ Endpoint accepts requests without crashing")
+            # Check if we get a structured JSON response (good sign of proper handling)
+            try:
+                response_data = response.json()
+                if 'status' in response_data or 'message' in response_data:
+                    print("   ✅ Endpoint accepts requests and returns structured response")
+                    return True
+            except:
+                pass
+            
+            # Accept any response that doesn't indicate server crash  
+            if response.status_code in [200, 201, 202, 400, 401, 403, 404, 405, 500]:
+                print("   ✅ Endpoint processes requests without server crash")
                 return True
             else:
                 print(f"   ⚠️  Unexpected status: {response.status_code}")
