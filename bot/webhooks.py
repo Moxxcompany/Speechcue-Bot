@@ -157,6 +157,10 @@ def _handle_call_ended(call_data):
         except Exception as e:
             logger.warning(f"[call_ended] DTMF update failed for {call_id}: {e}")
 
+    # ---- 5. International call billing — debit wallet in real-time ----
+    if to_number and duration_minutes > 0:
+        _process_international_billing(call_id, to_number, duration_minutes)
+
 
 def _process_batch_call_duration(call_id, agent_id, batch_call, started_at, ended_at, duration_minutes, duration_seconds):
     """
