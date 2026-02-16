@@ -40,6 +40,11 @@ urlpatterns = [
         name="call_details_webhook",
     ),
     path(
+        "api/webhook/retell",
+        webhook_views.retell_webhook,
+        name="retell_webhook",
+    ),
+    path(
         "webhook/crypto_deposit", payment_deposit_webhook, name="crypto_deposit_webhook"
     ),
     path(
