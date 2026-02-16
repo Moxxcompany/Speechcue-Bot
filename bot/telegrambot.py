@@ -1470,7 +1470,7 @@ def language_selection(message):
         )
     except Exception as e:
         bot.reply_to(
-            message, f"{PROCESSING_ERROR} {str(e)}", reply_markup=get_force_reply()
+            message, f"{PROCESSING_ERROR[lg]} {str(e)}", reply_markup=get_force_reply()
         )
 
 
