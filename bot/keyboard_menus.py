@@ -177,8 +177,8 @@ def get_main_menu_keyboard(user_id):
         KeyboardButton(f"💰 {WALLET_AND_BILLING[lg]}"),
     )
     markup.row(
-        KeyboardButton(f"👤 {ACCOUNT[lg]}"),
-        KeyboardButton(f"❓ {HELP[lg]}"),
+        KeyboardButton(ACCOUNT[lg]),
+        KeyboardButton(HELP[lg]),
     )
     return markup
 
