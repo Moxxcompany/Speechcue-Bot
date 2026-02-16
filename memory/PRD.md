@@ -67,6 +67,25 @@ Analyze and setup the existing Speechcad Telegram IVR Bot codebase.
 - **Admin**: http://localhost:8001/admin/ (admin/speechcadadmin1234)
 - **Database**: Railway PostgreSQL (nozomi.proxy.rlwy.net:19535/railway)
 
+## Subscription Plans (NEW — Jan 2026)
+| Plan | Price | Validity | Bulk Min | Single IVR | Transfer | Support | Overage |
+|------|-------|----------|----------|------------|----------|---------|---------|
+| Free | $0 | 1d | 0 | 1 min | No | 24/7 | N/A |
+| Starter | $15/$39/$99 | 1d/7d/30d | 30/80/250 | 10/30/60 | No | 24/7 | $0.35/m |
+| Pro | $25/$69/$179 | 1d/7d/30d | 50/150/500 | 20/50/100 | Yes | Priority | $0.35/m |
+| Business | $45/$119/$299 | 1d/7d/30d | 100/350/1000 | 30/80/200 | Yes | Premium | $0.35/m |
+
+## International Rates (wallet-deducted per-minute)
+| Region | Rate |
+|--------|------|
+| US/Canada | Plan included |
+| UK/W.Europe/India/China/SE Asia | $0.45/min |
+| Japan/Australia/S.Korea | $0.55/min |
+| Middle East | $0.60/min |
+| Latin America | $0.65/min |
+| Rest of World | $0.70/min |
+| Africa | $0.85/min |
+
 ## Prioritized Backlog
 ### P0 - Critical
 - Set real Telegram Bot Token (API_TOKEN) to enable bot commands
