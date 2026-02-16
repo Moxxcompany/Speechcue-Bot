@@ -701,7 +701,7 @@ def inbound_sms_webhook(request):
         user_id = phone_record.user.user_id
 
         # Store in SMS Inbox
-        sms = SMSInbox.objects.create(
+        SMSInbox.objects.create(
             user=phone_record.user,
             phone_number=to_number,
             from_number=from_number,
