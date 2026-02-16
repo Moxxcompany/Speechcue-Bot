@@ -635,10 +635,10 @@ def handle_change_user_language(call):
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("updatelanguage:"))
-def handle_language_selection(call):
+def handle_language_update_settings(call):
     user_id = call.from_user.id
     selected_language = call.data.split(":")[1]
-    print("language : ", {selected_language})
+    print(f"[SETTINGS] language update: {selected_language}")
     user = TelegramUser.objects.get(user_id=user_id)
     user.language = selected_language
     user.save()
