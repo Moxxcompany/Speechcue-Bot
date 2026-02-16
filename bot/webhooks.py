@@ -25,6 +25,7 @@ from bot.models import (
     CallDuration,
     BatchCallLogs,
     CallLogsTable,
+    ActiveCall,
 )
 from bot.utils import get_user_subscription_by_call_id, get_user_language
 from bot.call_gate import classify_destination, US_CA_OVERAGE_RATE
@@ -33,7 +34,7 @@ from payment.models import (
     UserSubscription,
     DTMF_Inbox,
 )
-from payment.views import debit_wallet
+from payment.views import debit_wallet, credit_wallet_balance
 from user.models import TelegramUser
 
 logger = logging.getLogger(__name__)
