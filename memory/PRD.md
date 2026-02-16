@@ -10,67 +10,54 @@
 
 ## Architecture
 - **Framework**: Django 4.2.13 (ASGI via uvicorn on port 8001)
-- **Database**: SQLite (fallback; PostgreSQL ready via POSTGRES_URL env)
-- **Bot**: pyTelegramBotAPI (Telegram Bot)
-- **Voice AI**: Retell AI SDK
-- **Task Queue**: Celery + Redis (when Redis URL is configured)
+- **Database**: PostgreSQL 17.7 on Railway
+- **Bot**: pyTelegramBotAPI — @Speechcuebot
+- **Voice AI**: Retell AI SDK (authenticated)
+- **Task Queue**: Celery + Redis (Railway Redis)
 - **Payments**: DynoPay crypto + internal wallet system
 
-## Webhook URLs (for Retell Dashboard)
-- **Retell Voice**: `/api/webhook/retell`
-- **Supervisor DTMF Check**: `/api/dtmf/supervisor-check`
-- **Inbound SMS**: `/api/webhook/sms`
-- **Telegram**: `/api/telegram/webhook/`
-- **Time Check**: `/api/time-check`
+## Webhook URLs (live on pod)
+- **Retell Voice**: `https://<pod>.preview.emergentagent.com/api/webhook/retell`
+- **Supervisor DTMF**: `https://<pod>.preview.emergentagent.com/api/dtmf/supervisor-check`
+- **Inbound SMS**: `https://<pod>.preview.emergentagent.com/api/webhook/sms`
+- **Telegram**: `https://<pod>.preview.emergentagent.com/api/telegram/webhook/`
+- **Time Check**: `https://<pod>.preview.emergentagent.com/api/time-check`
 
 ## What's Been Implemented
 
 ### Previous Sessions (2026-02-16)
 - Full environment setup, PostgreSQL migration, real API keys
 - CallerIds validation, agent binding on purchase, crypto auto-purchase
-- Real-time DTMF streaming via transcript_updated
-- Supervisor DTMF approval (single calls only)
-- SMS Inbox delivery, DTMF node loop-back, recording delivery
-- Voicemail/forwarding settings per purchased number
-- All files pass lint cleanly
+- Real-time DTMF streaming, supervisor approval, SMS inbox, recording delivery
+- Voicemail/forwarding settings, lint cleanup
 
-### Current Session — Setup & Analysis (2026-01-XX)
-- **Installed all Python dependencies** (Django, Retell SDK, pyTelegramBotAPI, Celery, etc.)
-- **Created .env** with placeholder credentials for Telegram, Retell, DynoPay, Redis
-- **Ran database migrations** (SQLite fallback) — all 3 pending migrations applied
-- **Backend running** on uvicorn port 8001 via supervisor ✅
-- **Frontend placeholder** created (React app) so supervisor doesn't crash
-- **Admin superuser** exists (admin / admin123)
-- **Subscription plans seeded**: 10 plans (Free, Prime, Elite, etc.)
-- **All webhook endpoints verified working**:
-  - `/api/webhook/retell` → 200 ✅
-  - `/api/webhook/sms` → 200 ✅
-  - `/api/dtmf/supervisor-check` → 200 ✅
-  - `/api/time-check` → 200 ✅
+### Current Session — Real Credentials Setup (2026-01-XX)
+- **Updated .env** with all real credentials (Telegram, Retell, PostgreSQL, Redis, DynoPay)
+- **PostgreSQL connected**: Railway PostgreSQL 17.7 — 10 plans, 3 users, all migrations applied
+- **Redis connected**: Railway Redis — ping OK
+- **Retell API authenticated**: 200 OK on voice listing
+- **Telegram webhook set**: `setWebhook` → pod URL, bot commands registered (/start, /support)
+- **All webhook endpoints verified** via external URL (100% test pass rate)
 
-## Current Status
-- Backend: RUNNING ✅
-- Frontend: RUNNING (placeholder React app)
-- Database: SQLite (all migrations applied)
-- Bot: Token is placeholder — needs real Telegram Bot token to function
-- Retell: API key is placeholder — needs real key for voice API calls
-- Redis/Celery: Not running (needs Redis URL)
+## Connected Services Status
+| Service | Status | Details |
+|---------|--------|---------|
+| PostgreSQL | ✅ Connected | Railway, 17.7, 10 plans, 3 users |
+| Redis | ✅ Connected | Railway Redis |
+| Retell AI | ✅ Authenticated | Voice list returns 200 |
+| Telegram Bot | ✅ Active | @Speechcuebot, webhook set |
+| DynoPay | ✅ Configured | Crypto payments ready |
 
-## Environment Variables Needed (Real Values)
-| Variable | Current | Needed |
-|----------|---------|--------|
-| `API_TOKEN` | Placeholder | Real Telegram Bot token |
-| `RETELL_API_KEY` | Placeholder | Real Retell API key |
-| `DYNOPAY_API_KEY` | Placeholder | Real DynoPay key |
-| `DYNOPAY_WALLET_TOKEN` | Placeholder | Real wallet token |
-| `REDIS_URL` | localhost | Real Redis URL (for Celery) |
-| `POSTGRES_URL` | Not set | PostgreSQL URL (optional, SQLite works) |
+## Test Results (Iteration 3)
+- Backend: **100%** (9/9 tests passed)
+- All webhook endpoints responding correctly
+- Database and cache connections verified
 
 ## Prioritized Backlog
 ### P0 - Immediate
-- [ ] Set real API tokens (Telegram, Retell, DynoPay)
-- [ ] Set Telegram webhook to pod URL
-- [ ] Start Celery worker + beat (requires Redis)
+- [x] Set real API tokens ✅
+- [x] Set Telegram webhook to pod URL ✅
+- [ ] Start Celery worker + beat for periodic tasks
 
 ### P1 - Remaining
 - [ ] Inbound call billing (charge wallet for inbound minutes)
@@ -80,4 +67,3 @@
 ### P2 - Deferred
 - [ ] Outbound SMS (requires A2P 10DLC)
 - [ ] Web admin dashboard
-- [ ] Production PostgreSQL migration
