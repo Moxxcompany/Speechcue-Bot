@@ -48,7 +48,6 @@ from user.models import TelegramUser
 from .models import CallDuration, BatchCallLogs, CallLogsTable, ReminderTable
 from .utils import (
     get_user_subscription_by_call_id,
-    convert_crypto_to_usd,
     convert_dollars_to_crypto,
     get_user_language,
     extract_call_details,
