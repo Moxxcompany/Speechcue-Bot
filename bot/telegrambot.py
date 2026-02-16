@@ -4038,7 +4038,7 @@ def handle_caller_id(call):
     print("caller id")
     user_id = call.message.chat.id
     lg = get_user_language(user_id)
-    caller = call.data.split("_")[1]
+    caller = call.data.replace("callerid_", "", 1)
     if caller == "random":
         caller_id = None
         caller = RANDOM_CALLER_ID[lg]
