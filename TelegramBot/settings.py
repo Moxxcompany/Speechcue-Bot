@@ -53,6 +53,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "bot.tasks.monitor_active_calls",
         "schedule": 30.0,  # every 30 seconds
     },
+    "renew-phone-numbers-daily": {
+        "task": "bot.tasks.renew_phone_numbers",
+        "schedule": 86400.0,  # every 24 hours
+    },
     "charge-overage-every-5min": {
         "task": "bot.tasks.charge_user_for_additional_minutes",
         "schedule": 300.0,  # every 5 minutes
