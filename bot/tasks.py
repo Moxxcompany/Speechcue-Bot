@@ -45,15 +45,16 @@ from translations.translations import (
     CAMPAIGN_INITIATED,
 )
 from user.models import TelegramUser
-from .models import CallDuration, BatchCallLogs, CallLogsTable, ReminderTable
+from .models import CallDuration, BatchCallLogs, CallLogsTable, ReminderTable, ActiveCall
 from .utils import (
     get_user_subscription_by_call_id,
     convert_dollars_to_crypto,
     get_user_language,
     extract_call_details,
 )
+from .call_gate import US_CA_OVERAGE_RATE
 from .bot_config import *
-from .views import stop_active_batch_calls
+from .views import stop_active_batch_calls, stop_single_active_call
 
 logger = logging.getLogger(__name__)
 
