@@ -2069,12 +2069,25 @@ def get_webhook_data(request):
 
 @csrf_exempt
 def crypto_transaction_webhook(request):
+    """DynoPay webhook for wallet top-up. Credits internal wallet on confirmation."""
     if request.method == "POST":
         try:
             data = get_webhook_data(request)
             user_id = data["user_id"]
+            amount = float(data["amount"])
+            currency = data["currency"]
             lg = get_user_language(user_id)
-            bot.send_message(user_id, TOP_UP_SUCCESSFUL[lg])
+
+            # Convert crypto amount to USD and credit internal wallet
+            usd_amount = convert_crypto_to_usd(amount, currency)
+            result = credit_wallet(
+                int(user_id), usd_amount,
+                description=f"Crypto top-up: {amount} {currency} (${usd_amount:.2f} USD)",
+            )
+            if result["status"] == 200:
+                bot.send_message(user_id, f"{TOP_UP_SUCCESSFUL[lg]} (+${usd_amount:.2f})")
+            else:
+                bot.send_message(user_id, f"{PROCESSING_ERROR[lg]}\n{result.get('message', '')}")
             return JsonResponse({"status": "success"}, status=200)
         except json.JSONDecodeError:
             return JsonResponse(
