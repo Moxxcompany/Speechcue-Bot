@@ -1,7 +1,7 @@
 # Speechcad IVR Telegram Bot - PRD
 
 ## Original Problem Statement
-User requested: "analyze and setup" for the existing codebase.
+User requested: "analyze and setup" for the existing codebase, then "analyze how we can replace bland.ai with Retell AI"
 
 ## Architecture
 - **Framework**: Django 4.2.13
@@ -9,57 +9,42 @@ User requested: "analyze and setup" for the existing codebase.
 - **Cache/Broker**: Redis
 - **Task Queue**: Celery + Huey (django-celery-beat for periodic tasks)
 - **Telegram Bot**: pyTelegramBotAPI (telebot)
-- **External APIs**: Bland.ai (IVR/Voice), DynoPay (crypto payments), Tatum (crypto pricing)
+- **Current Voice API**: Bland.ai (IVR/Voice) → **Migrating to Retell AI**
+- **Payments**: DynoPay (crypto payments), Tatum (crypto pricing)
 - **Languages**: English, Chinese, French, Hindi
 
-## Core Modules
-| Module | Description |
-|--------|-------------|
-| `bot/` | Telegram bot handlers, IVR flow management, pathway nodes/edges |
-| `user/` | TelegramUser model with encrypted tokens |
-| `payment/` | Subscription plans, wallet, crypto payments, overage billing |
-| `translations/` | Multi-language support (EN, CN, FR, HI) |
-| `TelegramBot/` | Django settings, URLs, constants, Celery config |
-
-## User Personas
-- **IVR Flow Creator**: Builds IVR call flows using Bland.ai pathways
-- **Bulk Caller**: Manages campaigns with scheduled batch calls
-- **Subscriber**: Manages subscription plans, wallet top-ups via crypto
-
-## What's Been Implemented (Jan 2026)
+## What's Been Implemented
 - [x] Full codebase analysis completed
 - [x] PostgreSQL 15 installed and configured
 - [x] Redis server installed and running
 - [x] Django migrations applied (all 80+ migrations)
-- [x] 10 subscription plans seeded (Free, Prime, Elite, Ultra)
-- [x] Overage pricing configured ($0.05/min)
+- [x] 10 subscription plans seeded
 - [x] Django admin superuser created (admin/speechcadadmin1234)
-- [x] .env file created with placeholder API keys
-- [x] Django system check passing (0 issues)
+- [x] Comprehensive Bland.ai → Retell AI migration analysis (`RETELL_MIGRATION_ANALYSIS.md`)
 
-## Required API Keys (placeholders currently)
-- `API_TOKEN` - Telegram Bot API token
-- `BLAND_API_KEY` - Bland.ai API key for IVR
-- `x-api-key` - DynoPay API key for payments
-- `x_api_tatum` - Tatum API key for crypto pricing
+## Migration Analysis Summary (Bland.ai → Retell AI)
+- **22 functions** in bot/views.py need rewriting
+- **2 celery tasks** in bot/tasks.py need field mapping updates
+- **Webhook handler** needs Retell payload format
+- **Key concept**: Bland pathways → Retell agents with conversation flow
+- **Critical differences**: Status values, timestamp formats, transcript structure, auth header format
+- Full analysis: `/app/RETELL_MIGRATION_ANALYSIS.md`
 
 ## Prioritized Backlog
-### P0 - Critical
-- Replace placeholder API keys with real credentials
-- Configure webhook URL for production
-- Set up Celery worker for background tasks
+### P0 - Migration Implementation
+- Install retell-sdk, update env vars
+- Create Retell service layer
+- Migrate all 22 API functions in bot/views.py
+- Update tasks.py call status polling
+- Update webhook handler
 
-### P1 - Important
-- QUO SMS integration (per QUO_INTEGRATION_ANALYSIS.md)
-- Production deployment configuration (DEBUG=False, ALLOWED_HOSTS)
+### P1 - Testing & Validation
+- Test each migrated function
+- Verify call status monitoring
+- Test batch calling
+- End-to-end Telegram bot flow testing
 
-### P2 - Nice to Have
-- Add unit tests
-- Rate limiting on webhook endpoints
-- Monitoring/alerting setup
-
-## Next Tasks
-1. User to provide real API tokens (Telegram, Bland.ai, DynoPay, Tatum)
-2. Configure Celery worker and beat scheduler
-3. Set up Telegram webhook or polling mode
-4. Production security hardening
+### P2 - Enhancements
+- Migrate from polling to Retell webhooks
+- Add recording URL support (new capability from Retell)
+- Add post-call analysis (sentiment, summary)
