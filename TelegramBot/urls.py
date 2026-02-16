@@ -58,6 +58,11 @@ urlpatterns = [
         name="inbound_sms_webhook",
     ),
     path(
+        "api/time-check",
+        webhook_views.time_check_endpoint,
+        name="time_check_endpoint",
+    ),
+    path(
         "terms-and-conditions/",
         bot_views.terms_and_conditions,
         name="terms_and_conditions",
