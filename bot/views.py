@@ -383,7 +383,7 @@ def handle_menu_node(pathway_id, node_id, prompt, node_name, menu):
 
 
 def handle_dtmf_input_node(pathway_id, node_id, prompt, node_name, dtmf):
-    """Add a DTMF input node."""
+    """Add a DTMF input node with self-validation, loop-back, and supervisor check support."""
     pathway = Pathways.objects.get(pathway_id=pathway_id)
 
     if pathway.pathway_payload:
@@ -394,29 +394,60 @@ def handle_dtmf_input_node(pathway_id, node_id, prompt, node_name, dtmf):
         existing_nodes = []
         existing_edges = []
 
+    # Enhanced prompt with confirmation and replay instruction
+    enhanced_prompt = (
+        f"{prompt}\n\n"
+        f"After the caller enters digits, repeat what they entered and ask them to confirm. "
+        f"Say: 'You entered [digits]. Is that correct? Press 1 to confirm, or press star to re-enter.' "
+        f"If they press star or say it's not correct, repeat this step. "
+        f"If they confirm, call the check_supervisor_approval function with the digits "
+        f"and wait for the response before proceeding."
+    )
+
     node = {
         "id": f"{node_id}",
         "type": "Default",
-        "data": {"name": node_name, "text": prompt},
+        "data": {"name": node_name, "text": enhanced_prompt},
     }
+
+    # Add loop-back edge for re-entry (node points back to itself on invalid input)
+    loop_edge = {
+        "id": f"edge_loop_{node_id}",
+        "source": f"{node_id}",
+        "target": f"{node_id}",
+        "data": {"condition": "Caller wants to re-enter or input is invalid or supervisor rejected"},
+    }
+
     if existing_nodes:
         nodes = add_node(pathway.pathway_payload, new_node=node)
     else:
         node["data"]["isStart"] = True
         nodes = [node]
 
+    edges = existing_edges + [loop_edge]
+
     pathway_name, pathway_description = get_pathway_data(pathway.pathway_payload)
     data = {
         "name": pathway_name,
         "description": pathway_description,
         "nodes": nodes,
-        "edges": existing_edges,
+        "edges": edges,
     }
     response = handle_add_node(pathway_id, data)
     if response.status_code == 200:
         pathway.pathway_payload = response.text
         pathway.dtmf = dtmf
         pathway.save()
+
+        # Auto-register supervisor custom function on the agent
+        try:
+            webhook_url = os.environ.get("webhook_url", "")
+            if webhook_url:
+                from bot.retell_service import register_supervisor_function_on_agent
+                register_supervisor_function_on_agent(pathway_id, webhook_url)
+        except Exception as e:
+            logger.warning(f"Could not register supervisor function on {pathway_id}: {e}")
+
     return response
 
 
