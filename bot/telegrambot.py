@@ -1549,7 +1549,7 @@ def upgrade_plan_menu(call):
     user_id = call.message.chat.id
     lg = get_user_language(user_id)
     plans = SubscriptionPlans.objects.all()
-    plan_icons = {"Free": "🎉", "Prime": "🌟", "Elite": "💎", "Ultra": "🚀"}
+    plan_icons = {"Free": "🎉", "Starter": "🌟", "Pro": "💎", "Business": "🚀"}
     markup = types.InlineKeyboardMarkup()
     unique_plan_names = set()
     for plan in plans:
