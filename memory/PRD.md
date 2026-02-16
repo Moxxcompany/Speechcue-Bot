@@ -1,50 +1,49 @@
 # Speechcad IVR Telegram Bot - PRD
 
 ## Original Problem Statement
-User requested: "analyze and setup" for the existing codebase, then "analyze how we can replace bland.ai with Retell AI"
+1. "analyze and setup" — Set up the existing Django codebase
+2. "analyze how we can replace bland.ai with Retell AI" — Migration analysis
+3. "list out the entire bot flow for users and features, explain how retell supports each" — Full feature mapping
 
 ## Architecture
 - **Framework**: Django 4.2.13
 - **Database**: PostgreSQL 15 (tele_bot)
 - **Cache/Broker**: Redis
-- **Task Queue**: Celery + Huey (django-celery-beat for periodic tasks)
+- **Task Queue**: Celery + Huey
 - **Telegram Bot**: pyTelegramBotAPI (telebot)
-- **Current Voice API**: Bland.ai (IVR/Voice) → **Migrating to Retell AI**
-- **Payments**: DynoPay (crypto payments), Tatum (crypto pricing)
-- **Languages**: English, Chinese, French, Hindi
+- **Current Voice API**: Bland.ai → **Migrating to Retell AI**
+- **Payments**: DynoPay (crypto), Tatum (crypto pricing)
+- **Languages**: EN, CN, FR, HI
 
 ## What's Been Implemented
-- [x] Full codebase analysis completed
-- [x] PostgreSQL 15 installed and configured
-- [x] Redis server installed and running
-- [x] Django migrations applied (all 80+ migrations)
-- [x] 10 subscription plans seeded
-- [x] Django admin superuser created (admin/speechcadadmin1234)
-- [x] Comprehensive Bland.ai → Retell AI migration analysis (`RETELL_MIGRATION_ANALYSIS.md`)
+- [x] Full codebase setup (PostgreSQL, Redis, migrations, seed data)
+- [x] Bland.ai → Retell AI migration analysis (RETELL_MIGRATION_ANALYSIS.md)
+- [x] Complete bot flow documentation with Retell feature mapping (RETELL_BOT_FLOW_ANALYSIS.md)
 
-## Migration Analysis Summary (Bland.ai → Retell AI)
-- **22 functions** in bot/views.py need rewriting
-- **2 celery tasks** in bot/tasks.py need field mapping updates
-- **Webhook handler** needs Retell payload format
-- **Key concept**: Bland pathways → Retell agents with conversation flow
-- **Critical differences**: Status values, timestamp formats, transcript structure, auth header format
-- Full analysis: `/app/RETELL_MIGRATION_ANALYSIS.md`
+## Key Documents
+- `/app/RETELL_MIGRATION_ANALYSIS.md` — API endpoint mapping, code examples, env changes
+- `/app/RETELL_BOT_FLOW_ANALYSIS.md` — Full user flow, 20 features mapped to Retell
+
+## Migration Summary
+- 20 features analyzed, ALL supported by Retell AI
+- 22 functions in bot/views.py need rewriting
+- 3 Celery tasks need updating (can be replaced with webhooks)
+- Retell adds: recordings, post-call analysis, PII redaction, agent versioning
 
 ## Prioritized Backlog
-### P0 - Migration Implementation
-- Install retell-sdk, update env vars
+### P0 - Implement Migration
+- Install retell-sdk, update env/settings
 - Create Retell service layer
-- Migrate all 22 API functions in bot/views.py
-- Update tasks.py call status polling
-- Update webhook handler
+- Migrate views.py functions
+- Update tasks.py
 
-### P1 - Testing & Validation
-- Test each migrated function
-- Verify call status monitoring
-- Test batch calling
-- End-to-end Telegram bot flow testing
+### P1 - Leverage New Capabilities
+- Replace polling with Retell webhooks
+- Add call recording support
+- Add post-call analysis to feedback
+- Use max_call_duration_ms for free plan
 
 ### P2 - Enhancements
-- Migrate from polling to Retell webhooks
-- Add recording URL support (new capability from Retell)
-- Add post-call analysis (sentiment, summary)
+- Agent versioning for A/B testing
+- Knowledge base integration
+- PII redaction for compliance
