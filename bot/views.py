@@ -318,10 +318,8 @@ def handle_end_call(pathway_id, node_id, prompt, node_name):
 
     if pathway.pathway_payload:
         pathway_data = json.loads(pathway.pathway_payload).get("pathway_data", {})
-        existing_nodes = pathway_data.get("nodes", [])
         existing_edges = pathway_data.get("edges", [])
     else:
-        existing_nodes = []
         existing_edges = []
 
     node = {
