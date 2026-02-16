@@ -49,6 +49,10 @@ CELERY_RESULT_BACKEND = REDIS_URL
 
 # Celery Beat Schedule — periodic tasks
 CELERY_BEAT_SCHEDULE = {
+    "monitor-active-calls-every-30s": {
+        "task": "bot.tasks.monitor_active_calls",
+        "schedule": 30.0,  # every 30 seconds
+    },
     "charge-overage-every-5min": {
         "task": "bot.tasks.charge_user_for_additional_minutes",
         "schedule": 300.0,  # every 5 minutes
