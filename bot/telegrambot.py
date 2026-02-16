@@ -3992,19 +3992,13 @@ def handle_single_ivr_call_flow(message):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("language:"))
 def handle_language_selection_onboarding(call):
-    import sys
     user_id = call.from_user.id
     selected_language = call.data.split(":")[1]
-    print(f"[ONBOARDING] language selected: {selected_language} for user {user_id}", flush=True)
-    sys.stderr.write(f"[ONBOARDING] language={selected_language} user={user_id}\n")
-    sys.stderr.flush()
 
     try:
         user, created = TelegramUser.objects.get_or_create(
             user_id=user_id, defaults={"user_name": str(user_id)}
         )
-        sys.stderr.write(f"[ONBOARDING] user get_or_create done, created={created}\n")
-        sys.stderr.flush()
         user.language = selected_language
         user.save()
 
@@ -4014,17 +4008,14 @@ def handle_language_selection_onboarding(call):
         user_data[user_id]["step"] = "get_user_information"
         user_data[user_id]["set_language"] = selected_language
 
-        sys.stderr.write(f"[ONBOARDING] Calling signup for user {user_id}\n")
-        sys.stderr.flush()
         signup(call.message)
-        sys.stderr.write(f"[ONBOARDING] signup completed for user {user_id}\n")
-        sys.stderr.flush()
     except Exception as e:
         import traceback
-        sys.stderr.write(f"[ONBOARDING] ERROR: {e}\n")
-        sys.stderr.flush()
-        traceback.print_exc(file=sys.stderr)
-        bot.send_message(user_id, f"Something went wrong. Please try /start again.")
+        traceback.print_exc()
+        try:
+            bot.send_message(user_id, f"Something went wrong. Please try /start again.")
+        except Exception:
+            pass
 
 
 def handle_terms_and_conditions(message):
