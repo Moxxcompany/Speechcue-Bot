@@ -3996,22 +3996,28 @@ def handle_language_selection_onboarding(call):
 
     selected_language = call.data.split(":")[1]
     print(f"[ONBOARDING] language selected: {selected_language} for user {user_id}")
-    user_data[user_id] = {"language": selected_language, "step": "get_user_information"}
-    user = TelegramUser.objects.get(user_id=user_id)
-    user.language = selected_language
-    user.save()
-    if user_id not in user_data:
-        user_data[user_id] = {}
-    user_data[user_id]["set_language"] = selected_language
-    token = user.token
+
     try:
+        user, created = TelegramUser.objects.get_or_create(
+            user_id=user_id, defaults={"user_name": str(user_id)}
+        )
+        user.language = selected_language
+        user.save()
+
+        if user_id not in user_data:
+            user_data[user_id] = {}
+        user_data[user_id]["language"] = selected_language
+        user_data[user_id]["step"] = "get_user_information"
+        user_data[user_id]["set_language"] = selected_language
+
         print(f"[ONBOARDING] Calling signup for user {user_id}")
         signup(call.message)
         print(f"[ONBOARDING] signup completed for user {user_id}")
     except Exception as e:
         import traceback
-        print(f"[ONBOARDING] ERROR in signup: {e}")
+        print(f"[ONBOARDING] ERROR: {e}")
         traceback.print_exc()
+        bot.send_message(user_id, f"Something went wrong. Please try /start again.")
 
 
 def handle_terms_and_conditions(message):
