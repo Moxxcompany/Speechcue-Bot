@@ -4939,6 +4939,7 @@ def handle_voicemail_message_input(message):
     if record:
         record.voicemail_message = new_message
         record.save()
+        _sync_inbound_settings_to_retell(user_id, record)
         bot.send_message(
             user_id,
             f"✅ Voicemail message updated for `{phone}`.\n\n"
