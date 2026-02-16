@@ -131,6 +131,370 @@ call_data = []
 TERMS_AND_CONDITIONS_URL = os.getenv("TERMS_AND_CONDITIONS_URL")
 CHANNEL_LINK = os.getenv("CHANNEL_LINK")
 
+
+# =============================================================================
+# New UI/UX Hub Handlers
+# =============================================================================
+
+def _match_menu_text(message_text, translations_dict):
+    """Match message text against translated menu buttons with emoji prefix."""
+    for lg, text in translations_dict.items():
+        # Match with various emoji prefixes
+        for prefix in ["📞 ", "🎙 ", "☎️ ", "📋 ", "📬 ", "💰 ", "👤 ", "❓ ", ""]:
+            if message_text == f"{prefix}{text}":
+                return True
+    return False
+
+
+@bot.message_handler(func=lambda message: _match_menu_text(message.text or "", PHONE_NUMBERS_MENU))
+def handle_phone_numbers_hub(message):
+    """Phone Numbers hub — main menu entry point."""
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    from bot.keyboard_menus import get_phone_numbers_hub_keyboard
+    bot.send_message(
+        user_id,
+        f"📞 *{PHONE_NUMBERS_MENU[lg]}*\n\n{PHONE_NUMBERS_HUB[lg]}",
+        reply_markup=get_phone_numbers_hub_keyboard(user_id),
+        parse_mode="Markdown",
+    )
+
+
+@bot.message_handler(func=lambda message: _match_menu_text(message.text or "", INBOX_MENU))
+def handle_inbox_hub(message):
+    """Inbox hub — consolidates SMS, DTMF, Call History, Recordings."""
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    from bot.keyboard_menus import get_inbox_hub_keyboard
+    bot.send_message(
+        user_id,
+        f"📬 *{INBOX_MENU[lg]}*\n\n{INBOX_HUB[lg]}",
+        reply_markup=get_inbox_hub_keyboard(user_id),
+        parse_mode="Markdown",
+    )
+
+
+@bot.message_handler(func=lambda message: _match_menu_text(message.text or "", WALLET_AND_BILLING))
+def handle_wallet_billing_hub(message):
+    """Wallet & Billing hub — shows balance + options."""
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    from bot.keyboard_menus import get_wallet_billing_keyboard
+    wallet = check_user_balance(user_id)
+    balance = wallet.get("data", {}).get("amount", 0) if wallet.get("data") else 0
+    bot.send_message(
+        user_id,
+        f"💰 *{WALLET_AND_BILLING[lg]}*\n\n💵 Balance: *${balance}*",
+        reply_markup=get_wallet_billing_keyboard(user_id),
+        parse_mode="Markdown",
+    )
+
+
+@bot.message_handler(func=lambda message: _match_menu_text(message.text or "", MAKE_CALL_MENU))
+def handle_make_call_menu(message):
+    """Make a Call — redirects to the existing IVR call flow."""
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    bot.send_message(
+        user_id, f"☎️ {SELECTION_PROMPT[lg]}",
+        reply_markup=ivr_call_keyboard(user_id),
+    )
+
+
+@bot.message_handler(func=lambda message: _match_menu_text(message.text or "", IVR_FLOWS_MENU))
+def handle_ivr_flows_menu(message):
+    """IVR Flows — redirects to the existing IVR flow keyboard."""
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    bot.send_message(
+        user_id, f"🎙 {CHOOSE_IVR_FLOW_TYPE[lg]}",
+        reply_markup=ivr_flow_keyboard(user_id),
+    )
+
+
+@bot.message_handler(func=lambda message: _match_menu_text(message.text or "", CAMPAIGNS_MENU))
+def handle_campaigns_menu(message):
+    """Campaigns — redirects to the existing campaign management."""
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    from bot.keyboard_menus import get_campaign_management_keyboard
+    bot.send_message(
+        user_id, f"📋 {SELECTION_PROMPT[lg]}",
+        reply_markup=get_campaign_management_keyboard(user_id),
+    )
+
+
+# --- Inline callback handlers for new hubs ---
+
+@bot.callback_query_handler(func=lambda call: call.data == "call_history")
+def handle_call_history(call):
+    """Show recent call history."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    calls = CallLogsTable.objects.filter(user_id=user_id).order_by("-created_at")[:10]
+
+    if not calls.exists():
+        bot.send_message(user_id, f"📊 {NO_CALLS_YET[lg]}")
+        return
+
+    lines = [f"📊 *{CALL_HISTORY_MENU[lg]}*\n"]
+    for i, c in enumerate(calls, 1):
+        status_icon = "✅" if c.call_status == "complete" else "⏳" if c.call_status == "pending" else "❌"
+        # Get duration if available
+        try:
+            cd = CallDuration.objects.get(call_id=c.call_id)
+            dur = f"{cd.duration_in_seconds / 60:.1f} min" if cd.duration_in_seconds else "N/A"
+        except CallDuration.DoesNotExist:
+            dur = "N/A"
+
+        date_str = c.created_at.strftime("%b %d, %H:%M") if c.created_at else ""
+        lines.append(f"{i}. {status_icon} `{c.call_number}` — {dur} — {date_str}")
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(
+        f"🔙 {BACK_BTN[lg]}", callback_data="inbox_hub_back"
+    ))
+    bot.send_message(user_id, "\n".join(lines), reply_markup=markup, parse_mode="Markdown")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "call_recordings")
+def handle_call_recordings(call):
+    """Show recent call recordings from Retell."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+
+    # Get recent completed calls that might have recordings
+    calls = CallLogsTable.objects.filter(
+        user_id=user_id, call_status="complete"
+    ).order_by("-created_at")[:10]
+
+    if not calls.exists():
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton(f"🔙 {BACK_BTN[lg]}", callback_data="inbox_hub_back"))
+        bot.send_message(user_id, f"🎙 {NO_RECORDINGS_YET[lg]}", reply_markup=markup)
+        return
+
+    lines = [f"🎙 *{CALL_RECORDINGS_MENU[lg]}*\n"]
+    markup = types.InlineKeyboardMarkup()
+
+    for i, c in enumerate(calls, 1):
+        try:
+            cd = CallDuration.objects.get(call_id=c.call_id)
+            dur = f"{cd.duration_in_seconds / 60:.1f} min" if cd.duration_in_seconds else "N/A"
+        except CallDuration.DoesNotExist:
+            dur = "N/A"
+        date_str = c.created_at.strftime("%b %d, %H:%M") if c.created_at else ""
+        lines.append(f"{i}. `{c.call_number}` — {dur} — {date_str}")
+        markup.add(types.InlineKeyboardButton(
+            f"🔊 #{i} — {c.call_number}",
+            callback_data=f"play_recording_{c.call_id[:40]}"
+        ))
+
+    markup.add(types.InlineKeyboardButton(f"🔙 {BACK_BTN[lg]}", callback_data="inbox_hub_back"))
+    bot.send_message(user_id, "\n".join(lines), reply_markup=markup, parse_mode="Markdown")
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("play_recording_"))
+def handle_play_recording(call):
+    """Fetch and send call recording from Retell."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    call_id = call.data.replace("play_recording_", "")
+
+    try:
+        from retell import Retell
+        retell_client = Retell(api_key=os.environ.get("RETELL_API_KEY"))
+        call_detail = retell_client.call.retrieve(call_id)
+        recording_url = getattr(call_detail, "recording_url", None)
+
+        if recording_url:
+            bot.send_message(
+                user_id,
+                f"🎙 *Call Recording*\nCall: `{call_id[:12]}...`\n\n"
+                f"[Listen to Recording]({recording_url})",
+                parse_mode="Markdown",
+            )
+        else:
+            bot.send_message(user_id, "No recording available for this call.")
+    except Exception as e:
+        bot.send_message(user_id, f"Could not retrieve recording: {str(e)[:100]}")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "transaction_history")
+def handle_transaction_history(call):
+    """Show wallet transaction history."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+
+    txs = WalletTransaction.objects.filter(user__user_id=user_id).order_by("-created_at")[:15]
+
+    if not txs.exists():
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton(f"🔙 {BACK_BTN[lg]}", callback_data="wallet_hub_back"))
+        bot.send_message(user_id, f"📜 {NO_TRANSACTIONS_YET[lg]}", reply_markup=markup)
+        return
+
+    lines = [f"📜 *{TRANSACTION_HISTORY[lg]}*\n"]
+    type_icons = {
+        "SUB": "📋", "OVR": "⚡", "WDR": "📤",
+        "DEP": "📥", "TRF": "🔄", "RFD": "💫",
+    }
+    for tx in txs:
+        icon = type_icons.get(tx.transaction_type, "💳")
+        sign = "+" if tx.transaction_type in ("DEP", "RFD") else "-"
+        date_str = tx.created_at.strftime("%b %d") if tx.created_at else ""
+        desc = (tx.description or tx.get_transaction_type_display())[:35]
+        lines.append(f"{icon} {sign}${tx.amount} — {desc} — {date_str}")
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(f"🔙 {BACK_BTN[lg]}", callback_data="wallet_hub_back"))
+    bot.send_message(user_id, "\n".join(lines), reply_markup=markup, parse_mode="Markdown")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "dtmf_responses_hub")
+def handle_dtmf_responses_hub(call):
+    """Redirect to existing DTMF inbox flow."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    # Show all pathways with DTMF data
+    user = TelegramUser.objects.filter(user_id=user_id).first()
+    if not user:
+        bot.send_message(user_id, "No DTMF data found.")
+        return
+
+    dtmf_records = DTMF_Inbox.objects.filter(user_id=user).values_list("pathway_id", flat=True).distinct()
+    if not dtmf_records:
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton(f"🔙 {BACK_BTN[lg]}", callback_data="inbox_hub_back"))
+        bot.send_message(user_id, "🔢 No DTMF responses yet.", reply_markup=markup)
+        return
+
+    markup = types.InlineKeyboardMarkup()
+    for pathway_id in dtmf_records:
+        try:
+            pathway = Pathways.objects.get(pathway_id=pathway_id)
+            name = pathway.pathway_name
+        except Pathways.DoesNotExist:
+            name = pathway_id[:20]
+        markup.add(types.InlineKeyboardButton(
+            f"🔢 {name}", callback_data=f"dtmf_flow_{pathway_id}"
+        ))
+    markup.add(types.InlineKeyboardButton(f"🔙 {BACK_BTN[lg]}", callback_data="inbox_hub_back"))
+    bot.send_message(user_id, "🔢 *DTMF Responses by Flow*\nSelect a flow:", reply_markup=markup, parse_mode="Markdown")
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("dtmf_flow_"))
+def handle_dtmf_flow_detail(call):
+    """Show DTMF records for a specific flow."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    pathway_id = call.data.replace("dtmf_flow_", "")
+
+    user = TelegramUser.objects.filter(user_id=user_id).first()
+    records = DTMF_Inbox.objects.filter(user_id=user, pathway_id=pathway_id).order_by("-timestamp")[:10]
+
+    if not records:
+        bot.send_message(user_id, "No DTMF records for this flow.")
+        return
+
+    lines = ["🔢 *DTMF Responses*\n"]
+    for r in records:
+        date_str = r.timestamp.strftime("%b %d, %H:%M") if r.timestamp else ""
+        phone = r.call_number or "Unknown"
+        dtmf = r.dtmf_input or "—"
+        lines.append(f"📞 `{phone}` — Input: *{dtmf}* — {date_str}")
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(f"🔙 {BACK_BTN[lg]}", callback_data="dtmf_responses_hub"))
+    bot.send_message(user_id, "\n".join(lines), reply_markup=markup, parse_mode="Markdown")
+
+
+# Navigation back handlers for new hubs
+@bot.callback_query_handler(func=lambda call: call.data == "inbox_hub_back")
+def handle_inbox_hub_back(call):
+    """Go back to Inbox hub."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    from bot.keyboard_menus import get_inbox_hub_keyboard
+    bot.send_message(
+        user_id,
+        f"📬 *{INBOX_MENU[lg]}*\n\n{INBOX_HUB[lg]}",
+        reply_markup=get_inbox_hub_keyboard(user_id),
+        parse_mode="Markdown",
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "wallet_hub_back")
+def handle_wallet_hub_back(call):
+    """Go back to Wallet & Billing hub."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    from bot.keyboard_menus import get_wallet_billing_keyboard
+    wallet = check_user_balance(user_id)
+    balance = wallet.get("data", {}).get("amount", 0) if wallet.get("data") else 0
+    bot.send_message(
+        user_id,
+        f"💰 *{WALLET_AND_BILLING[lg]}*\n\n💵 Balance: *${balance}*",
+        reply_markup=get_wallet_billing_keyboard(user_id),
+        parse_mode="Markdown",
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "phone_hub_back")
+def handle_phone_hub_back(call):
+    """Go back to Phone Numbers hub."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    from bot.keyboard_menus import get_phone_numbers_hub_keyboard
+    bot.send_message(
+        user_id,
+        f"📞 *{PHONE_NUMBERS_MENU[lg]}*\n\n{PHONE_NUMBERS_HUB[lg]}",
+        reply_markup=get_phone_numbers_hub_keyboard(user_id),
+        parse_mode="Markdown",
+    )
+
+
+# --- Onboarding: Free Plan Auto-Activate & How It Works ---
+
+@bot.callback_query_handler(func=lambda call: call.data == "activate_free_plan")
+def handle_activate_free_plan(call):
+    """Auto-activate the free plan and send to main menu."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    user = TelegramUser.objects.get(user_id=user_id)
+
+    # Find the Free plan
+    free_plan = SubscriptionPlans.objects.filter(name="Free").first()
+    if free_plan:
+        sub, created = UserSubscription.objects.get_or_create(
+            user_id=user_id,
+            defaults={"subscription_status": "inactive"},
+        )
+        if sub.subscription_status != "active" or not sub.plan_id:
+            from bot.utils import set_user_subscription
+            set_user_subscription(user_id, str(free_plan.plan_id))
+            bot.send_message(user_id, f"🎉 {FREE_PLAN_ACTIVATED[lg]}")
+        else:
+            bot.send_message(user_id, f"✅ You already have an active plan: *{sub.plan_id.name}*", parse_mode="Markdown")
+    else:
+        bot.send_message(user_id, "Free plan not available. Please choose a premium plan.")
+        handle_activate_subscription(call)
+        return
+
+    send_welcome(call.message)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "how_it_works")
+def handle_how_it_works(call):
+    """Show how Speechcue works."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(
+        f"🔙 {MAIN_MENU_BTN[lg]}", callback_data="back_to_welcome_message"
+    ))
+    bot.send_message(user_id, HOW_IT_WORKS_TEXT[lg], reply_markup=markup, parse_mode="Markdown")
+
 # :: TRIGGERS ------------------------------------#
 
 
