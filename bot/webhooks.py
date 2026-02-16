@@ -181,14 +181,11 @@ def _handle_call_ended(call_data):
     call_id = call_data.get("call_id", "")
     agent_id = call_data.get("agent_id", "")
     to_number = call_data.get("to_number", "")
-    from_number = call_data.get("from_number", "")
-    call_status = call_data.get("call_status", "ended")
     duration_ms = call_data.get("duration_ms", 0) or 0
     start_ts = call_data.get("start_timestamp")
     end_ts = call_data.get("end_timestamp")
     transcript_obj = call_data.get("transcript_object", [])
     disconnection_reason = call_data.get("disconnection_reason", "")
-    recording_url = call_data.get("recording_url", "")
 
     started_at = _epoch_ms_to_datetime(start_ts)
     ended_at = _epoch_ms_to_datetime(end_ts)

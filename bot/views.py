@@ -192,7 +192,6 @@ def handle_add_node(pathway_id, data):
         # Update Retell agent with combined prompt
         try:
             client = get_retell_client()
-            combined_prompt = "\n\n".join(prompt_parts) if prompt_parts else pathway.pathway_description
             client.agent.update(
                 agent_id=str(pathway_id),
                 agent_name=data.get("name", pathway.pathway_name),
