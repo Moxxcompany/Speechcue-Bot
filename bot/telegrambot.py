@@ -348,10 +348,11 @@ def check_wallet(call):
     )
     try:
         wallet = check_user_balance(user_id)
-        if wallet.status_code != 200:
-            bot.send_message(user_id, f"{WALLET_DETAILS_ERROR[lg]} {wallet.text}")
-        balance = wallet.json()["data"]["amount"]
-        currency = wallet.json()["data"]["currency"]
+        if wallet["status"] != 200:
+            bot.send_message(user_id, f"{WALLET_DETAILS_ERROR[lg]}")
+            return
+        balance = wallet["data"]["amount"]
+        currency = wallet["data"]["currency"]
         markup = InlineKeyboardMarkup()
         top_up_wallet_button = types.InlineKeyboardButton(
             TOP_UP[lg], callback_data="top_up_wallet"
