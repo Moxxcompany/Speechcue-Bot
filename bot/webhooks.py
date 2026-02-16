@@ -340,20 +340,97 @@ def _process_free_plan_call_duration(call_id, agent_id, free_call, started_at, e
 
 
 
-def _process_international_billing(call_id, to_number, duration_minutes):
+def _reconcile_active_call(call_id, to_number, duration_minutes):
     """
-    Bill international calls from wallet in real-time.
-    US/Canada calls are handled by plan minutes/overage — skip here.
+    Reconcile billing when call ends:
+    - Calculate final cost based on actual duration
+    - Compare with what was already billed during the call
+    - Charge shortfall or refund overpayment
+    - Mark ActiveCall as inactive
     """
+    try:
+        active_call = ActiveCall.objects.filter(call_id=call_id, is_active=True).first()
+        if not active_call:
+            # No active call record — might be a plan-only call or old call
+            # Fall back to simple international billing
+            if to_number and duration_minutes > 0:
+                region, rate, is_domestic = classify_destination(to_number)
+                if not is_domestic:
+                    _bill_international_fallback(call_id, to_number, duration_minutes)
+            return
+
+        user_id = active_call.user_id
+        effective_rate = active_call.rate_per_minute
+        already_billed = active_call.total_billed
+
+        # Calculate final cost
+        if effective_rate > 0:
+            final_cost = effective_rate * Decimal(str(round(duration_minutes, 4)))
+        else:
+            final_cost = Decimal("0.00")
+
+        difference = final_cost - already_billed
+
+        if difference > Decimal("0.01"):
+            # Under-billed — charge the shortfall
+            result = debit_wallet(
+                user_id, float(difference),
+                description=f"Call settle: {active_call.region} ({call_id[:12]}) +${difference:.2f}",
+                tx_type="OVR",
+            )
+            if result["status"] == 200:
+                logger.info(f"[reconcile] Charged shortfall ${difference:.2f} for {call_id}")
+            else:
+                logger.warning(f"[reconcile] Shortfall charge failed for {call_id}: {result}")
+
+        elif difference < Decimal("-0.01"):
+            # Over-billed — refund the excess
+            refund_amount = abs(difference)
+            result = credit_wallet_balance(
+                user_id, float(refund_amount),
+                description=f"Call refund: {active_call.region} ({call_id[:12]}) -${refund_amount:.2f}",
+                tx_type="RFD",
+            )
+            if result["status"] == 200:
+                logger.info(f"[reconcile] Refunded ${refund_amount:.2f} for {call_id}")
+
+        # Mark call as inactive
+        active_call.is_active = False
+        active_call.total_billed = final_cost if final_cost > already_billed else already_billed
+        active_call.save()
+
+        # Notify user of final charge
+        if effective_rate > 0:
+            try:
+                user = TelegramUser.objects.get(user_id=user_id)
+                bot.send_message(
+                    user_id,
+                    f"📞 Call to {active_call.region} ended.\n"
+                    f"⏱ Duration: {duration_minutes:.2f} min\n"
+                    f"💳 Total charged: ${final_cost:.2f} (${effective_rate}/min)\n"
+                    f"💰 Wallet balance: ${user.wallet_balance:.2f}",
+                )
+            except Exception:
+                pass
+
+        logger.info(
+            f"[reconcile] Call {call_id} settled: final=${final_cost:.2f}, "
+            f"pre-billed=${already_billed:.2f}, diff=${difference:.2f}"
+        )
+
+    except Exception as e:
+        logger.error(f"[reconcile] Error for {call_id}: {e}")
+
+
+def _bill_international_fallback(call_id, to_number, duration_minutes):
+    """Fallback billing for international calls without ActiveCall record."""
     try:
         region, rate, is_domestic = classify_destination(to_number)
         if is_domestic:
-            return  # US/Canada — handled by plan minutes or overage task
+            return
 
-        # Find user_id from CallLogsTable
         call_log = CallLogsTable.objects.filter(call_id=call_id).first()
         if not call_log:
-            logger.warning(f"[intl_billing] No call log for {call_id}")
             return
 
         user_id = call_log.user_id
@@ -366,40 +443,11 @@ def _process_international_billing(call_id, to_number, duration_minutes):
         )
 
         if result["status"] == 200:
-            logger.info(
-                f"[intl_billing] Charged ${charge:.2f} for {region} call "
-                f"({duration_minutes:.2f}min) user={user_id} call={call_id}"
-            )
-            # Notify user
-            try:
-                lg = get_user_language(user_id)
-                bot.send_message(
-                    user_id,
-                    f"📞 International call to {region} completed.\n"
-                    f"⏱ Duration: {duration_minutes:.2f} min\n"
-                    f"💳 Charged: ${charge:.2f} (${rate}/min)\n"
-                    f"💰 Remaining balance: ${result['data']['balance']}",
-                )
-            except Exception:
-                pass
-        elif result["status"] == 402:
-            logger.warning(
-                f"[intl_billing] Insufficient balance for intl call: "
-                f"user={user_id}, charge=${charge:.2f}, call={call_id}"
-            )
-            try:
-                bot.send_message(
-                    user_id,
-                    f"⚠️ Insufficient wallet balance for international call charge.\n"
-                    f"Amount due: ${charge:.2f} for {region} call.\n"
-                    f"Please top up your wallet immediately.",
-                )
-            except Exception:
-                pass
+            logger.info(f"[intl_fallback] Charged ${charge:.2f} for {region} call {call_id}")
         else:
-            logger.error(f"[intl_billing] Debit failed: {result}")
+            logger.warning(f"[intl_fallback] Charge failed for {call_id}: {result}")
     except Exception as e:
-        logger.error(f"[intl_billing] Error processing intl billing for {call_id}: {e}")
+        logger.error(f"[intl_fallback] Error for {call_id}: {e}")
 
 
 # =============================================================================
