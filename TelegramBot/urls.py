@@ -48,6 +48,16 @@ urlpatterns = [
         "webhook/crypto_deposit", payment_deposit_webhook, name="crypto_deposit_webhook"
     ),
     path(
+        "api/dtmf/supervisor-check",
+        webhook_views.dtmf_supervisor_check,
+        name="dtmf_supervisor_check",
+    ),
+    path(
+        "api/webhook/sms",
+        webhook_views.inbound_sms_webhook,
+        name="inbound_sms_webhook",
+    ),
+    path(
         "terms-and-conditions/",
         bot_views.terms_and_conditions,
         name="terms_and_conditions",
