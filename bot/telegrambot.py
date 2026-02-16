@@ -147,7 +147,7 @@ def get_user_profile(message):
             plan_msg += f"{SINGLE_CALLS_LEFT[lg]}{user_plan.single_ivr_left}\n"
         bot.send_message(user_id, plan_msg)
     wallet = check_user_balance(user_id)
-    balance = wallet.json()["data"]["amount"]
+    balance = wallet["data"]["amount"]
     bot.send_message(
         user_id,
         f"{BALANCE_IN_USD[lg]}{balance}",
