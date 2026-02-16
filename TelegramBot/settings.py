@@ -73,6 +73,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "bot.tasks.send_scheduled_ivr_calls",
         "schedule": 60.0,  # every 1 minute (for timely campaign execution)
     },
+    "sync-caller-ids-daily": {
+        "task": "bot.tasks.sync_caller_ids_task",
+        "schedule": 86400.0,  # every 24 hours
+    },
 }
 
 # Retell AI
