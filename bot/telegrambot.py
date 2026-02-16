@@ -2085,26 +2085,34 @@ def crypto_transaction_webhook(request):
 
 def make_payment(user_id, amount):
     lg = get_user_language(user_id)
-    currency = user_data[user_id]["currency"]
-    top_up = False
-    redirect_uri = f"{webhook_url}/webhook/crypto_deposit"
-    auto_renewal = UserSubscription.objects.get(user_id=user_id).auto_renewal
-    if user_data[user_id]["transaction_type"] == "top_up":
-        top_up = True
-        redirect_uri = f"{webhook_url}/webhook/crypto_transaction"
-    crypto_payment = create_crypto_payment(
-        user_id, amount, currency, redirect_uri, auto_renewal, top_up
-    )
-    print(f"make_crypto_payment response: {crypto_payment.text}")
+    currency = user_data[user_id].get("currency", "USD")
+    transaction_type = user_data[user_id].get("transaction_type", "")
 
-    if crypto_payment.status_code != 200:
-        bot.send_message(user_id, f"{PROCESSING_ERROR[lg]}\n{crypto_payment.json()}")
-        return
-    response_data = crypto_payment.json().get("data", {})
-    qr_code_base64 = response_data.get("qr_code")
-    address = response_data.get("address")
-    crypto_amount = response_data.get("crypto_amount")
-    send_qr_code(user_id, address, crypto_amount, qr_code_base64)
+    if transaction_type == "top_up":
+        # Direct wallet credit for top-up (admin/manual flow)
+        result = credit_wallet(user_id, amount, description=f"Top-up ({currency})")
+        if result["status"] == 200:
+            bot.send_message(user_id, f"{TOP_UP_SUCCESSFUL[lg]}")
+            bot.send_message(
+                user_id,
+                SELECTION_PROMPT[lg],
+                reply_markup=get_main_menu_keyboard(user_id),
+            )
+        else:
+            bot.send_message(user_id, f"{PROCESSING_ERROR[lg]}\n{result.get('message', '')}")
+    else:
+        # Subscription payment via wallet debit
+        result = debit_wallet(user_id, amount, description=f"Subscription payment ({currency})")
+        if result["status"] == 200:
+            bot.send_message(user_id, f"{PAYMENT_SUCCESSFUL[lg]}")
+        elif result["status"] == 402:
+            bot.send_message(
+                user_id,
+                f"{INSUFFICIENT_BALANCE[lg]}",
+                reply_markup=insufficient_balance_markup(user_id),
+            )
+        else:
+            bot.send_message(user_id, f"{PROCESSING_ERROR[lg]}\n{result.get('message', '')}")
 
 
 @bot.message_handler(
