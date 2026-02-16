@@ -77,15 +77,52 @@ def _extract_dtmf_from_transcript(transcript_object):
 # call_started — log the start of a call
 # =============================================================================
 
+# Inbound call rate (per minute)
+INBOUND_RATE_PER_MINUTE = Decimal("0.02")
+VOICEMAIL_FLAT_FEE = Decimal("0.05")
+
+
 def _handle_call_started(call_data):
     """
     Update call status to 'started' in local DB.
     Register ActiveCall for real-time billing and pre-deduct 2 minutes from wallet.
+    Also handles inbound calls to user's purchased numbers.
     """
     call_id = call_data.get("call_id", "")
     to_number = call_data.get("to_number", "")
     from_number = call_data.get("from_number", "")
-    logger.info(f"[call_started] call_id={call_id}")
+    direction = call_data.get("direction", "outbound")
+    logger.info(f"[call_started] call_id={call_id} direction={direction}")
+
+    # --- Check if this is an inbound call to a user's purchased number ---
+    is_inbound = False
+    inbound_user_id = None
+    if direction == "inbound" or (to_number and not CallLogsTable.objects.filter(call_id=call_id).exists()):
+        phone_record = UserPhoneNumber.objects.filter(
+            phone_number=to_number, is_active=True
+        ).first()
+        if phone_record:
+            is_inbound = True
+            inbound_user_id = phone_record.user.user_id
+            # Create a CallLogsTable entry for inbound calls
+            CallLogsTable.objects.get_or_create(
+                call_id=call_id,
+                defaults={
+                    "call_number": from_number,
+                    "pathway_id": "",
+                    "user_id": inbound_user_id,
+                    "call_status": "started",
+                },
+            )
+            # Notify user
+            try:
+                bot.send_message(
+                    inbound_user_id,
+                    f"📞 *Incoming Call*\nFrom: `{from_number}`\nTo: `{to_number}`",
+                    parse_mode="Markdown",
+                )
+            except Exception as e:
+                logger.warning(f"[call_started] Failed to notify user {inbound_user_id}: {e}")
 
     # Update BatchCallLogs
     BatchCallLogs.objects.filter(call_id=call_id).update(call_status="started")
@@ -103,32 +140,40 @@ def _handle_call_started(call_data):
         return
 
     user_id = call_log.user_id
-    region, rate, is_domestic = classify_destination(to_number)
 
-    # Determine billing source
-    billing_source = "plan"
-    effective_rate = Decimal("0.00")
-
-    if not is_domestic:
+    if is_inbound:
+        # Inbound calls are always billed to wallet at inbound rate
         billing_source = "wallet"
-        effective_rate = rate
+        effective_rate = INBOUND_RATE_PER_MINUTE
+        region = "inbound"
+        call_type = "inbound"
     else:
-        # Check if user has plan minutes, otherwise wallet overage
-        try:
-            sub = UserSubscription.objects.get(user_id=user_id)
-            if sub.subscription_status == "active" and sub.plan_id and sub.plan_id.plan_price > 0:
-                billing_source = "plan"
-                effective_rate = Decimal("0.00")
-            else:
+        region, rate, is_domestic = classify_destination(to_number)
+
+        # Determine billing source
+        billing_source = "plan"
+        effective_rate = Decimal("0.00")
+
+        if not is_domestic:
+            billing_source = "wallet"
+            effective_rate = rate
+        else:
+            # Check if user has plan minutes, otherwise wallet overage
+            try:
+                sub = UserSubscription.objects.get(user_id=user_id)
+                if sub.subscription_status == "active" and sub.plan_id and sub.plan_id.plan_price > 0:
+                    billing_source = "plan"
+                    effective_rate = Decimal("0.00")
+                else:
+                    billing_source = "wallet"
+                    effective_rate = US_CA_OVERAGE_RATE
+            except UserSubscription.DoesNotExist:
                 billing_source = "wallet"
                 effective_rate = US_CA_OVERAGE_RATE
-        except UserSubscription.DoesNotExist:
-            billing_source = "wallet"
-            effective_rate = US_CA_OVERAGE_RATE
 
-    # Determine call type
-    batch_call = BatchCallLogs.objects.filter(call_id=call_id).exists()
-    call_type = "bulk" if batch_call else "single"
+        # Determine call type
+        batch_call = BatchCallLogs.objects.filter(call_id=call_id).exists()
+        call_type = "bulk" if batch_call else "single"
 
     now = timezone.now()
     ActiveCall.objects.update_or_create(
