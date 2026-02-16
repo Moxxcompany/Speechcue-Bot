@@ -5,51 +5,35 @@
 2. Analyze Bland.ai → Retell AI migration
 3. Full bot flow documentation with Retell mapping
 4. Configure Telegram bot webhook
-5. Remove DynoPay, build internal wallet system
+5. Remove DynoPay wallet, build internal wallet, keep DynoPay for crypto payments
 
 ## Architecture
 - **Framework**: Django 4.2.13 (ASGI/uvicorn on port 8001)
 - **Database**: PostgreSQL 15 (tele_bot)
 - **Cache/Broker**: Redis
-- **Task Queue**: Celery + Huey
 - **Telegram Bot**: @Speechcuebot via webhook
-- **Wallet**: Internal PostgreSQL wallet (replaced DynoPay)
+- **Wallet**: Internal PostgreSQL (credit/debit/refund with atomic transactions)
+- **Crypto Payments**: DynoPay API (master wallet token, no per-user tokens)
 - **Voice API**: Bland.ai (pending Retell AI migration)
 
 ## What's Been Implemented
-- [x] Full codebase setup (PostgreSQL, Redis, migrations, seed data)
-- [x] Bland.ai → Retell AI migration analysis docs
-- [x] Bot token configured, webhook verified
+- [x] Full codebase setup
+- [x] Bot token + webhook configured and verified
 - [x] Email/phone onboarding steps removed
-- [x] **DynoPay completely removed** — internal wallet system built
-- [x] Wallet operations: credit, debit, refund with atomic transactions
-- [x] Full audit trail via WalletTransaction model
-- [x] All 6 DynoPay API calls replaced with local DB operations
-- [x] tasks.py updated (overage billing, auto-renewal)
-- [x] All wallet operations tested and verified
+- [x] Internal wallet system (credit, debit, refund)
+- [x] DynoPay crypto payment integration (master wallet token approach)
+- [x] DynoPay API verified working (200 OK, QR code, transaction_id)
+- [x] Retell AI migration analysis docs
 
-## Internal Wallet System
-### Functions (payment/views.py)
-- `setup_user()` — creates user with $0 balance (no external API)
-- `check_user_balance()` — reads from TelegramUser.wallet_balance
-- `credit_wallet()` — adds funds (top-ups, deposits)
-- `debit_wallet()` — deducts funds (subscriptions, overage)
-- `refund_wallet()` — credits back with REFUND transaction type
-- `credit_wallet_balance()` — backward-compatible debit wrapper
-
-### Refund Flow
-`refund_wallet(user_id, amount, description)` → atomically credits wallet + creates REFUND transaction log
+## DynoPay Integration (Correct Pattern from HostingBotNew)
+- **Base URL**: https://api.dynopay.com/api
+- **Auth**: `x-api-key` + `Authorization: Bearer {DYNOPAY_WALLET_TOKEN}`
+- **No per-user tokens** — single master wallet token for all payments
+- **Endpoint**: `POST /user/cryptoPayment` → returns address + QR code
+- **Webhook**: DynoPay calls our webhook → we `credit_wallet()` to internal balance
+- **Currencies**: BTC, ETH, LTC, DOGE, USDT-TRC20, USDT-ERC20
 
 ## Prioritized Backlog
 ### P0 - Retell AI Migration
-- Install retell-sdk, create service layer
-- Migrate 22 API functions in views.py
-- Update tasks.py and webhooks.py
-
-### P1 - Crypto Payment Integration
-- Replace DynoPay crypto with BlockBee/CoinGate
-- Currently stubbed in create_crypto_payment()
-
-### P2 - Enhancements
-- Admin dashboard for wallet management
-- Transaction history in bot UI
+### P1 - Celery worker setup for background tasks
+### P2 - Admin dashboard, transaction history in bot UI
