@@ -54,16 +54,15 @@
 - Database and cache connections verified
 
 ## Prioritized Backlog
-### P0 - Immediate
+### P0 - All Complete ✅
 - [x] Set real API tokens ✅
 - [x] Set Telegram webhook to pod URL ✅
-- [ ] Start Celery worker + beat for periodic tasks
+- [x] Celery worker + beat running with auto-start via server.py ✅
+- [x] Inbound call billing ✅
+- [x] After-hours conditional routing ✅
+- [x] Retell agent prompt auto-update ✅
 
-### P1 - Remaining
-- [ ] Inbound call billing (charge wallet for inbound minutes)
-- [ ] After-hours conditional routing
-- [ ] Retell agent prompt auto-update when voicemail/forwarding toggled
-
-### P2 - Deferred
+### P1 - Deferred
 - [ ] Outbound SMS (requires A2P 10DLC)
 - [ ] Web admin dashboard
+- [ ] Production deployment hardening
