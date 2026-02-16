@@ -399,6 +399,9 @@ def _process_batch_call_duration(call_id, agent_id, batch_call, started_at, ende
             user_subscription.bulk_ivr_calls_left = 0
             user_subscription.save()
             logger.info(f"[batch] Overage {overage:.2f}min for call {call_id}")
+
+            # Charge overage immediately instead of waiting for Celery
+            _charge_overage_realtime(call_id, subscription_result["user_id"], overage)
         else:
             # Within limits
             remaining = bulk_ivr_left - duration_minutes
