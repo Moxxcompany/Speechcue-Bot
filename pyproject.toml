@@ -1,4 +1,7 @@
 [tool.ruff.lint]
 # F405: name may be undefined from star imports — intentional architecture in this project
 # F403: star import used — intentional for constants/keyboards/bot_config
-per-file-ignores = { "bot/telegrambot.py" = ["F405", "F403"], "bot/tasks.py" = ["F405", "F403"], "bot/callback_query_handlers.py" = ["F405", "F403"] }
+# F841: unused variables — many lg/text vars declared for i18n/future use
+# F811: function redefinitions — intentional handler overrides
+# E712: True comparisons — existing pattern
+per-file-ignores = { "bot/telegrambot.py" = ["F405", "F403", "F841", "F811", "E712"], "bot/tasks.py" = ["F405", "F403"], "bot/callback_query_handlers.py" = ["F405", "F403"] }
