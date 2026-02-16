@@ -4360,8 +4360,114 @@ def handle_toggle_auto_renew(call):
     )
 
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("bindagent_"))
+def handle_bind_agent_prompt(call):
+    """Show available agents/flows for binding to a phone number."""
+    user_id = call.message.chat.id
+    phone = call.data.replace("bindagent_", "")
 
-@bot.message_handler(func=lambda message: message.text in YES_PROCEED.values())
+    record = UserPhoneNumber.objects.filter(
+        user__user_id=user_id, phone_number=phone, is_active=True
+    ).first()
+    if not record:
+        bot.send_message(user_id, "Number not found.", reply_markup=get_main_menu_keyboard(user_id))
+        return
+
+    # Get user's pathways/agents
+    user_obj = TelegramUser.objects.get(user_id=user_id)
+    pathways = Pathways.objects.filter(user_id=user_obj)
+
+    markup = types.InlineKeyboardMarkup()
+    if pathways.exists():
+        for pw in pathways:
+            markup.add(types.InlineKeyboardButton(
+                f"🤖 {pw.pathway_name}",
+                callback_data=f"setbind_{phone}_{pw.pathway_id}"
+            ))
+    else:
+        bot.send_message(
+            user_id,
+            "You don't have any IVR flows yet. Create a flow first, then bind it to your number.",
+            reply_markup=get_main_menu_keyboard(user_id),
+        )
+        return
+
+    # Option to unbind
+    markup.add(types.InlineKeyboardButton(
+        "🚫 Unbind (no inbound agent)", callback_data=f"setbind_{phone}_none"
+    ))
+    markup.add(types.InlineKeyboardButton("⬅️ Back", callback_data="my_numbers"))
+
+    bot.send_message(
+        user_id,
+        f"🔗 *Bind Agent to* `{phone}`\n\n"
+        f"Choose an IVR flow to handle *inbound calls* to this number.\n"
+        f"Outbound calls always use the flow you select at call time.",
+        reply_markup=markup,
+        parse_mode="Markdown",
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("setbind_"))
+def handle_set_bind_agent(call):
+    """Execute agent binding for a phone number."""
+    user_id = call.message.chat.id
+    parts = call.data.split("_", 2)  # setbind, phone, agent_id
+    if len(parts) < 3:
+        bot.send_message(user_id, "Invalid selection.", reply_markup=get_main_menu_keyboard(user_id))
+        return
+
+    phone = parts[1]
+    agent_id = parts[2]
+
+    record = UserPhoneNumber.objects.filter(
+        user__user_id=user_id, phone_number=phone, is_active=True
+    ).first()
+    if not record:
+        bot.send_message(user_id, "Number not found.", reply_markup=get_main_menu_keyboard(user_id))
+        return
+
+    if agent_id == "none":
+        result = update_phone_number_agent(phone, inbound_agent_id="null")
+        if result:
+            bot.send_message(
+                user_id,
+                f"✅ Unbound inbound agent from `{phone}`.",
+                reply_markup=get_main_menu_keyboard(user_id),
+                parse_mode="Markdown",
+            )
+        else:
+            bot.send_message(
+                user_id,
+                "Failed to update. Please try again.",
+                reply_markup=get_main_menu_keyboard(user_id),
+            )
+        return
+
+    # Bind both inbound and outbound
+    result = update_phone_number_agent(
+        phone,
+        inbound_agent_id=agent_id,
+        outbound_agent_id=agent_id,
+    )
+    if result:
+        try:
+            pw_name = Pathways.objects.get(pathway_id=agent_id).pathway_name
+        except Pathways.DoesNotExist:
+            pw_name = agent_id
+        bot.send_message(
+            user_id,
+            f"✅ Bound *{pw_name}* to `{phone}`\n\n"
+            f"Inbound calls to this number will now be handled by this agent.",
+            reply_markup=get_main_menu_keyboard(user_id),
+            parse_mode="Markdown",
+        )
+    else:
+        bot.send_message(
+            user_id,
+            "Failed to bind agent. Please try again or contact support.",
+            reply_markup=get_main_menu_keyboard(user_id),
+        )
 def proceed_single_ivr(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
