@@ -351,7 +351,7 @@ def check_subscription_status():
                         subscription.date_of_subscription = current_date
                         subscription.call_transfer = plan.call_transfer
                         subscription.save()
-                        print(f"user: ", user)
+                        print("user: ", user)
                         print(f"user subscription : {user.subscription_status}")
                         user.subscription_status = "active"
                         print(f"user subscription : {user.subscription_status}")
@@ -431,7 +431,6 @@ def process_call_logs():
 
 
 from celery import shared_task
-from django.utils import timezone
 from .models import ScheduledCalls
 from bot.views import bulk_ivr_flow
 
