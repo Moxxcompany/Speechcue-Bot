@@ -20,11 +20,13 @@ from django.urls import path
 from bot import views as bot_views
 from bot.telegrambot import crypto_transaction_webhook, payment_deposit_webhook
 from bot import webhooks as webhook_views
+from bot.telegram_webhook import telegram_webhook
 from django.conf.urls.static import static
 from django.conf import settings
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("api/telegram/webhook/", telegram_webhook, name="telegram_webhook"),
     path("create_flow/", bot_views.create_flow, name="create_flow"),
     path("view_flows/", bot_views.view_flows, name="view_flows"),
     path(
@@ -35,7 +37,7 @@ urlpatterns = [
     path(
         "call_details",
         webhook_views.call_details_webhook,
-        name="crypto_transaction_webhook",
+        name="call_details_webhook",
     ),
     path(
         "webhook/crypto_deposit", payment_deposit_webhook, name="crypto_deposit_webhook"
