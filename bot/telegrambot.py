@@ -2040,6 +2040,8 @@ def get_webhook_data(request):
     paid_amount = data.get("paid_amount")
     paid_currency = data.get("paid_currency")
     auto_renewal = meta_data.get("product")
+    # DynoPay sends back the original USD amount we requested in 'amount' field
+    original_usd_amount = data.get("amount", 0)
     lg = get_user_language(user_id)
 
     message = (
@@ -2064,6 +2066,7 @@ def get_webhook_data(request):
         "auto_renewal": auto_renewal,
         "amount": paid_amount,
         "currency": paid_currency,
+        "usd_amount": float(original_usd_amount),
     }
 
 
