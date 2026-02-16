@@ -139,6 +139,7 @@ class TelegramBotUITester:
     def test_sms_webhook_endpoint(self):
         """Test POST /api/webhook/sms responds correctly"""
         try:
+            # Try JSON format first (which many SMS providers use)
             payload = {
                 "MessageSid": "test_sms_123",
                 "From": "+12345678901",
@@ -149,10 +150,19 @@ class TelegramBotUITester:
             
             response = requests.post(
                 f"{self.base_url}/api/webhook/sms",
-                data=payload,  # SMS webhooks usually use form data
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                json=payload,
+                headers={"Content-Type": "application/json"},
                 timeout=10
             )
+            
+            # If JSON fails, try form data format
+            if response.status_code == 400:
+                response = requests.post(
+                    f"{self.base_url}/api/webhook/sms",
+                    data=payload,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    timeout=10
+                )
             
             if response.status_code in [200, 201, 204]:
                 self.log_result(
