@@ -144,7 +144,21 @@ HUEY = {
     },
     "immediate": False,
 }
-if os.getenv("POSTGRES_HOST"):
+POSTGRES_URL = os.getenv("POSTGRES_URL")
+if POSTGRES_URL:
+    from urllib.parse import urlparse
+    _pg = urlparse(POSTGRES_URL)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": _pg.path.lstrip("/"),
+            "USER": _pg.username,
+            "PASSWORD": _pg.password,
+            "HOST": _pg.hostname,
+            "PORT": _pg.port or 5432,
+        }
+    }
+elif os.getenv("POSTGRES_HOST"):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
