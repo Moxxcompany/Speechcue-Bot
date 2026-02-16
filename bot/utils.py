@@ -13,7 +13,6 @@ from datetime import timedelta
 from django.utils import timezone
 from bot.bot_config import *
 
-crypto_conversion_base_url = os.getenv("crypto_conversion_base_url")
 import random
 
 import time
