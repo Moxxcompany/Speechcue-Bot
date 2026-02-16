@@ -3143,8 +3143,10 @@ def handle_select_voice_type(message):
     node_id = user_data[user_id]["add_node_id"]
     if text == "Default John":
         text = "f93094fc-72ac-4fcf-9cf0-83a7fff43e88"
+    # voice_data is now a list from Retell (not {"voices": [...]})
+    voices = voice_data if isinstance(voice_data, list) else voice_data.get("voices", [])
     voice_type = next(
-        (voice for voice in voice_data["voices"] if voice["name"] == text), None
+        (voice for voice in voices if voice.get("name") == text or voice.get("voice_id") == text), None
     )
 
     message_type = user_data[user_id]["message_type"]
