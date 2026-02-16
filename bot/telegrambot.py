@@ -3893,6 +3893,13 @@ def proceed_single_ivr(message):
     phone_number = user_data[user_id]["phone_number"]
     caller_id = user_data[user_id]["caller_id"]
     if user_data[user_id]["call_type"] == "single_ivr":
+        gate = pre_call_check(user_id, phone_number, call_type="single")
+        if not gate["allowed"]:
+            bot.send_message(
+                user_id, gate["message"],
+                reply_markup=insufficient_balance_markup(user_id),
+            )
+            return
         if check_user_data(user_data, user_id) == "task":
             task = user_data[user_id]["task"]
             response = send_task_through_call(task, phone_number, caller_id, user_id)
