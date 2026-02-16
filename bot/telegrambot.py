@@ -4248,6 +4248,10 @@ def handle_my_numbers(call):
             f"   Auto-renew: {'✅' if num.auto_renew else '❌'}\n\n"
         )
         markup.add(types.InlineKeyboardButton(
+            f"🔗 Bind Agent {num.phone_number[-4:]}",
+            callback_data=f"bindagent_{num.phone_number}"
+        ))
+        markup.add(types.InlineKeyboardButton(
             f"🗑 Release {num.phone_number}",
             callback_data=f"releasenum_{num.phone_number}"
         ))
