@@ -2522,3 +2522,39 @@ CRYPTO_PAYMENT = {
     "French": "Payer avec la cryptomonnaie",
     "Hindi": "क्रिप्टो करेंसी से भुगतान करें",
 }
+
+
+TASK_NAME_EXISTS = {
+    "English": "Task with a similar name exists! Try a new one!",
+    "Chinese": "存在相同名称的任务！请尝试新名称！",
+    "French": "Une tâche avec un nom similaire existe ! Essayez un nouveau !",
+    "Hindi": "समान नाम वाला कार्य मौजूद है! कृपया नया नाम आज़माएं!",
+}
+
+CALL_SCHEDULED_SUCCESS = {
+    "English": "Call scheduled successfully!",
+    "Chinese": "通话已成功安排！",
+    "French": "Appel planifié avec succès !",
+    "Hindi": "कॉल सफलतापूर्वक शेड्यूल किया गया!",
+}
+
+CAMPAIGN_SCHEDULED_SUCCESS = {
+    "English": "Your campaign has been scheduled successfully!",
+    "Chinese": "您的活动已成功安排！",
+    "French": "Votre campagne a été planifiée avec succès !",
+    "Hindi": "आपका अभियान सफलतापूर्वक शेड्यूल किया गया है!",
+}
+
+CAMPAIGN_TOO_SOON_FOR_REMINDERS = {
+    "English": "The campaign is scheduled too soon for reminders.",
+    "Chinese": "活动安排太快，无法发送提醒。",
+    "French": "La campagne est planifiée trop tôt pour les rappels.",
+    "Hindi": "अभियान रिमाइंडर के लिए बहुत जल्दी शेड्यूल किया गया है।",
+}
+
+DATE_RANGE_SELECTED = {
+    "English": "Selected date range:",
+    "Chinese": "选定日期范围：",
+    "French": "Plage de dates sélectionnée :",
+    "Hindi": "चयनित तिथि सीमा:",
+}
