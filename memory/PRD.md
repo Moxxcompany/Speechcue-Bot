@@ -43,13 +43,21 @@ Analyze and setup the existing Speechcad Telegram IVR Bot codebase.
 - [x] Connected to Railway PostgreSQL (nozomi.proxy.rlwy.net:19535/railway)
 - [x] Created .env with all environment variables (Telegram, Retell, DynoPay, Railway DB)
 - [x] Ran all 129 database migrations successfully against Railway PostgreSQL
-- [x] Seeded 10 subscription plans + overage pricing
 - [x] Fixed missing `get_plan_price` utility function
-- [x] Backend running and responding on port 8001
-- [x] Verified external webhook endpoints (Retell + Telegram)
 - [x] Real Telegram Bot Token configured (8125289128:AAG...)
 - [x] DynoPay wallet integration configured (API key + wallet token)
-- [x] Removed unused Bland.ai keys
+- [x] Telegram webhook set and verified
+- [x] Celery worker + beat running (4 periodic tasks)
+- [x] Huey consumer running (2 on-demand tasks)
+- [x] All services using Railway Redis (metro.proxy.rlwy.net:40681)
+- [x] **Profitability analysis** — identified all old plans were LOSS-making (-50% to -450%)
+- [x] **New plan structure** — Starter/Pro/Business tiers (40-60% margin)
+- [x] **DB updated** — 10 new plans seeded, overage raised to $0.35/min
+- [x] **Pre-call gate** (`bot/call_gate.py`) — enforces 2-min wallet/plan balance before every call
+- [x] **International rate table** — 50+ countries, 8 pricing regions ($0.45-$0.85/min)
+- [x] **International billing** in webhooks — real-time wallet deduction on call_ended
+- [x] **4 call initiation points** gated (single IVR, task-based, confirmed, batch)
+- [x] **Bot text updated** — new plan names, pricing display, overage rates
 
 ## Environment Details
 - **Backend**: http://localhost:8001 (uvicorn ASGI)
