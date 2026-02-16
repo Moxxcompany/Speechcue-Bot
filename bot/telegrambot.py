@@ -3991,11 +3991,11 @@ def handle_single_ivr_call_flow(message):
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("language:"))
-def handle_language_selection(call):
+def handle_language_selection_onboarding(call):
     user_id = call.from_user.id
 
     selected_language = call.data.split(":")[1]
-    print("language : ", {selected_language})
+    print(f"[ONBOARDING] language selected: {selected_language} for user {user_id}")
     user_data[user_id] = {"language": selected_language, "step": "get_user_information"}
     user = TelegramUser.objects.get(user_id=user_id)
     user.language = selected_language
@@ -4005,12 +4005,12 @@ def handle_language_selection(call):
     user_data[user_id]["set_language"] = selected_language
     token = user.token
     try:
-        print(f"[language_selection] Calling signup for user {user_id}")
+        print(f"[ONBOARDING] Calling signup for user {user_id}")
         signup(call.message)
-        print(f"[language_selection] signup completed for user {user_id}")
+        print(f"[ONBOARDING] signup completed for user {user_id}")
     except Exception as e:
         import traceback
-        print(f"[language_selection] ERROR in signup: {e}")
+        print(f"[ONBOARDING] ERROR in signup: {e}")
         traceback.print_exc()
 
 
