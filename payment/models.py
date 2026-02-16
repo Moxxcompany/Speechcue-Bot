@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 
 from django.db import models
 
@@ -58,10 +59,33 @@ class OwnerWalletTable(models.Model):
 
 class TransactionType(models.TextChoices):
     SUBSCRIPTION = "SUB", "Subscription"
-    Overage = "OVR", "Overage"
+    OVERAGE = "OVR", "Overage"
     WITHDRAWAL = "WDR", "Withdrawal"
     DEPOSIT = "DEP", "Deposit"
     TRANSFER = "TRF", "Transfer"
+    REFUND = "RFD", "Refund"
+
+
+class WalletTransaction(models.Model):
+    """Internal wallet transaction log — replaces DynoPay transaction tracking."""
+    transaction_id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
+    user = models.ForeignKey(TelegramUser, on_delete=models.CASCADE, related_name="wallet_transactions")
+    transaction_type = models.CharField(
+        max_length=3,
+        choices=TransactionType.choices,
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    balance_before = models.DecimalField(max_digits=12, decimal_places=2)
+    balance_after = models.DecimalField(max_digits=12, decimal_places=2)
+    description = models.TextField(null=True, blank=True)
+    reference = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.get_transaction_type_display()} ${self.amount} for user {self.user_id}"
 
 
 class UserTransactionLogs(models.Model):
