@@ -489,3 +489,95 @@ def inbox_keyboard(user_id):
     lg = get_user_language(user_id)
     options = [SINGLE_IVR[lg], CAMPAIGN_CALLS[lg], RECENT_CALLS[lg]]
     return get_reply_keyboard(options)
+
+
+# =============================================================================
+# New Hub Keyboards
+# =============================================================================
+
+
+def get_phone_numbers_hub_keyboard(user_id):
+    """Phone Numbers hub — inline keyboard."""
+    from bot.models import UserPhoneNumber, SMSInbox
+    lg = get_user_language(user_id)
+
+    num_count = UserPhoneNumber.objects.filter(user_id=user_id, is_active=True).count()
+    sms_unread = SMSInbox.objects.filter(user_id=user_id, is_read=False).count()
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(
+        "🛒 Buy New Number", callback_data="buy_number"
+    ))
+    my_nums_label = f"📋 My Numbers ({num_count})" if num_count else "📋 My Numbers"
+    markup.add(types.InlineKeyboardButton(
+        my_nums_label, callback_data="my_numbers"
+    ))
+    sms_label = f"📨 SMS Inbox ({sms_unread} new)" if sms_unread else "📨 SMS Inbox"
+    markup.add(types.InlineKeyboardButton(
+        sms_label, callback_data="sms_inbox"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        f"🔙 {MAIN_MENU_BTN[lg]}", callback_data="back_to_welcome_message"
+    ))
+    return markup
+
+
+def get_inbox_hub_keyboard(user_id):
+    """Inbox hub — inline keyboard."""
+    lg = get_user_language(user_id)
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(
+        "📞 Call Recordings", callback_data="call_recordings"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        "🔢 DTMF Responses", callback_data="dtmf_responses_hub"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        "📨 SMS Messages", callback_data="sms_inbox"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        "📊 Call History", callback_data="call_history"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        f"🔙 {MAIN_MENU_BTN[lg]}", callback_data="back_to_welcome_message"
+    ))
+    return markup
+
+
+def get_wallet_billing_keyboard(user_id):
+    """Wallet & Billing hub — inline keyboard."""
+    lg = get_user_language(user_id)
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(
+        "💳 Top Up Wallet", callback_data="top_up_wallet"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        "📜 Transaction History", callback_data="transaction_history"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        f"📋 {VIEW_SUBSCRIPTION[lg]}", callback_data="view_subscription"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        f"⬆️ {UPGRADE_SUBSCRIPTION[lg]}", callback_data="update_subscription"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        f"🔙 {MAIN_MENU_BTN[lg]}", callback_data="back_to_welcome_message"
+    ))
+    return markup
+
+
+def get_onboarding_keyboard(user_id):
+    """Post-onboarding keyboard with Free plan and Premium options."""
+    lg = get_user_language(user_id)
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(
+        "🎉 Activate Free Plan", callback_data="activate_free_plan"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        "💎 View Premium Plans", callback_data="activate_subscription"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        "📖 How It Works", callback_data="how_it_works"
+    ))
+    return markup
+
