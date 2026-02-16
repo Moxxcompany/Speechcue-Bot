@@ -102,6 +102,120 @@ def call_status_free_plan():
 
 
 @shared_task
+def monitor_active_calls():
+    """
+    Real-time billing monitor — runs every 30 seconds.
+    For each active call:
+      1. Calculate elapsed time since last billing
+      2. Debit wallet for the elapsed period
+      3. Send low-balance warning if wallet running low
+      4. Force-end call if wallet cannot cover 30 more seconds
+    """
+    active_calls = ActiveCall.objects.filter(is_active=True)
+    if not active_calls.exists():
+        return "No active calls"
+
+    now = timezone.now()
+    logger.info(f"[monitor] Checking {active_calls.count()} active calls")
+
+    for call in active_calls:
+        try:
+            # Skip plan-billed calls (no wallet deduction needed during call)
+            if call.billing_source == "plan" and call.rate_per_minute == 0:
+                continue
+
+            elapsed_since_last = (now - call.last_billed_at).total_seconds()
+            if elapsed_since_last < 25:
+                continue  # Already billed recently
+
+            elapsed_minutes = Decimal(str(round(elapsed_since_last / 60, 4)))
+            charge = call.rate_per_minute * elapsed_minutes
+
+            if charge <= 0:
+                continue
+
+            # Get current wallet balance
+            try:
+                user = TelegramUser.objects.get(user_id=call.user_id)
+                balance = user.wallet_balance
+            except TelegramUser.DoesNotExist:
+                continue
+
+            # Check if wallet can cover the next 60 seconds
+            cost_next_minute = call.rate_per_minute
+            if balance < cost_next_minute and not call.warning_sent:
+                # Send low balance warning
+                try:
+                    bot.send_message(
+                        call.user_id,
+                        f"⚠️ LOW BALANCE WARNING\n"
+                        f"Active call to {call.region} ({call.to_number})\n"
+                        f"Rate: ${call.rate_per_minute}/min\n"
+                        f"Balance: ${balance:.2f}\n"
+                        f"Call will auto-end when balance runs out.",
+                    )
+                    call.warning_sent = True
+                    call.save(update_fields=["warning_sent"])
+                except Exception as e:
+                    logger.warning(f"[monitor] Warning send failed for {call.call_id}: {e}")
+
+            # Check if wallet is exhausted — force end call
+            if balance < charge:
+                # Try to bill what we can
+                if balance > Decimal("0.01"):
+                    debit_wallet(
+                        call.user_id, float(balance),
+                        description=f"Final billing: {call.region} ({call.call_id[:12]})",
+                        tx_type="OVR",
+                    )
+                    call.total_billed += balance
+                    call.last_billed_at = now
+                    call.save(update_fields=["total_billed", "last_billed_at"])
+
+                # Force-end the call
+                logger.info(f"[monitor] Force-ending call {call.call_id} — wallet exhausted")
+                try:
+                    stop_result = stop_single_active_call(call.call_id)
+                    logger.info(f"[monitor] Stop call result: {stop_result.status_code}")
+                except Exception as e:
+                    logger.error(f"[monitor] Force-end failed for {call.call_id}: {e}")
+
+                try:
+                    bot.send_message(
+                        call.user_id,
+                        f"🛑 Call to {call.region} ended — insufficient wallet balance.\n"
+                        f"Total charged: ${call.total_billed:.2f}\n"
+                        f"Please top up your wallet to continue making calls.",
+                    )
+                except Exception:
+                    pass
+
+                call.is_active = False
+                call.save(update_fields=["is_active"])
+                continue
+
+            # Debit for elapsed period
+            result = debit_wallet(
+                call.user_id, float(charge),
+                description=f"Live billing: {call.region} ({call.call_id[:12]}) {elapsed_minutes:.2f}min",
+                tx_type="OVR",
+            )
+            if result["status"] == 200:
+                call.total_billed += charge
+                call.last_billed_at = now
+                call.save(update_fields=["total_billed", "last_billed_at"])
+                logger.debug(f"[monitor] Billed ${charge:.4f} for {call.call_id}")
+            else:
+                logger.warning(f"[monitor] Debit failed for {call.call_id}: {result}")
+
+        except Exception as e:
+            logger.error(f"[monitor] Error processing {call.call_id}: {e}")
+
+    return f"Monitored {active_calls.count()} calls"
+
+
+
+@shared_task
 def charge_user_for_additional_minutes():
     print("Charge_user_for_additional_minutes RUNNING..... ")
 
