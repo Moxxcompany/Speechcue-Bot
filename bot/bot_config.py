@@ -25,5 +25,8 @@ def set_bot_commands(bot):
     bot.set_my_commands(commands, scope=BotCommandScopeDefault())
 
 
-clear_bot_commands(bot)
-set_bot_commands(bot)
+try:
+    clear_bot_commands(bot)
+    set_bot_commands(bot)
+except Exception as e:
+    logging.warning(f"Could not set bot commands (API token may be invalid): {e}")
