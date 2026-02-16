@@ -138,7 +138,7 @@ def charge_user_for_additional_minutes():
             UserTransactionLogs.objects.create(
                 user_id=user,
                 reference=transaction_id,
-                transaction_type=TransactionType.Overage,
+                transaction_type=TransactionType.OVERAGE,
             )
             call_duration.charged = True
             call_duration.save()
