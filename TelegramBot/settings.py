@@ -46,6 +46,26 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
 
+# Celery Beat Schedule — periodic tasks
+CELERY_BEAT_SCHEDULE = {
+    "charge-overage-every-5min": {
+        "task": "bot.tasks.charge_user_for_additional_minutes",
+        "schedule": 300.0,  # every 5 minutes
+    },
+    "notify-users-every-10min": {
+        "task": "bot.tasks.notify_users",
+        "schedule": 600.0,  # every 10 minutes
+    },
+    "check-subscription-daily": {
+        "task": "bot.tasks.check_subscription_status",
+        "schedule": 3600.0,  # every hour (catches expiry promptly)
+    },
+    "send-scheduled-ivr-every-1min": {
+        "task": "bot.tasks.send_scheduled_ivr_calls",
+        "schedule": 60.0,  # every 1 minute (for timely campaign execution)
+    },
+}
+
 # Retell AI
 RETELL_API_KEY = os.environ.get("RETELL_API_KEY", "")
 
