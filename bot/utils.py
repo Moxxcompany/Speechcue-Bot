@@ -91,9 +91,7 @@ def remove_punctuation_and_spaces(input_string):
     return formatted_string
 
 
-redis_client = redis.StrictRedis(
-    host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB
-)
+redis_client = redis.StrictRedis.from_url(settings.REDIS_URL)
 
 
 valid_phone_number_pattern = re.compile(r"^[\d\+\-\(\)\s]+$")
