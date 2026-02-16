@@ -4606,6 +4606,370 @@ def handle_set_bind_agent(call):
         )
 
 
+# =============================================================================
+# DTMF Supervisor Approve/Reject Handlers (single calls only)
+# =============================================================================
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("dtmf_approve_"))
+def handle_dtmf_approve(call):
+    """Bot user approves the DTMF input — proceed with the call flow."""
+    user_id = call.message.chat.id
+    approval_id = call.data.replace("dtmf_approve_", "")
+    try:
+        from django.utils import timezone as tz
+        approval = PendingDTMFApproval.objects.get(id=int(approval_id), user_id=user_id)
+        if approval.status == "pending":
+            approval.status = "approved"
+            approval.resolved_at = tz.now()
+            approval.save()
+            bot.edit_message_text(
+                f"✅ *Approved* — digits `{approval.digits}` accepted.\nCall proceeding.",
+                chat_id=user_id,
+                message_id=call.message.message_id,
+                parse_mode="Markdown",
+            )
+        else:
+            bot.answer_callback_query(call.id, f"Already {approval.status}.")
+    except PendingDTMFApproval.DoesNotExist:
+        bot.answer_callback_query(call.id, "Approval not found.")
+    except Exception as e:
+        logger.error(f"[dtmf_approve] Error: {e}")
+        bot.answer_callback_query(call.id, "Error processing approval.")
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("dtmf_reject_"))
+def handle_dtmf_reject(call):
+    """Bot user rejects the DTMF input — ask caller to re-enter."""
+    user_id = call.message.chat.id
+    approval_id = call.data.replace("dtmf_reject_", "")
+    try:
+        from django.utils import timezone as tz
+        approval = PendingDTMFApproval.objects.get(id=int(approval_id), user_id=user_id)
+        if approval.status == "pending":
+            approval.status = "rejected"
+            approval.resolved_at = tz.now()
+            approval.save()
+            bot.edit_message_text(
+                f"❌ *Rejected* — digits `{approval.digits}` declined.\nAgent will ask caller to re-enter.",
+                chat_id=user_id,
+                message_id=call.message.message_id,
+                parse_mode="Markdown",
+            )
+        else:
+            bot.answer_callback_query(call.id, f"Already {approval.status}.")
+    except PendingDTMFApproval.DoesNotExist:
+        bot.answer_callback_query(call.id, "Approval not found.")
+    except Exception as e:
+        logger.error(f"[dtmf_reject] Error: {e}")
+        bot.answer_callback_query(call.id, "Error processing rejection.")
+
+
+# =============================================================================
+# SMS Inbox Handlers
+# =============================================================================
+
+@bot.callback_query_handler(func=lambda call: call.data == "sms_inbox")
+def handle_sms_inbox(call):
+    """Show SMS inbox for the user."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+
+    messages = SMSInbox.objects.filter(user__user_id=user_id).order_by("-received_at")[:20]
+
+    if not messages.exists():
+        bot.send_message(
+            user_id,
+            "📭 No SMS messages in your inbox.",
+            reply_markup=get_main_menu_keyboard(user_id),
+        )
+        return
+
+    markup = types.InlineKeyboardMarkup()
+    msg = "📩 *SMS Inbox* (latest 20)\n\n"
+    for sms in messages:
+        time_str = sms.received_at.strftime("%m/%d %H:%M")
+        preview = sms.message[:40] + "..." if len(sms.message) > 40 else sms.message
+        unread = "🔵" if not sms.is_read else "⚪"
+        msg += f"{unread} `{sms.from_number}` → `{sms.phone_number}`\n"
+        msg += f"   {time_str}: {preview}\n\n"
+        markup.add(types.InlineKeyboardButton(
+            f"📖 View {sms.from_number} ({time_str})",
+            callback_data=f"sms_view_{sms.id}"
+        ))
+
+    markup.add(types.InlineKeyboardButton(
+        "🗑 Clear All Read", callback_data="sms_clear_read"
+    ))
+
+    bot.send_message(user_id, msg, reply_markup=markup, parse_mode="Markdown")
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("sms_view_"))
+def handle_sms_view(call):
+    """View a single SMS message in full."""
+    user_id = call.message.chat.id
+    sms_id = call.data.replace("sms_view_", "")
+    try:
+        sms = SMSInbox.objects.get(id=int(sms_id), user__user_id=user_id)
+        sms.is_read = True
+        sms.save()
+        bot.send_message(
+            user_id,
+            f"📩 *SMS Message*\n\n"
+            f"From: `{sms.from_number}`\n"
+            f"To: `{sms.phone_number}`\n"
+            f"Time: {sms.received_at.strftime('%Y-%m-%d %H:%M:%S UTC')}\n\n"
+            f"Message:\n{sms.message}",
+            reply_markup=get_main_menu_keyboard(user_id),
+            parse_mode="Markdown",
+        )
+    except SMSInbox.DoesNotExist:
+        bot.answer_callback_query(call.id, "Message not found.")
+    except Exception as e:
+        logger.error(f"[sms_view] Error: {e}")
+        bot.answer_callback_query(call.id, "Error loading message.")
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "sms_clear_read")
+def handle_sms_clear_read(call):
+    """Clear all read SMS messages."""
+    user_id = call.message.chat.id
+    deleted_count = SMSInbox.objects.filter(user__user_id=user_id, is_read=True).delete()[0]
+    bot.send_message(
+        user_id,
+        f"🗑 Cleared {deleted_count} read messages.",
+        reply_markup=get_main_menu_keyboard(user_id),
+    )
+
+
+# =============================================================================
+# Voicemail & Call Forwarding Settings
+# =============================================================================
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("numset_"))
+def handle_number_settings(call):
+    """Show settings for a purchased number (voicemail, forwarding)."""
+    user_id = call.message.chat.id
+    phone = call.data.replace("numset_", "")
+
+    record = UserPhoneNumber.objects.filter(
+        user__user_id=user_id, phone_number=phone, is_active=True
+    ).first()
+    if not record:
+        bot.send_message(user_id, "Number not found.", reply_markup=get_main_menu_keyboard(user_id))
+        return
+
+    markup = types.InlineKeyboardMarkup()
+
+    # Voicemail toggle
+    vm_status = "ON ✅" if record.voicemail_enabled else "OFF ❌"
+    markup.add(types.InlineKeyboardButton(
+        f"📬 Voicemail: {vm_status}",
+        callback_data=f"vm_toggle_{phone}"
+    ))
+    if record.voicemail_enabled:
+        markup.add(types.InlineKeyboardButton(
+            "✏️ Edit Voicemail Message",
+            callback_data=f"vm_edit_{phone}"
+        ))
+
+    # Call forwarding toggle
+    fwd_status = f"ON → {record.forwarding_number}" if record.forwarding_enabled and record.forwarding_number else "OFF ❌"
+    markup.add(types.InlineKeyboardButton(
+        f"📞 Forwarding: {fwd_status}",
+        callback_data=f"fwd_toggle_{phone}"
+    ))
+    if not record.forwarding_enabled:
+        markup.add(types.InlineKeyboardButton(
+            "📞 Set Forwarding Number",
+            callback_data=f"fwd_set_{phone}"
+        ))
+
+    markup.add(types.InlineKeyboardButton("⬅️ Back", callback_data="my_numbers"))
+
+    bot.send_message(
+        user_id,
+        f"⚙️ *Settings for* `{phone}`\n\n"
+        f"📬 Voicemail: {vm_status}\n"
+        f"📞 Forwarding: {fwd_status}",
+        reply_markup=markup,
+        parse_mode="Markdown",
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("vm_toggle_"))
+def handle_voicemail_toggle(call):
+    """Toggle voicemail on/off for a purchased number."""
+    user_id = call.message.chat.id
+    phone = call.data.replace("vm_toggle_", "")
+
+    record = UserPhoneNumber.objects.filter(
+        user__user_id=user_id, phone_number=phone, is_active=True
+    ).first()
+    if not record:
+        bot.send_message(user_id, "Number not found.", reply_markup=get_main_menu_keyboard(user_id))
+        return
+
+    record.voicemail_enabled = not record.voicemail_enabled
+    record.save()
+
+    status = "enabled ✅" if record.voicemail_enabled else "disabled ❌"
+    bot.send_message(
+        user_id,
+        f"📬 Voicemail {status} for `{phone}`.\n"
+        + (f"Message: \"{record.voicemail_message[:80]}...\"" if record.voicemail_enabled else ""),
+        reply_markup=get_main_menu_keyboard(user_id),
+        parse_mode="Markdown",
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("vm_edit_"))
+def handle_voicemail_edit(call):
+    """Prompt user to type a new voicemail message."""
+    user_id = call.message.chat.id
+    phone = call.data.replace("vm_edit_", "")
+
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]["step"] = "edit_voicemail"
+    user_data[user_id]["edit_vm_phone"] = phone
+
+    bot.send_message(
+        user_id,
+        f"✏️ Type your new voicemail greeting for `{phone}`.\n"
+        f"This is what the AI agent will say to callers when voicemail is active.",
+        parse_mode="Markdown",
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("fwd_toggle_"))
+def handle_forwarding_toggle(call):
+    """Toggle call forwarding on/off for a purchased number."""
+    user_id = call.message.chat.id
+    phone = call.data.replace("fwd_toggle_", "")
+
+    record = UserPhoneNumber.objects.filter(
+        user__user_id=user_id, phone_number=phone, is_active=True
+    ).first()
+    if not record:
+        bot.send_message(user_id, "Number not found.", reply_markup=get_main_menu_keyboard(user_id))
+        return
+
+    if record.forwarding_enabled:
+        record.forwarding_enabled = False
+        record.save()
+        bot.send_message(
+            user_id,
+            f"📞 Call forwarding disabled for `{phone}`.",
+            reply_markup=get_main_menu_keyboard(user_id),
+            parse_mode="Markdown",
+        )
+    else:
+        if record.forwarding_number:
+            record.forwarding_enabled = True
+            record.save()
+            bot.send_message(
+                user_id,
+                f"📞 Call forwarding enabled for `{phone}` → `{record.forwarding_number}`.",
+                reply_markup=get_main_menu_keyboard(user_id),
+                parse_mode="Markdown",
+            )
+        else:
+            # Need to set a number first
+            if user_id not in user_data:
+                user_data[user_id] = {}
+            user_data[user_id]["step"] = "set_forwarding"
+            user_data[user_id]["fwd_phone"] = phone
+            bot.send_message(
+                user_id,
+                f"📞 Enter the phone number to forward calls to (E.164 format, e.g., +14155551234):",
+            )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("fwd_set_"))
+def handle_forwarding_set(call):
+    """Prompt user to enter a forwarding number."""
+    user_id = call.message.chat.id
+    phone = call.data.replace("fwd_set_", "")
+
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]["step"] = "set_forwarding"
+    user_data[user_id]["fwd_phone"] = phone
+
+    bot.send_message(
+        user_id,
+        f"📞 Enter the phone number to forward calls to (E.164 format, e.g., +14155551234):",
+    )
+
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get("step") == "edit_voicemail")
+def handle_voicemail_message_input(message):
+    """Save the new voicemail message."""
+    user_id = message.chat.id
+    phone = user_data[user_id].get("edit_vm_phone", "")
+    new_message = message.text.strip()
+
+    if not new_message:
+        bot.send_message(user_id, "Message cannot be empty. Please try again.")
+        return
+
+    record = UserPhoneNumber.objects.filter(
+        user__user_id=user_id, phone_number=phone, is_active=True
+    ).first()
+    if record:
+        record.voicemail_message = new_message
+        record.save()
+        bot.send_message(
+            user_id,
+            f"✅ Voicemail message updated for `{phone}`.\n\n"
+            f"New message: \"{new_message[:100]}{'...' if len(new_message) > 100 else ''}\"",
+            reply_markup=get_main_menu_keyboard(user_id),
+            parse_mode="Markdown",
+        )
+    else:
+        bot.send_message(user_id, "Number not found.", reply_markup=get_main_menu_keyboard(user_id))
+
+    user_data[user_id].pop("step", None)
+    user_data[user_id].pop("edit_vm_phone", None)
+
+
+@bot.message_handler(func=lambda message: user_data.get(message.chat.id, {}).get("step") == "set_forwarding")
+def handle_forwarding_number_input(message):
+    """Save the forwarding number."""
+    user_id = message.chat.id
+    phone = user_data[user_id].get("fwd_phone", "")
+    fwd_number = message.text.strip()
+
+    # Basic validation
+    import re
+    if not re.match(r"^\+?\d{10,15}$", fwd_number):
+        bot.send_message(user_id, "Invalid format. Please enter a valid phone number (E.164, e.g., +14155551234).")
+        return
+
+    if not fwd_number.startswith("+"):
+        fwd_number = "+" + fwd_number
+
+    record = UserPhoneNumber.objects.filter(
+        user__user_id=user_id, phone_number=phone, is_active=True
+    ).first()
+    if record:
+        record.forwarding_number = fwd_number
+        record.forwarding_enabled = True
+        record.save()
+        bot.send_message(
+            user_id,
+            f"✅ Call forwarding set for `{phone}` → `{fwd_number}`.",
+            reply_markup=get_main_menu_keyboard(user_id),
+            parse_mode="Markdown",
+        )
+    else:
+        bot.send_message(user_id, "Number not found.", reply_markup=get_main_menu_keyboard(user_id))
+
+    user_data[user_id].pop("step", None)
+    user_data[user_id].pop("fwd_phone", None)
+
+
 @bot.message_handler(func=lambda message: message.text in YES_PROCEED.values())
 def proceed_single_ivr(message):
     user_id = message.chat.id
