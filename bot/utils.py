@@ -380,3 +380,13 @@ def get_subscription_day(user_subscription):
     if user_subscription.date_of_subscription:
         return (date.today() - user_subscription.date_of_subscription).days + 1
     return None
+
+
+
+def get_plan_price(plan_id):
+    """Get the price of a subscription plan."""
+    try:
+        plan = SubscriptionPlans.objects.get(plan_id=plan_id)
+        return plan.plan_price
+    except SubscriptionPlans.DoesNotExist:
+        return None
