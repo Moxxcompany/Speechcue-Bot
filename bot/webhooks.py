@@ -622,7 +622,6 @@ def _bill_voicemail_if_applicable(call_data):
     call_id = call_data.get("call_id", "")
     recording_url = call_data.get("recording_url", "")
     to_number = call_data.get("to_number", "")
-    duration_ms = call_data.get("duration_ms", 0) or 0
 
     if not recording_url or not to_number:
         return
@@ -678,8 +677,7 @@ def time_check_endpoint(request):
         phone_number = args.get("phone_number", "")
 
         if not phone_number:
-            # Try to get from call_id
-            call_id = payload.get("call_id", "")
+            # Try to get from payload
             to_number = payload.get("to_number", "")
             phone_number = to_number
 

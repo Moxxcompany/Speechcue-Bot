@@ -199,7 +199,7 @@ def update_agent_inbound_settings(agent_id, phone_record):
     client = get_retell_client()
     try:
         agent = client.agent.retrieve(agent_id)
-        existing_prompt = getattr(agent, "response_engine", {})
+        existing_prompt = getattr(agent, "response_engine", {})  # noqa: F841
         general_prompt = getattr(agent, "general_prompt", "") or ""
         existing_tools = getattr(agent, "tools", []) or []
 
