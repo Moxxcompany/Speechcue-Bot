@@ -4036,8 +4036,20 @@ def handle_terms_response(call):
             f"✅ {SUCCESSFULLY_ACCEPTED_TERMS_AND_CONDITIONS[lg]}"
             f"🎉\n{BEGIN_USING_SPEECHCAD[lg]} 🎯",
         )
-        bot.send_message(user_id, TERMS_AND_CONDITIONS_TOOLTIP[lg])
-        handle_activate_subscription(call)
+        # New onboarding: show quick start guide instead of forcing plan selection
+        quick_start = (
+            f"🚀 *{QUICK_START_TITLE[lg]}*\n\n"
+            f"1️⃣ {QUICK_START_STEP_1[lg]}\n"
+            f"2️⃣ {QUICK_START_STEP_2[lg]}\n"
+            f"3️⃣ {QUICK_START_STEP_3[lg]}\n"
+            f"4️⃣ {QUICK_START_STEP_4[lg]}"
+        )
+        from bot.keyboard_menus import get_onboarding_keyboard
+        bot.send_message(
+            user_id, quick_start,
+            reply_markup=get_onboarding_keyboard(user_id),
+            parse_mode="Markdown",
+        )
 
     elif call.data == "decline_terms":
         markup = types.InlineKeyboardMarkup()
