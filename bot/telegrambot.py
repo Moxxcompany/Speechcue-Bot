@@ -1226,13 +1226,51 @@ def select_node(message):
 
 def send_welcome(message):
     """
-    Sends a welcome message when the user starts a conversation.
+    Sends a welcome/dashboard message when the user starts a conversation.
+    For returning users: shows a quick dashboard summary.
     """
     user_id = message.chat.id
     lg = get_user_language(user_id)
-    bot.send_message(
-        user_id, f"{WELCOME_PROMPT[lg]}", reply_markup=get_main_menu_keyboard(user_id)
-    )
+
+    # Build dashboard summary for returning users
+    try:
+        user = TelegramUser.objects.get(user_id=user_id)
+        # Get plan info
+        try:
+            sub = UserSubscription.objects.get(user_id=user_id, subscription_status="active")
+            plan_name = sub.plan_id.name if sub.plan_id else "Free"
+            minutes_left = float(sub.single_ivr_left or 0) + float(sub.bulk_ivr_calls_left or 0)
+            minutes_str = f"{minutes_left:.0f}"
+        except UserSubscription.DoesNotExist:
+            plan_name = "None"
+            minutes_str = "0"
+
+        # Get wallet balance
+        wallet = check_user_balance(user_id)
+        balance = wallet.get("data", {}).get("amount", 0) if wallet.get("data") else 0
+
+        # Get phone number count
+        num_count = UserPhoneNumber.objects.filter(user_id=user_id, is_active=True).count()
+
+        dashboard = (
+            f"👋 *{WELCOME_BACK[lg]}, {user.name or 'there'}!*\n\n"
+            f"📊 *{DASHBOARD_SUMMARY[lg]}*\n"
+            f"├ {PLAN_LABEL[lg]}: *{plan_name}*\n"
+            f"├ {WALLET_LABEL[lg]}: *${balance}*\n"
+            f"├ {NUMBERS_LABEL[lg]}: *{num_count}*\n"
+            f"└ {MINUTES_LEFT_LABEL[lg]}: *{minutes_str}*"
+        )
+        bot.send_message(
+            user_id, dashboard,
+            reply_markup=get_main_menu_keyboard(user_id),
+            parse_mode="Markdown",
+        )
+    except TelegramUser.DoesNotExist:
+        # Fallback for edge cases
+        bot.send_message(
+            user_id, f"{WELCOME_PROMPT[lg]}",
+            reply_markup=get_main_menu_keyboard(user_id),
+        )
 
 
 @bot.message_handler(commands=["help"])
