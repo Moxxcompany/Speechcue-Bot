@@ -61,6 +61,7 @@
 - [x] Inbound call billing ✅
 - [x] After-hours conditional routing ✅
 - [x] Retell agent prompt auto-update ✅
+- [x] Real-time overage billing (charge on call_ended, not 5-min poll) ✅
 
 ### P1 - Deferred
 - [ ] Outbound SMS (requires A2P 10DLC)
