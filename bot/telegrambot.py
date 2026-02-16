@@ -4468,6 +4468,9 @@ def handle_set_bind_agent(call):
             "Failed to bind agent. Please try again or contact support.",
             reply_markup=get_main_menu_keyboard(user_id),
         )
+
+
+@bot.message_handler(func=lambda message: message.text in YES_PROCEED.values())
 def proceed_single_ivr(message):
     user_id = message.chat.id
     lg = get_user_language(user_id)
