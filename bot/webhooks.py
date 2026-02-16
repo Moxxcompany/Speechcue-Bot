@@ -26,6 +26,9 @@ from bot.models import (
     BatchCallLogs,
     CallLogsTable,
     ActiveCall,
+    UserPhoneNumber,
+    PendingDTMFApproval,
+    SMSInbox,
 )
 from bot.utils import get_user_subscription_by_call_id, get_user_language
 from bot.call_gate import classify_destination, US_CA_OVERAGE_RATE
@@ -38,6 +41,9 @@ from payment.views import debit_wallet, credit_wallet_balance
 from user.models import TelegramUser
 
 logger = logging.getLogger(__name__)
+
+# Track last seen transcript index per call to avoid duplicate messages
+_transcript_cursor = {}
 
 
 # =============================================================================
