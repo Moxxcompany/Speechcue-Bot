@@ -72,8 +72,13 @@ def _extract_dtmf_from_transcript(transcript_object):
 # =============================================================================
 
 def _handle_call_started(call_data):
-    """Update call status to 'started' in local DB."""
+    """
+    Update call status to 'started' in local DB.
+    Register ActiveCall for real-time billing and pre-deduct 2 minutes from wallet.
+    """
     call_id = call_data.get("call_id", "")
+    to_number = call_data.get("to_number", "")
+    from_number = call_data.get("from_number", "")
     logger.info(f"[call_started] call_id={call_id}")
 
     # Update BatchCallLogs
@@ -84,6 +89,75 @@ def _handle_call_started(call_data):
 
     # Update free plan tracking
     ManageFreePlanSingleIVRCall.objects.filter(call_id=call_id).update(call_status="started")
+
+    # ---- Register ActiveCall for real-time billing ----
+    call_log = CallLogsTable.objects.filter(call_id=call_id).first()
+    if not call_log:
+        logger.warning(f"[call_started] No CallLogsTable entry for {call_id}, skipping ActiveCall")
+        return
+
+    user_id = call_log.user_id
+    region, rate, is_domestic = classify_destination(to_number)
+
+    # Determine billing source
+    billing_source = "plan"
+    effective_rate = Decimal("0.00")
+
+    if not is_domestic:
+        billing_source = "wallet"
+        effective_rate = rate
+    else:
+        # Check if user has plan minutes, otherwise wallet overage
+        try:
+            sub = UserSubscription.objects.get(user_id=user_id)
+            if sub.subscription_status == "active" and sub.plan_id and sub.plan_id.plan_price > 0:
+                billing_source = "plan"
+                effective_rate = Decimal("0.00")
+            else:
+                billing_source = "wallet"
+                effective_rate = US_CA_OVERAGE_RATE
+        except UserSubscription.DoesNotExist:
+            billing_source = "wallet"
+            effective_rate = US_CA_OVERAGE_RATE
+
+    # Determine call type
+    batch_call = BatchCallLogs.objects.filter(call_id=call_id).exists()
+    call_type = "bulk" if batch_call else "single"
+
+    now = timezone.now()
+    ActiveCall.objects.update_or_create(
+        call_id=call_id,
+        defaults={
+            "user_id": user_id,
+            "to_number": to_number,
+            "from_number": from_number or "",
+            "region": region,
+            "rate_per_minute": effective_rate,
+            "call_type": call_type,
+            "billing_source": billing_source,
+            "start_time": now,
+            "last_billed_at": now,
+            "total_billed": Decimal("0.00"),
+            "warning_sent": False,
+            "is_active": True,
+        },
+    )
+
+    # Pre-deduct 2 minutes for wallet-billed calls
+    if billing_source == "wallet" and effective_rate > 0:
+        pre_hold = effective_rate * 2
+        result = debit_wallet(
+            user_id, float(pre_hold),
+            description=f"Pre-hold: {region} call ({call_id[:12]})",
+            tx_type="OVR",
+        )
+        if result["status"] == 200:
+            ActiveCall.objects.filter(call_id=call_id).update(total_billed=pre_hold)
+            logger.info(f"[call_started] Pre-deducted ${pre_hold} for {region} call {call_id}")
+        else:
+            logger.warning(f"[call_started] Pre-deduct failed for {call_id}: {result}")
+
+    logger.info(f"[call_started] ActiveCall registered: {call_id} region={region} rate=${effective_rate} billing={billing_source}")
 
 
 # =============================================================================
