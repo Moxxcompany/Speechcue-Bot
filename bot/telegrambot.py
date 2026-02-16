@@ -72,6 +72,8 @@ from bot.views import (
     send_task_through_call,
 )
 
+from bot.call_gate import pre_call_check, pre_call_check_bulk, classify_destination
+
 from payment.models import SubscriptionPlans, DTMF_Inbox
 from payment.views import (
     setup_user,
