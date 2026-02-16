@@ -85,6 +85,14 @@ from translations.translations import (
     RETURN_HOME,
     CAMPAIGN_CALLS,
     RECENT_CALLS,
+    # New UI/UX translations
+    PHONE_NUMBERS_MENU,
+    INBOX_MENU,
+    WALLET_AND_BILLING,
+    MAKE_CALL_MENU,
+    IVR_FLOWS_MENU,
+    CAMPAIGNS_MENU,
+    MAIN_MENU_BTN,
 )
 
 
