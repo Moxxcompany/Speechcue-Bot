@@ -45,8 +45,9 @@ print(f"Test user: {TEST_USER_ID} ({test_user.user_name})")
 print()
 
 # Get all registered handlers  
-message_handlers = bot.message_handlers
-callback_handlers = bot.callback_query_handlers
+from bot.bot_config import bot as telegram_bot
+message_handlers = telegram_bot.message_handlers
+callback_handlers = telegram_bot.callback_query_handlers
 
 print(f"Registered message handlers: {len(message_handlers)}")
 print(f"Registered callback handlers: {len(callback_handlers)}")
