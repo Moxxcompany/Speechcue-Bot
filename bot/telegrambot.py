@@ -73,8 +73,11 @@ from bot.views import (
 )
 
 from bot.call_gate import pre_call_check, pre_call_check_bulk, classify_destination
-from bot.retell_service import purchase_phone_number, release_phone_number, update_phone_number_agent
-from bot.models import UserPhoneNumber
+from bot.retell_service import (
+    purchase_phone_number, release_phone_number, update_phone_number_agent,
+    get_retell_phone_number_set, sync_caller_ids_with_retell,
+)
+from bot.models import UserPhoneNumber, PendingPhoneNumberPurchase
 
 from payment.models import SubscriptionPlans, DTMF_Inbox
 from payment.views import (
