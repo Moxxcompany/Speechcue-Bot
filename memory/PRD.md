@@ -1,73 +1,65 @@
-# PRD - Telegram IVR Bot
+# Speechcad IVR Telegram Bot - PRD
 
-## Problem Statement
-Analyze and set up an existing Django-based Telegram Bot codebase for IVR (Interactive Voice Response) management, integrate Quo as a voice provider, implement multi-tenancy, and document findings.
+## Original Problem Statement
+User requested: "analyze and setup" for the existing codebase.
 
 ## Architecture
-- **Backend**: Django 4.2.13 (Python 3.11)
-- **Database**: PostgreSQL 15
-- **Cache/Queue**: Redis
-- **Task Queue**: Celery + django-celery-beat, Huey
-- **Bot Framework**: pyTelegramBotAPI
-- **External APIs**: Bland.ai (IVR calls), DynoPay (crypto payments), Tatum (crypto rates), Quo (phone/messaging)
+- **Framework**: Django 4.2.13
+- **Database**: PostgreSQL 15 (tele_bot)
+- **Cache/Broker**: Redis
+- **Task Queue**: Celery + Huey (django-celery-beat for periodic tasks)
+- **Telegram Bot**: pyTelegramBotAPI (telebot)
+- **External APIs**: Bland.ai (IVR/Voice), DynoPay (crypto payments), Tatum (crypto pricing)
+- **Languages**: English, Chinese, French, Hindi
 
-## Core Features
-- Telegram Bot for IVR call management (single/bulk)
-- Multi-language support (English, Hindi, Chinese, French)
-- Subscription plans with crypto payments (USDT)
-- Campaign management with batch calls
-- DTMF input handling
-- AI-assisted task flows (pathways)
-- Scheduled calls & reminders
-- User wallet management
-- Call logging & duration tracking
+## Core Modules
+| Module | Description |
+|--------|-------------|
+| `bot/` | Telegram bot handlers, IVR flow management, pathway nodes/edges |
+| `user/` | TelegramUser model with encrypted tokens |
+| `payment/` | Subscription plans, wallet, crypto payments, overage billing |
+| `translations/` | Multi-language support (EN, CN, FR, HI) |
+| `TelegramBot/` | Django settings, URLs, constants, Celery config |
 
-## Django Apps
-- `bot` - Core bot logic, views, webhooks, call management
-- `user` - Telegram user model
-- `payment` - Subscriptions, transactions, wallets, DTMF inbox
-- `translations` - Multi-language support
+## User Personas
+- **IVR Flow Creator**: Builds IVR call flows using Bland.ai pathways
+- **Bulk Caller**: Manages campaigns with scheduled batch calls
+- **Subscriber**: Manages subscription plans, wallet top-ups via crypto
 
-## What's Been Implemented
+## What's Been Implemented (Jan 2026)
+- [x] Full codebase analysis completed
+- [x] PostgreSQL 15 installed and configured
+- [x] Redis server installed and running
+- [x] Django migrations applied (all 80+ migrations)
+- [x] 10 subscription plans seeded (Free, Prime, Elite, Ultra)
+- [x] Overage pricing configured ($0.05/min)
+- [x] Django admin superuser created (admin/speechcadadmin1234)
+- [x] .env file created with placeholder API keys
+- [x] Django system check passing (0 issues)
 
-### Setup (Jan 2026)
-- Installed PostgreSQL 15, Redis, all Python dependencies
-- Created `.env` with database config and placeholder API keys
-- Ran all migrations (38 tables created)
-- Seeded 10 subscription plans
-- Fixed bot_config.py to gracefully handle missing Telegram API token
-- Django server verified to start without errors
+## Required API Keys (placeholders currently)
+- `API_TOKEN` - Telegram Bot API token
+- `BLAND_API_KEY` - Bland.ai API key for IVR
+- `x-api-key` - DynoPay API key for payments
+- `x_api_tatum` - Tatum API key for crypto pricing
 
-### Quo Integration Analysis (Feb 2026)
-- Crawled and documented full Quo API (calls, messages, contacts, webhooks, phone numbers)
-- Verified Quo API key works (workspace: Moxx Technologies, phone: +18886033870)
-- Produced comprehensive gap analysis: Bland.ai vs Quo
-- **Key Finding**: Quo CANNOT replace Bland.ai (no outbound calls, no IVR pathways, no AI voice agent)
-- **Recommendation**: Use Quo as COMPLEMENTARY provider (SMS, contacts, caller ID, call monitoring)
-- Designed multi-tenancy architecture (shared schema with tenant_id)
-- Full analysis document: `/app/QUO_INTEGRATION_ANALYSIS.md`
+## Prioritized Backlog
+### P0 - Critical
+- Replace placeholder API keys with real credentials
+- Configure webhook URL for production
+- Set up Celery worker for background tasks
 
-## API Keys
-- `API_TOKEN` - Telegram Bot token (placeholder)
-- `BLAND_API_KEY` - Bland.ai API key for IVR calls (placeholder)
-- `QUO_API_KEY` - Quo API key: `tul7jVf2oQHGPMp211neCYcWoKMxAOzt` (verified working)
-- `x-api-key` - DynoPay API key (placeholder)
+### P1 - Important
+- QUO SMS integration (per QUO_INTEGRATION_ANALYSIS.md)
+- Production deployment configuration (DEBUG=False, ALLOWED_HOSTS)
 
-## Quo Workspace Details
-- Phone Number: +18886033870 (ID: PNHNMitFtw)
-- Owner: Moxx Technologies (ID: USSX7fbpdt)
-- US/CA Calling: Unrestricted
-- Messaging: Restricted (needs carrier registration)
+### P2 - Nice to Have
+- Add unit tests
+- Rate limiting on webhook endpoints
+- Monitoring/alerting setup
 
-## Next Action Items
-- **Decision Required**: Confirm integration strategy (Quo as complementary vs full provider replacement)
-- Implement Quo client module (`bot/quo_client.py`) based on chosen strategy
-- Begin multi-tenancy Phase 1 (Tenant model + migration)
-
-## Backlog
-- P0: Implement chosen Quo integration strategy
-- P0: Multi-tenancy Phase 1 (Tenant model, nullable FKs)
-- P1: Multi-tenancy Phase 2-6 (backfill, constraints, query updates)
-- P1: Complete US carrier registration for Quo SMS
-- P2: Configure real API keys and verify bot functionality
-- P2: Set up Celery workers for async task processing
+## Next Tasks
+1. User to provide real API tokens (Telegram, Bland.ai, DynoPay, Tatum)
+2. Configure Celery worker and beat scheduler
+3. Set up Telegram webhook or polling mode
+4. Production security hardening
