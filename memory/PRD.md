@@ -5,11 +5,12 @@ Django Telegram Bot for IVR call management via Retell AI, crypto payments via D
 
 ## Architecture
 - **Framework**: Django 4.2.13 (ASGI via uvicorn on port 8001)
-- **Database**: PostgreSQL 17.7 on Railway
+- **Database**: SQLite (local dev) / PostgreSQL 17.7 on Railway (production)
 - **Bot**: pyTelegramBotAPI — @Speechcuebot
 - **Voice AI**: Retell AI SDK
 - **Task Queue**: Celery + Redis (Railway) — auto-starts with backend
 - **Payments**: DynoPay crypto + internal wallet
+- **Frontend**: React 19 (styled-components, react-router-dom v5)
 
 ## What's Been Implemented
 
@@ -24,11 +25,11 @@ Django Telegram Bot for IVR call management via Retell AI, crypto payments via D
 - `_charge_overage_realtime()` fires on call_ended for both batch and free plan calls
 - Celery task demoted to hourly safety-net
 
-### Session 3 — Full UI/UX Redesign (Current)
+### Session 3 — Full UI/UX Redesign
 **Redesigned Main Menu** (8 buttons, 4 rows):
-- 📞 Phone Numbers | 🎙 IVR Flows
-- ☎️ Make a Call | 📋 Campaigns
-- 📬 Inbox | 💰 Wallet & Billing
+- Phone Numbers | IVR Flows
+- Make a Call | Campaigns
+- Inbox | Wallet & Billing
 - Account | Help
 
 **New Features:**
@@ -36,17 +37,21 @@ Django Telegram Bot for IVR call management via Retell AI, crypto payments via D
 2. **Inbox Hub** — Call Recordings (fetch from Retell), DTMF Responses (by flow), SMS Messages, Call History (last 10 calls with duration/status)
 3. **Wallet & Billing Hub** — Balance display, Top Up, Transaction History (last 15 txs), View/Upgrade Subscription
 4. **Dashboard Summary** — Returning users see plan/wallet/numbers/minutes at a glance
-5. **Onboarding Fix** — After T&C: Quick Start guide → Free Plan / Premium Plans / How It Works (no forced plan selection)
+5. **Onboarding Fix** — After T&C: Quick Start guide, Free Plan / Premium Plans / How It Works (no forced plan selection)
 6. **34 new translation strings** in 4 languages (EN/ZH/FR/HI)
 
-**Files Modified:**
-- `bot/keyboard_menus.py` — 5 new keyboard functions
-- `bot/telegrambot.py` — 15+ new handlers, dashboard in send_welcome, _match_menu_text
-- `translations/translations.py` — 34 new translation dicts
-- `bot/webhooks.py` — real-time overage billing
-- `TelegramBot/settings.py` — Celery schedule (hourly overage sweep)
-- `backend/server.py` — Celery auto-start
-- `scripts/start_celery.sh` — Celery launcher script
+### Session 4 — Environment Setup (Current - Jan 2026)
+**Fixed setup issues:**
+- Installed all Python dependencies from requirements.txt (Django, Celery, Retell SDK, etc.)
+- Installed missing frontend npm packages (react-router-dom@5, styled-components, history@4)
+- Installed ESLint config (airbnb + plugins)
+- Fixed bot_config.py to handle missing API_TOKEN gracefully
+- Fixed React 19 deprecated ReactDOM.render → createRoot
+- Fixed ESLint blank line errors in routes/index.js
+- Created /app/.env for Django settings
+- Created /app/frontend/.env with REACT_APP_BACKEND_URL
+- Ran Django migrations (SQLite fallback — no PostgreSQL creds configured)
+- Both backend and frontend running successfully
 
 ## Test Results
 - Iteration 3: 9/9 passed (setup)
@@ -68,6 +73,22 @@ Django Telegram Bot for IVR call management via Retell AI, crypto payments via D
 | Inbox consolidation | ✅ |
 | Wallet & Transaction History | ✅ |
 | Dashboard summary | ✅ |
+| Environment setup (local dev) | ✅ |
+
+## Current Environment Status
+- Backend: RUNNING (Django ASGI via uvicorn on port 8001)
+- Frontend: RUNNING (React dev server on port 3000)
+- Database: SQLite (local) — needs POSTGRES_URL env var for Railway PostgreSQL
+- Bot: Needs real API_TOKEN in /app/.env for Telegram functionality
+- Celery: Needs REDIS_URL in /app/.env for task queue
+- Retell AI: Needs RETELL_API_KEY in /app/.env for voice features
+
+## Missing Credentials (for full functionality)
+- `API_TOKEN` — Telegram Bot token
+- `POSTGRES_URL` — Railway PostgreSQL connection string
+- `REDIS_URL` — Redis connection string for Celery
+- `RETELL_API_KEY` — Retell AI API key
+- `DYNOPAY_API_KEY` — DynoPay crypto payment key
 
 ## Backlog
 - [ ] Outbound SMS (requires A2P 10DLC)
