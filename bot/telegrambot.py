@@ -1884,12 +1884,14 @@ def language_selection(message):
             if user_id not in user_data:
                 user_data[user_id] = {}
             user_data[user_id]["set_language"] = selected_language
-            bot.send_message(
-                user_id,
-                f"{EXISTING_USER_WELCOME[lg]}",
-                reply_markup=get_main_menu_keyboard(user_id),
-            )
+            send_welcome(message)
             return
+        # New user — clear any cached keyboard first
+        bot.send_message(
+            user_id,
+            "Welcome! Let's get you set up.",
+            reply_markup=types.ReplyKeyboardRemove(),
+        )
         bot.send_message(
             user_id,
             f"🌍 {PROFILE_LANGUAGE_SELECTION_PROMPT['English']}",
@@ -1897,7 +1899,7 @@ def language_selection(message):
         )
     except Exception as e:
         bot.reply_to(
-            message, f"{PROCESSING_ERROR[lg]} {str(e)}", reply_markup=get_force_reply()
+            message, f"{PROCESSING_ERROR['English']} {str(e)}", reply_markup=get_force_reply()
         )
 
 
