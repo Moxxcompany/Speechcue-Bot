@@ -2121,9 +2121,22 @@ def make_payment(user_id, amount):
         top_up = True
         redirect_uri = f"{webhook_url}/webhook/crypto_transaction"
     elif tx_type == "buy_number":
-        # For phone number purchase via crypto: credit wallet first, then buy
+        # For phone number purchase via crypto: credit wallet, then auto-purchase
         top_up = True
         redirect_uri = f"{webhook_url}/webhook/crypto_transaction"
+
+        # Save purchase intent to DB so webhook can auto-trigger purchase
+        try:
+            user_obj = TelegramUser.objects.get(user_id=user_id)
+            PendingPhoneNumberPurchase.objects.create(
+                user=user_obj,
+                country_code=user_data[user_id].get("buy_number_country", "US"),
+                area_code=user_data[user_id].get("buy_number_area_code"),
+                is_toll_free=user_data[user_id].get("buy_number_toll_free", False),
+                monthly_cost=user_data[user_id].get("buy_number_cost", PHONE_NUMBER_MONTHLY_COST_LOCAL),
+            )
+        except Exception as e:
+            logger.error(f"Failed to save pending purchase for user {user_id}: {e}")
 
     auto_renewal = False
     try:
