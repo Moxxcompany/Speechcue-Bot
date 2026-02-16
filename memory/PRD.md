@@ -1,69 +1,75 @@
-# Speechcad - PRD & Project Memory
+# Speechcad (Speechcue) — PRD & Project Memory
 
 ## Original Problem Statement
-1. Analyze and setup the existing Django Telegram Bot codebase
-2. Update .env with real credentials (Telegram, Retell, PostgreSQL, Redis, DynoPay)
-3. Analyze Retell caller ID, phone number purchasing, call forwarding, subscription payments
-4. Implement fixes: CallerIds validation, agent binding on purchase, crypto auto-purchase
-5. Implement: Real-time DTMF supervisor control, SMS inbox, recording delivery, voicemail/forwarding
-6. Fix all lint errors and clean up code gaps
+Django Telegram Bot for IVR call management via Retell AI, crypto payments via DynoPay, user subscriptions. Tasks: setup, real credentials, inbound billing, Retell agent auto-update, Celery, after-hours routing, and full UI/UX redesign.
 
 ## Architecture
 - **Framework**: Django 4.2.13 (ASGI via uvicorn on port 8001)
 - **Database**: PostgreSQL 17.7 on Railway
 - **Bot**: pyTelegramBotAPI — @Speechcuebot
-- **Voice AI**: Retell AI SDK (authenticated)
-- **Task Queue**: Celery + Redis (Railway Redis)
-- **Payments**: DynoPay crypto + internal wallet system
-
-## Webhook URLs (live on pod)
-- **Retell Voice**: `https://<pod>.preview.emergentagent.com/api/webhook/retell`
-- **Supervisor DTMF**: `https://<pod>.preview.emergentagent.com/api/dtmf/supervisor-check`
-- **Inbound SMS**: `https://<pod>.preview.emergentagent.com/api/webhook/sms`
-- **Telegram**: `https://<pod>.preview.emergentagent.com/api/telegram/webhook/`
-- **Time Check**: `https://<pod>.preview.emergentagent.com/api/time-check`
+- **Voice AI**: Retell AI SDK
+- **Task Queue**: Celery + Redis (Railway) — auto-starts with backend
+- **Payments**: DynoPay crypto + internal wallet
 
 ## What's Been Implemented
 
-### Previous Sessions (2026-02-16)
-- Full environment setup, PostgreSQL migration, real API keys
-- CallerIds validation, agent binding on purchase, crypto auto-purchase
-- Real-time DTMF streaming, supervisor approval, SMS inbox, recording delivery
-- Voicemail/forwarding settings, lint cleanup
+### Session 1 — Setup & Credentials
+- Installed all Python dependencies, ran PostgreSQL migrations
+- Configured real API keys (Telegram, Retell, DynoPay, Redis, PostgreSQL)
+- Set Telegram webhook to pod URL
+- Celery worker + beat auto-start via server.py
 
-### Current Session — Real Credentials Setup (2026-01-XX)
-- **Updated .env** with all real credentials (Telegram, Retell, PostgreSQL, Redis, DynoPay)
-- **PostgreSQL connected**: Railway PostgreSQL 17.7 — 10 plans, 3 users, all migrations applied
-- **Redis connected**: Railway Redis — ping OK
-- **Retell API authenticated**: 200 OK on voice listing
-- **Telegram webhook set**: `setWebhook` → pod URL, bot commands registered (/start, /support)
-- **All webhook endpoints verified** via external URL (100% test pass rate)
+### Session 2 — Real-Time Billing
+- Moved overage charging from 5-min Celery poll to immediate webhook billing
+- `_charge_overage_realtime()` fires on call_ended for both batch and free plan calls
+- Celery task demoted to hourly safety-net
 
-## Connected Services Status
-| Service | Status | Details |
-|---------|--------|---------|
-| PostgreSQL | ✅ Connected | Railway, 17.7, 10 plans, 3 users |
-| Redis | ✅ Connected | Railway Redis |
-| Retell AI | ✅ Authenticated | Voice list returns 200 |
-| Telegram Bot | ✅ Active | @Speechcuebot, webhook set |
-| DynoPay | ✅ Configured | Crypto payments ready |
+### Session 3 — Full UI/UX Redesign (Current)
+**Redesigned Main Menu** (8 buttons, 4 rows):
+- 📞 Phone Numbers | 🎙 IVR Flows
+- ☎️ Make a Call | 📋 Campaigns
+- 📬 Inbox | 💰 Wallet & Billing
+- Account | Help
 
-## Test Results (Iteration 3)
-- Backend: **100%** (9/9 tests passed)
-- All webhook endpoints responding correctly
-- Database and cache connections verified
+**New Features:**
+1. **Phone Numbers Hub** — Buy Number, My Numbers (with count), SMS Inbox (with unread count)
+2. **Inbox Hub** — Call Recordings (fetch from Retell), DTMF Responses (by flow), SMS Messages, Call History (last 10 calls with duration/status)
+3. **Wallet & Billing Hub** — Balance display, Top Up, Transaction History (last 15 txs), View/Upgrade Subscription
+4. **Dashboard Summary** — Returning users see plan/wallet/numbers/minutes at a glance
+5. **Onboarding Fix** — After T&C: Quick Start guide → Free Plan / Premium Plans / How It Works (no forced plan selection)
+6. **34 new translation strings** in 4 languages (EN/ZH/FR/HI)
 
-## Prioritized Backlog
-### P0 - All Complete ✅
-- [x] Set real API tokens ✅
-- [x] Set Telegram webhook to pod URL ✅
-- [x] Celery worker + beat running with auto-start via server.py ✅
-- [x] Inbound call billing ✅
-- [x] After-hours conditional routing ✅
-- [x] Retell agent prompt auto-update ✅
-- [x] Real-time overage billing (charge on call_ended, not 5-min poll) ✅
+**Files Modified:**
+- `bot/keyboard_menus.py` — 5 new keyboard functions
+- `bot/telegrambot.py` — 15+ new handlers, dashboard in send_welcome, _match_menu_text
+- `translations/translations.py` — 34 new translation dicts
+- `bot/webhooks.py` — real-time overage billing
+- `TelegramBot/settings.py` — Celery schedule (hourly overage sweep)
+- `backend/server.py` — Celery auto-start
+- `scripts/start_celery.sh` — Celery launcher script
 
-### P1 - Deferred
+## Test Results
+- Iteration 3: 9/9 passed (setup)
+- Iteration 4: 14/14 passed (real-time billing)
+- Iteration 5: 12/12 passed (UI/UX structure)
+- Iteration 6: 16/16 passed (final validation)
+
+## All Tasks Status
+| Task | Status |
+|------|--------|
+| Setup + real credentials | ✅ |
+| Inbound call billing | ✅ |
+| Retell agent auto-update | ✅ |
+| Telegram webhook + Celery | ✅ |
+| After-hours routing | ✅ |
+| Real-time overage billing | ✅ |
+| Phone Numbers hub | ✅ |
+| Onboarding fix | ✅ |
+| Inbox consolidation | ✅ |
+| Wallet & Transaction History | ✅ |
+| Dashboard summary | ✅ |
+
+## Backlog
 - [ ] Outbound SMS (requires A2P 10DLC)
-- [ ] Web admin dashboard
-- [ ] Production deployment hardening
+- [ ] Call analytics dashboard
+- [ ] Multi-language voice selection in onboarding
