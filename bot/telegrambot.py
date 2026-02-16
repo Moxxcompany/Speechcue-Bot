@@ -3375,6 +3375,13 @@ def handle_single_ivr_call_flow(message):
     dtmf = Pathways.objects.get(pathway_id=pathway_id).dtmf
 
     if validate_mobile(phone_number):
+        gate = pre_call_check(user_id, phone_number, call_type="single")
+        if not gate["allowed"]:
+            bot.send_message(
+                user_id, gate["message"],
+                reply_markup=insufficient_balance_markup(user_id),
+            )
+            return
         response, status = send_call_through_pathway(pathway_id, phone_number, user_id)
         if status == 200:
             call_id = response["call_id"]
