@@ -125,6 +125,12 @@ class UserPhoneNumber(models.Model):
     next_renewal_date = models.DateTimeField()
     is_active = models.BooleanField(default=True)
     auto_renew = models.BooleanField(default=True)
+    # Voicemail settings
+    voicemail_enabled = models.BooleanField(default=False)
+    voicemail_message = models.TextField(blank=True, default="Please leave a message after the tone. We will get back to you shortly.")
+    # Call forwarding settings
+    forwarding_enabled = models.BooleanField(default=False)
+    forwarding_number = models.CharField(max_length=50, blank=True, default="")
 
     class Meta:
         indexes = [
