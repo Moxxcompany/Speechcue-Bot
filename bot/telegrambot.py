@@ -4827,6 +4827,9 @@ def handle_voicemail_toggle(call):
     record.voicemail_enabled = not record.voicemail_enabled
     record.save()
 
+    # Auto-update Retell agent prompt
+    _sync_inbound_settings_to_retell(user_id, record)
+
     status = "enabled ✅" if record.voicemail_enabled else "disabled ❌"
     bot.send_message(
         user_id,
