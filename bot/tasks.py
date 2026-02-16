@@ -56,6 +56,8 @@ from .utils import (
 from .bot_config import *
 from .views import stop_active_batch_calls
 
+logger = logging.getLogger(__name__)
+
 load_dotenv()
 
 
