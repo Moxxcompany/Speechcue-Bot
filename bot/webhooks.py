@@ -453,6 +453,9 @@ def _process_free_plan_call_duration(call_id, agent_id, free_call, started_at, e
             )
             user_subscription.single_ivr_left = 0
             user_subscription.save()
+
+            # Charge overage immediately instead of waiting for Celery
+            _charge_overage_realtime(call_id, subscription_result["user_id"], overage)
         else:
             remaining = single_ivr_left - duration_minutes
             CallDuration.objects.update_or_create(
