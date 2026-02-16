@@ -29,7 +29,7 @@ from payment.models import (
     SubscriptionPlans,
     DTMF_Inbox,
 )
-from bot.views import stop_single_active_call, get_call_details
+from bot.views import get_call_details
 from payment.views import (
     check_user_balance,
     debit_wallet,
