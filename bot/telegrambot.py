@@ -3907,6 +3907,410 @@ def handle_caller_id(call):
     bot.send_message(user_id, summary_details, reply_markup=markup)
 
 
+
+# =============================================================================
+# Phone Number Purchase & Management
+# =============================================================================
+
+PHONE_NUMBER_MONTHLY_COST_LOCAL = 2.00
+PHONE_NUMBER_MONTHLY_COST_TOLL_FREE = 5.00
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "buy_number")
+def handle_buy_number(call):
+    """Show phone number purchase options."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    if user_id not in user_data:
+        user_data[user_id] = {}
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(
+        f"📞 US Local Number (${PHONE_NUMBER_MONTHLY_COST_LOCAL:.0f}/mo)",
+        callback_data="buynum_US_local"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        f"📞 US Toll-Free Number (${PHONE_NUMBER_MONTHLY_COST_TOLL_FREE:.0f}/mo)",
+        callback_data="buynum_US_tollfree"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        f"📞 Canada Local Number (${PHONE_NUMBER_MONTHLY_COST_LOCAL:.0f}/mo)",
+        callback_data="buynum_CA_local"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        "⬅️ Back", callback_data="buynum_back"
+    ))
+
+    bot.send_message(
+        user_id,
+        "🛒 *Purchase a Dedicated Phone Number*\n\n"
+        "Get your own caller ID for outbound calls.\n"
+        "Your number will be exclusively assigned to you.\n\n"
+        "Choose number type:",
+        reply_markup=markup,
+        parse_mode="Markdown",
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("buynum_"))
+def handle_buynum_selection(call):
+    """Handle number type selection and prompt for area code."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    data = call.data.replace("buynum_", "")
+
+    if data == "back":
+        send_caller_id_selection_prompt(user_id)
+        return
+
+    # Parse: US_local, US_tollfree, CA_local
+    parts = data.split("_")
+    country = parts[0]  # US or CA
+    num_type = parts[1]  # local or tollfree
+
+    if user_id not in user_data:
+        user_data[user_id] = {}
+
+    user_data[user_id]["buy_number_country"] = country
+    user_data[user_id]["buy_number_type"] = num_type
+    user_data[user_id]["buy_number_toll_free"] = (num_type == "tollfree")
+    user_data[user_id]["buy_number_cost"] = (
+        PHONE_NUMBER_MONTHLY_COST_TOLL_FREE if num_type == "tollfree"
+        else PHONE_NUMBER_MONTHLY_COST_LOCAL
+    )
+    user_data[user_id]["step"] = "buy_number_area_code"
+
+    if num_type == "tollfree":
+        # No area code needed for toll-free
+        handle_buy_number_confirm(user_id, area_code=None)
+    else:
+        bot.send_message(
+            user_id,
+            f"Enter preferred area code for your {country} number "
+            f"(e.g., 415 for San Francisco, 212 for New York).\n\n"
+            f"Send 'any' for a random area code:",
+            reply_markup=get_force_reply(),
+        )
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step")
+    == "buy_number_area_code"
+)
+def handle_area_code_input(message):
+    """Process area code and show payment options."""
+    user_id = message.chat.id
+    text = message.text.strip().lower()
+
+    area_code = None
+    if text != "any":
+        try:
+            area_code = int(text)
+            if area_code < 100 or area_code > 999:
+                bot.send_message(user_id, "Please enter a valid 3-digit area code or 'any':")
+                return
+        except ValueError:
+            bot.send_message(user_id, "Please enter a valid 3-digit area code or 'any':")
+            return
+
+    handle_buy_number_confirm(user_id, area_code)
+
+
+def handle_buy_number_confirm(user_id, area_code):
+    """Show payment confirmation for phone number purchase."""
+    lg = get_user_language(user_id)
+    cost = user_data[user_id]["buy_number_cost"]
+    country = user_data[user_id]["buy_number_country"]
+    num_type = user_data[user_id]["buy_number_type"]
+    user_data[user_id]["buy_number_area_code"] = area_code
+    user_data[user_id]["step"] = None
+
+    # Get wallet balance
+    try:
+        user = TelegramUser.objects.get(user_id=user_id)
+        balance = float(user.wallet_balance)
+    except TelegramUser.DoesNotExist:
+        balance = 0
+
+    area_text = f"Area code: {area_code}" if area_code else "Random area code"
+    type_text = "Toll-Free" if num_type == "tollfree" else "Local"
+
+    markup = types.InlineKeyboardMarkup()
+    # Wallet payment option
+    if balance >= cost:
+        markup.add(types.InlineKeyboardButton(
+            f"💰 Pay from Wallet (${balance:.2f})",
+            callback_data="buynum_pay_wallet"
+        ))
+    else:
+        markup.add(types.InlineKeyboardButton(
+            f"💰 Wallet (${balance:.2f}) — Insufficient",
+            callback_data="buynum_pay_insufficient"
+        ))
+    # Crypto payment option
+    markup.add(types.InlineKeyboardButton(
+        "💎 Pay with Crypto",
+        callback_data="buynum_pay_crypto"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        "⬅️ Cancel", callback_data="buynum_back"
+    ))
+
+    bot.send_message(
+        user_id,
+        f"📋 *Phone Number Purchase Summary*\n\n"
+        f"Type: {country} {type_text}\n"
+        f"{area_text}\n"
+        f"Monthly cost: ${cost:.2f}/month\n"
+        f"Auto-renewal: Yes (from wallet)\n\n"
+        f"Choose payment method:",
+        reply_markup=markup,
+        parse_mode="Markdown",
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "buynum_pay_insufficient")
+def handle_buynum_insufficient(call):
+    user_id = call.message.chat.id
+    bot.send_message(
+        user_id,
+        "Insufficient wallet balance. Please top up first.",
+        reply_markup=insufficient_balance_markup(user_id),
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "buynum_pay_wallet")
+def handle_buynum_pay_wallet(call):
+    """Process phone number purchase via wallet."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+
+    cost = user_data.get(user_id, {}).get("buy_number_cost", PHONE_NUMBER_MONTHLY_COST_LOCAL)
+    country = user_data.get(user_id, {}).get("buy_number_country", "US")
+    toll_free = user_data.get(user_id, {}).get("buy_number_toll_free", False)
+    area_code = user_data.get(user_id, {}).get("buy_number_area_code")
+
+    bot.send_message(user_id, "⏳ Purchasing your phone number... Please wait.")
+
+    # Debit wallet first
+    result = debit_wallet(
+        user_id, cost,
+        description=f"Phone number purchase ({country})",
+        tx_type="SUB",
+    )
+    if result["status"] != 200:
+        bot.send_message(
+            user_id,
+            f"Payment failed: {result['message']}",
+            reply_markup=insufficient_balance_markup(user_id),
+        )
+        return
+
+    # Purchase from Retell
+    nickname = f"user_{user_id}"
+    retell_result = purchase_phone_number(
+        area_code=area_code,
+        country_code=country,
+        toll_free=toll_free,
+        nickname=nickname,
+    )
+
+    if not retell_result:
+        # Refund wallet
+        from payment.views import refund_wallet
+        refund_wallet(user_id, cost, description="Phone number purchase failed — refund")
+        bot.send_message(
+            user_id,
+            "Failed to purchase number from provider. Wallet has been refunded.\n"
+            "Please try again or contact support.",
+            reply_markup=get_main_menu_keyboard(user_id),
+        )
+        return
+
+    # Save to database
+    from django.utils import timezone as tz
+    from dateutil.relativedelta import relativedelta
+
+    now = tz.now()
+    user_obj = TelegramUser.objects.get(user_id=user_id)
+    phone_record = UserPhoneNumber.objects.create(
+        user=user_obj,
+        phone_number=retell_result.phone_number,
+        country_code=country,
+        area_code=area_code,
+        is_toll_free=toll_free,
+        nickname=nickname,
+        monthly_cost=cost,
+        next_renewal_date=now + relativedelta(months=1),
+        is_active=True,
+        auto_renew=True,
+    )
+
+    bot.send_message(
+        user_id,
+        f"✅ *Phone Number Purchased!*\n\n"
+        f"📞 Your number: `{retell_result.phone_number}`\n"
+        f"🌍 Country: {country}\n"
+        f"💰 Cost: ${cost:.2f}/month (auto-renew from wallet)\n"
+        f"📅 Next renewal: {phone_record.next_renewal_date.strftime('%Y-%m-%d')}\n\n"
+        f"This number will now appear in your caller ID selection.",
+        reply_markup=get_main_menu_keyboard(user_id),
+        parse_mode="Markdown",
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "buynum_pay_crypto")
+def handle_buynum_pay_crypto(call):
+    """Process phone number purchase via crypto."""
+    user_id = call.message.chat.id
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]["transaction_type"] = "buy_number"
+    user_data[user_id]["amount"] = user_data[user_id].get(
+        "buy_number_cost", PHONE_NUMBER_MONTHLY_COST_LOCAL
+    )
+    currency_selection(user_id)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "my_numbers")
+def handle_my_numbers(call):
+    """Show user's purchased phone numbers with management options."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+
+    numbers = UserPhoneNumber.objects.filter(
+        user__user_id=user_id, is_active=True
+    )
+
+    if not numbers.exists():
+        bot.send_message(
+            user_id,
+            "You don't have any phone numbers yet.\n"
+            "Use 'Buy Number' to get your own dedicated caller ID.",
+            reply_markup=get_main_menu_keyboard(user_id),
+        )
+        return
+
+    markup = types.InlineKeyboardMarkup()
+    msg = "📋 *Your Phone Numbers*\n\n"
+
+    for num in numbers:
+        renew_date = num.next_renewal_date.strftime("%Y-%m-%d")
+        msg += (
+            f"📞 `{num.phone_number}`\n"
+            f"   💰 ${num.monthly_cost}/mo | Renews: {renew_date}\n"
+            f"   Auto-renew: {'✅' if num.auto_renew else '❌'}\n\n"
+        )
+        markup.add(types.InlineKeyboardButton(
+            f"🗑 Release {num.phone_number}",
+            callback_data=f"releasenum_{num.phone_number}"
+        ))
+        if num.auto_renew:
+            markup.add(types.InlineKeyboardButton(
+                f"🔕 Disable auto-renew {num.phone_number[-4:]}",
+                callback_data=f"togglerenew_{num.phone_number}"
+            ))
+        else:
+            markup.add(types.InlineKeyboardButton(
+                f"🔔 Enable auto-renew {num.phone_number[-4:]}",
+                callback_data=f"togglerenew_{num.phone_number}"
+            ))
+
+    markup.add(types.InlineKeyboardButton("⬅️ Back", callback_data="buynum_back"))
+    bot.send_message(user_id, msg, reply_markup=markup, parse_mode="Markdown")
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("releasenum_"))
+def handle_release_number(call):
+    """Release a purchased phone number."""
+    user_id = call.message.chat.id
+    phone = call.data.replace("releasenum_", "")
+
+    record = UserPhoneNumber.objects.filter(
+        user__user_id=user_id, phone_number=phone, is_active=True
+    ).first()
+
+    if not record:
+        bot.send_message(user_id, "Number not found.", reply_markup=get_main_menu_keyboard(user_id))
+        return
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(
+        "✅ Yes, release it", callback_data=f"confirmrelease_{phone}"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        "❌ Cancel", callback_data="my_numbers"
+    ))
+
+    bot.send_message(
+        user_id,
+        f"⚠️ Are you sure you want to release `{phone}`?\n\n"
+        f"This action cannot be undone. The number will be returned to the provider.",
+        reply_markup=markup,
+        parse_mode="Markdown",
+    )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("confirmrelease_"))
+def handle_confirm_release(call):
+    """Confirm and execute phone number release."""
+    user_id = call.message.chat.id
+    phone = call.data.replace("confirmrelease_", "")
+
+    record = UserPhoneNumber.objects.filter(
+        user__user_id=user_id, phone_number=phone, is_active=True
+    ).first()
+
+    if not record:
+        bot.send_message(user_id, "Number not found.", reply_markup=get_main_menu_keyboard(user_id))
+        return
+
+    # Release from Retell
+    success = release_phone_number(phone)
+    if success:
+        record.is_active = False
+        record.save()
+        bot.send_message(
+            user_id,
+            f"✅ Number `{phone}` has been released.",
+            reply_markup=get_main_menu_keyboard(user_id),
+            parse_mode="Markdown",
+        )
+    else:
+        bot.send_message(
+            user_id,
+            f"Failed to release number. Please try again or contact support.",
+            reply_markup=get_main_menu_keyboard(user_id),
+        )
+
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("togglerenew_"))
+def handle_toggle_auto_renew(call):
+    """Toggle auto-renewal for a phone number."""
+    user_id = call.message.chat.id
+    phone = call.data.replace("togglerenew_", "")
+
+    record = UserPhoneNumber.objects.filter(
+        user__user_id=user_id, phone_number=phone, is_active=True
+    ).first()
+
+    if not record:
+        bot.send_message(user_id, "Number not found.", reply_markup=get_main_menu_keyboard(user_id))
+        return
+
+    record.auto_renew = not record.auto_renew
+    record.save()
+
+    status = "enabled" if record.auto_renew else "disabled"
+    bot.send_message(
+        user_id,
+        f"Auto-renewal {status} for `{phone}`.",
+        reply_markup=get_main_menu_keyboard(user_id),
+        parse_mode="Markdown",
+    )
+
+
+
 @bot.message_handler(func=lambda message: message.text in YES_PROCEED.values())
 def proceed_single_ivr(message):
     user_id = message.chat.id
