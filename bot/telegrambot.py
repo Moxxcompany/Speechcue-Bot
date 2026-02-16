@@ -3947,6 +3947,14 @@ def start_batch_calls_now(message):
     phone_number = user_data[user_id]["phone_number"]
     caller_id = user_data[user_id]["caller_id"]
     campaign_id = user_data[user_id]["campaign_id"]
+    # Pre-call gate for bulk
+    gate = pre_call_check_bulk(user_id, phone_number, call_type="bulk")
+    if not gate["allowed"]:
+        bot.send_message(
+            user_id, gate["message"],
+            reply_markup=insufficient_balance_markup(user_id),
+        )
+        return
     if check_user_data(user_data, user_id) == "task":
         task = user_data[user_id]["task"]
         response = bulk_ivr_flow(
