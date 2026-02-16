@@ -187,22 +187,20 @@ def check_call_status():
 
 @shared_task
 def call_status_free_plan():
-    bland_api_key = os.getenv("BLAND_API_KEY")
+    """Monitor free plan call durations via Retell API."""
+    from bot.views import get_call_details, stop_single_active_call
+
     tracked_calls = ManageFreePlanSingleIVRCall.objects.filter(
         call_status__in=["new", "queued", "started"]
     )
     for call in tracked_calls:
-        headers = {"authorization": f"{bland_api_key}"}
         try:
-            response = fetch_with_retry(
-                f"https://api.bland.ai/v1/calls/{call.call_id}", headers
-            )
+            call_data = get_call_details(call.call_id)
             print(f"Processing call ID: {call.call_id}")
-        except ValueError as e:
+        except Exception as e:
             print(f"Failed to fetch call details: {str(e)}")
             continue
 
-        call_data = response.json()
         queue_status = call_data.get("queue_status", "")
         started_at_str = call_data.get("started_at", None)
         end_at_str = call_data.get("end_at", None)
