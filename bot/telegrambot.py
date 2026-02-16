@@ -4177,6 +4177,20 @@ def handle_buynum_pay_wallet(call):
         auto_renew=True,
     )
 
+    # Bind agent to the purchased number for outbound use
+    try:
+        from bot.models import Pathways
+        user_pathway = Pathways.objects.filter(user_id=user_obj).first()
+        if user_pathway:
+            update_phone_number_agent(
+                retell_result.phone_number,
+                outbound_agent_id=user_pathway.pathway_id,
+                nickname=nickname,
+            )
+            logger.info(f"Bound agent {user_pathway.pathway_id} to {retell_result.phone_number}")
+    except Exception as e:
+        logger.warning(f"Agent binding skipped for {retell_result.phone_number}: {e}")
+
     bot.send_message(
         user_id,
         f"✅ *Phone Number Purchased!*\n\n"
@@ -4184,7 +4198,8 @@ def handle_buynum_pay_wallet(call):
         f"🌍 Country: {country}\n"
         f"💰 Cost: ${cost:.2f}/month (auto-renew from wallet)\n"
         f"📅 Next renewal: {phone_record.next_renewal_date.strftime('%Y-%m-%d')}\n\n"
-        f"This number will now appear in your caller ID selection.",
+        f"This number will now appear in your caller ID selection.\n"
+        f"Use 📋 My Numbers to manage agent binding for inbound calls.",
         reply_markup=get_main_menu_keyboard(user_id),
         parse_mode="Markdown",
     )
