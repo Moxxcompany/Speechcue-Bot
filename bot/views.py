@@ -563,7 +563,6 @@ def send_task_through_call(task, phone_number, caller_id, user_id):
 
         plan = UserSubscription.objects.get(user_id=user_id).plan_id
         if plan.plan_price == 0:
-            max_duration = UserSubscription.objects.get(user_id=user_id).single_ivr_left
             ManageFreePlanSingleIVRCall.objects.create(
                 call_id=call_id,
                 pathway_id=task_obj.id,
