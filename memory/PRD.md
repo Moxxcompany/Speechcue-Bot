@@ -57,7 +57,12 @@ Analyze and setup the existing Speechcad Telegram IVR Bot codebase.
 - [x] **International rate table** — 50+ countries, 8 pricing regions ($0.45-$0.85/min)
 - [x] **International billing** in webhooks — real-time wallet deduction on call_ended
 - [x] **4 call initiation points** gated (single IVR, task-based, confirmed, batch)
-- [x] **Bot text updated** — new plan names, pricing display, overage rates
+- [x] **Real-time billing** — ActiveCall model tracks live calls, Celery monitor every 30s
+- [x] **Pre-deduction** — 2-min wallet hold on call_started for wallet-billed calls
+- [x] **Incremental billing** — wallet debited every 30 seconds during active calls
+- [x] **Low balance warning** — Telegram message sent when wallet can't cover next minute
+- [x] **Auto-termination** — calls force-ended via Retell API when wallet exhausted
+- [x] **Reconciliation** — call_ended webhook settles final charge (refund overpay / charge shortfall)
 
 ## Environment Details
 - **Backend**: http://localhost:8001 (uvicorn ASGI)
