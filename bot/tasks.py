@@ -325,6 +325,13 @@ def renew_phone_numbers():
     return f"Processed {due_numbers.count()} numbers"
 
 
+@shared_task
+def sync_caller_ids_task():
+    """Periodic task to validate CallerIds against Retell phone numbers.
+    Removes entries that don't exist in Retell account."""
+    kept, removed = sync_caller_ids_with_retell()
+    logger.info(f"[sync_caller_ids_task] kept={kept}, removed={removed}")
+    return f"CallerIds sync: kept={kept}, removed={removed}"
 
 
 @shared_task
