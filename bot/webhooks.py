@@ -614,6 +614,119 @@ def _deliver_recording_to_user(call_data):
         logger.warning(f"[recording] Failed to send recording to user {user_id}: {e}")
 
 
+def _bill_voicemail_if_applicable(call_data):
+    """
+    Charge a flat voicemail fee when an inbound call to a user's number
+    results in a voicemail recording (recording_url present + short duration).
+    """
+    call_id = call_data.get("call_id", "")
+    recording_url = call_data.get("recording_url", "")
+    to_number = call_data.get("to_number", "")
+    duration_ms = call_data.get("duration_ms", 0) or 0
+
+    if not recording_url or not to_number:
+        return
+
+    phone_record = UserPhoneNumber.objects.filter(
+        phone_number=to_number, is_active=True, voicemail_enabled=True
+    ).first()
+
+    if not phone_record:
+        return
+
+    user_id = phone_record.user.user_id
+
+    # Charge voicemail flat fee
+    result = debit_wallet(
+        user_id, float(VOICEMAIL_FLAT_FEE),
+        description=f"Voicemail fee ({call_id[:12]})",
+        tx_type="OVR",
+    )
+    if result["status"] == 200:
+        logger.info(f"[voicemail] Charged ${VOICEMAIL_FLAT_FEE} to user {user_id} for voicemail on {to_number}")
+        try:
+            bot.send_message(
+                user_id,
+                f"📬 *Voicemail received* — ${VOICEMAIL_FLAT_FEE} charged to wallet.",
+                parse_mode="Markdown",
+            )
+        except Exception:
+            pass
+    else:
+        logger.warning(f"[voicemail] Failed to charge user {user_id}: {result}")
+
+
+# =============================================================================
+# After-Hours Time Check — called by Retell custom function mid-call
+# =============================================================================
+
+@csrf_exempt
+def time_check_endpoint(request):
+    """
+    Endpoint for Retell custom function to check current time in user's timezone.
+    Used for after-hours/business hours routing.
+
+    POST /api/time-check
+    Body: {"call_id": "...", "args": {"phone_number": "+1..."}}
+    """
+    if request.method != "POST":
+        return JsonResponse({"status": "method_not_allowed"}, status=405)
+
+    try:
+        payload = json.loads(request.body)
+        args = payload.get("args", {})
+        phone_number = args.get("phone_number", "")
+
+        if not phone_number:
+            # Try to get from call_id
+            call_id = payload.get("call_id", "")
+            to_number = payload.get("to_number", "")
+            phone_number = to_number
+
+        if not phone_number:
+            return JsonResponse({
+                "current_time": timezone.now().strftime("%H:%M"),
+                "timezone": "UTC",
+                "is_business_hours": True,
+            })
+
+        phone_record = UserPhoneNumber.objects.filter(
+            phone_number=phone_number, is_active=True
+        ).first()
+
+        if not phone_record or not phone_record.business_hours_enabled:
+            return JsonResponse({
+                "current_time": timezone.now().strftime("%H:%M"),
+                "timezone": "UTC",
+                "is_business_hours": True,
+            })
+
+        import pytz
+        user_tz = pytz.timezone(phone_record.business_hours_timezone or "US/Eastern")
+        now_local = timezone.now().astimezone(user_tz)
+        current_time = now_local.time()
+
+        is_business_hours = (
+            phone_record.business_hours_start <= current_time <= phone_record.business_hours_end
+        )
+
+        return JsonResponse({
+            "current_time": now_local.strftime("%H:%M"),
+            "timezone": str(user_tz),
+            "is_business_hours": is_business_hours,
+            "business_hours": f"{phone_record.business_hours_start.strftime('%H:%M')}-{phone_record.business_hours_end.strftime('%H:%M')}",
+        })
+
+    except Exception as e:
+        logger.error(f"[time_check] Error: {e}")
+        return JsonResponse({
+            "current_time": timezone.now().strftime("%H:%M"),
+            "timezone": "UTC",
+            "is_business_hours": True,
+            "error": str(e),
+        })
+
+
 # =============================================================================
 # Supervisor DTMF Check — called by Retell custom function mid-call
 # =============================================================================
