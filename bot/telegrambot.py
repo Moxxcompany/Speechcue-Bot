@@ -97,13 +97,13 @@ from bot.bot_config import *  # noqa
 from bot.callback_query_handlers import *  # noqa
 
 VALID_NODE_TYPES = [
-    f"End Call 🛑",
-    f"Call Transfer 🔄",
-    f"Get DTMF Input 📞",
-    f"Play Message ▶️",
-    f"Menu 📋",
-    f"Feedback Node",
-    f"Question",
+    "End Call 🛑",
+    "Call Transfer 🔄",
+    "Get DTMF Input 📞",
+    "Play Message ▶️",
+    "Menu 📋",
+    "Feedback Node",
+    "Question",
 ]
 available_commands = {
     "/create_flow": "Create a new pathway",
