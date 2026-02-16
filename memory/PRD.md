@@ -2,58 +2,58 @@
 
 ## Original Problem Statement
 User requested: "analyze and setup" — analyze the existing codebase and set it up to be runnable.
+Then: update .env with real credentials, switch to PostgreSQL, configure webhooks.
 
 ## Architecture
 - **Framework**: Django 4.2.13 (ASGI via uvicorn)
-- **Database**: SQLite (fallback; PostgreSQL supported via env vars)
-- **Bot**: pyTelegramBotAPI (Telegram Bot)
-- **Voice AI**: Retell AI SDK (migrated from Bland.ai)
-- **Task Queue**: Celery + Redis (django-celery-beat for periodic tasks)
-- **Payments**: Crypto wallet-based (internal wallet system)
+- **Database**: PostgreSQL on Railway (`nozomi.proxy.rlwy.net:19535/railway`)
+- **Bot**: pyTelegramBotAPI (Telegram Bot) — Token verified working
+- **Voice AI**: Retell AI SDK — API key verified working (200 OK)
+- **Task Queue**: Celery + Redis (Railway Redis instance)
+- **Payments**: DynoPay API + internal wallet system
+
+## Pod URL
+`https://f723c344-fa07-4ea8-924c-2345ee24681e.preview.emergentagent.com`
+
+## Webhook URLs
+- **Telegram Webhook**: `https://f723c344-fa07-4ea8-924c-2345ee24681e.preview.emergentagent.com/api/telegram/webhook/`
+- **Retell Webhook**: `https://f723c344-fa07-4ea8-924c-2345ee24681e.preview.emergentagent.com/api/webhook/retell`
+- **Call Details Webhook**: `https://f723c344-fa07-4ea8-924c-2345ee24681e.preview.emergentagent.com/call_details`
 
 ## Django Apps
 1. **bot** - Core Telegram bot logic, IVR flow creation, call management, Retell AI integration
-2. **payment** - Subscription plans, wallet, transactions, overage pricing
+2. **payment** - Subscription plans, wallet, transactions, overage pricing, DynoPay
 3. **user** - TelegramUser model with wallet balance
 
-## Key Endpoints
-- `/admin/` - Django admin
-- `/api/telegram/webhook/` - Telegram webhook
-- `/api/webhook/retell` - Retell AI webhook
-- `/create_flow/` / `/view_flows/` - Flow management
-- `/terms-and-conditions/` - Terms page
-- `/call_details` - Call details webhook
-
-## What's Been Implemented (Setup - 2026-02-16)
+## What's Been Implemented
+### Setup - 2026-02-16
 - Installed all Python dependencies (Django 4.2.13, pyTelegramBotAPI, retell-sdk, celery, etc.)
-- Created `/app/.env` with placeholder API tokens
-- Ran Django migrations (SQLite)
+- Created `/app/.env` with all real API keys and credentials
+- Configured PostgreSQL via POSTGRES_URL (Railway)
+- Ran Django migrations against PostgreSQL
 - Backend running via supervisor on port 8001 (ASGI)
-- All Django endpoints responding correctly
+- All endpoints verified working (Retell 200 OK, Telegram token valid)
 
-## Environment Variables Needed (User Must Provide)
-- `API_TOKEN` - Telegram Bot Token (from @BotFather)
-- `RETELL_API_KEY` - Retell AI API Key
-- `REDIS_URL` - Redis connection URL (for Celery)
-- PostgreSQL credentials (optional, for production)
+## Environment Variables Configured
+- `API_TOKEN` - Telegram Bot Token (verified working)
+- `RETELL_API_KEY` - Retell AI API Key (verified 200 OK)
+- `POSTGRES_URL` - Railway PostgreSQL
+- `REDIS_URL` - Railway Redis
+- `DYNOPAY_BASE_URL`, `DYNOPAY_API_KEY`, `DYNOPAY_WALLET_TOKEN` - Payment gateway
+- `webhook_url` - Pod external URL
 
 ## Prioritized Backlog
 ### P0 - Critical
-- [ ] User provides real Telegram Bot Token
-- [ ] User provides real Retell AI API Key
-- [ ] Set up Redis for Celery background tasks
+- [x] Real API keys configured
+- [x] PostgreSQL connected and migrated
+- [ ] Set Telegram webhook to pod URL
+- [ ] Start Celery worker + beat for background tasks
 
-### P1 - Important
-- [ ] Configure PostgreSQL (for ArrayField support in FeedbackLogs/FeedbackDetails)
-- [ ] Set up Celery worker and beat scheduler
-- [ ] Configure webhook URLs for Telegram and Retell
+### P1 - Important  
+- [ ] Verify DynoPay integration working
+- [ ] Test full bot flow end-to-end
+- [ ] Configure admin superuser
 
 ### P2 - Nice to Have
-- [ ] Add monitoring/logging
-- [ ] Set up admin superuser
+- [ ] Add web dashboard for monitoring
 - [ ] Production deployment configuration
-
-## Next Tasks
-1. Get real API keys from user (Telegram, Retell)
-2. Set up Redis and Celery if background tasks needed
-3. Any feature additions or modifications requested
