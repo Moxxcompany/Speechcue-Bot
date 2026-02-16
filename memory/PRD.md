@@ -7,6 +7,7 @@
 4. Configure Telegram bot webhook
 5. Remove DynoPay wallet, build internal wallet, keep DynoPay crypto
 6. Implement Retell AI migration
+7. Replace Celery polling with Retell real-time webhooks
 
 ## Architecture
 - **Framework**: Django 4.2.13 (ASGI/uvicorn on port 8001)
@@ -16,44 +17,40 @@
 - **Wallet**: Internal PostgreSQL (credit/debit/refund)
 - **Crypto Payments**: DynoPay API (master wallet token)
 - **Voice API**: Retell AI (retell-sdk 5.12.0)
+- **Call Events**: Real-time via Retell webhooks (no polling)
 
 ## What's Been Implemented
 - [x] Full codebase setup
 - [x] Bot token + webhook configured
 - [x] Email/phone onboarding steps removed
 - [x] Internal wallet system + DynoPay crypto payments
-- [x] **RETELL AI MIGRATION COMPLETE:**
-  - bot/views.py: All 22 functions migrated (agents, calls, voices, batch, stop, transcripts)
-  - bot/retell_service.py: Singleton Retell client
-  - bot/tasks.py: check_call_status & call_status_free_plan use Retell
-  - bot/webhooks.py: Handles Retell webhook events
-  - bot/keyboard_menus.py: Voice filtering updated for Retell format
-  - Retell API verified: 182 voices, 2 agents loaded, webhooks working
+- [x] Retell AI migration (all 22 functions)
+- [x] **Webhook-based call processing:**
+  - call_started → updates call status in DB
+  - call_ended → processes duration, billing, DTMF, overage tracking
+  - call_analyzed → captures sentiment, summary (new Retell capability)
+  - 3 Celery polling tasks deprecated (check_call_status, call_status_free_plan, process_call_logs)
 
-## Retell AI Migration Details
-### Files Changed
-| File | Changes |
-|------|---------|
-| bot/views.py | Complete rewrite — all Bland.ai → Retell SDK |
-| bot/retell_service.py | New — Retell client singleton |
-| bot/tasks.py | check_call_status, call_status_free_plan → Retell |
-| bot/webhooks.py | Retell webhook event format |
-| bot/keyboard_menus.py | Voice filter for Retell list format |
-| TelegramBot/settings.py | Added RETELL_API_KEY |
-| .env | Added RETELL_API_KEY |
-| requirements.txt | Added retell-sdk==5.12.0 |
+## Webhook Architecture
+```
+Retell AI → POST /api/webhook/retell → bot/webhooks.py
+  ├── call_started  → Update BatchCallLogs/CallLogsTable status
+  ├── call_ended    → Duration billing + DTMF extraction + overage tracking
+  └── call_analyzed → Sentiment + summary logging
+```
+Retell webhook URL: https://<domain>/api/webhook/retell
 
 ## Prioritized Backlog
 ### P0 - Testing
 - Full bot onboarding flow test
-- IVR flow creation test
-- Call placement test (needs Retell phone number)
+- IVR call test (needs Retell phone number)
 
-### P1 - Retell Phone Number
-- Purchase/import number in Retell dashboard
-- Configure as from_number for outbound calls
+### P1 - Retell Dashboard Config
+- Purchase phone number in Retell
+- Configure webhook URL on agents
+- Set max_call_duration_ms for free plan agents
 
 ### P2 - Enhancements
-- Webhook-based call monitoring (replace Celery polling)
-- Call recording URL support
-- Post-call analysis (sentiment, summary)
+- Store call_analysis (sentiment/summary) in new model
+- Call recording playback in bot
+- Admin dashboard
