@@ -1635,7 +1635,7 @@ def send_welcome(message):
         num_count = UserPhoneNumber.objects.filter(user_id=user_id, is_active=True).count()
 
         dashboard = (
-            f"👋 *{WELCOME_BACK[lg]}, {user.name or 'there'}!*\n\n"
+            f"👋 *{WELCOME_BACK[lg]}, {user.user_name or 'there'}!*\n\n"
             f"📊 *{DASHBOARD_SUMMARY[lg]}*\n"
             f"├ {PLAN_LABEL[lg]}: *{plan_name}*\n"
             f"├ {WALLET_LABEL[lg]}: *${balance}*\n"
