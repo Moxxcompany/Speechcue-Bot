@@ -2,6 +2,7 @@ import ast
 import logging
 import os
 from datetime import timedelta
+from decimal import Decimal
 from huey import crontab
 from huey.contrib.djhuey import db_task, periodic_task, HUEY
 from celery import shared_task
