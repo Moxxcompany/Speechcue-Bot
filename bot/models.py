@@ -135,6 +135,31 @@ class UserPhoneNumber(models.Model):
         return f"{self.phone_number} (user={self.user_id}, active={self.is_active})"
 
 
+class PendingPhoneNumberPurchase(models.Model):
+    """Tracks phone number purchase intent when paying via crypto.
+    After crypto payment confirms and wallet is credited, this record
+    triggers the auto-purchase flow."""
+    user = models.ForeignKey(
+        "user.TelegramUser", on_delete=models.CASCADE, related_name="pending_purchases"
+    )
+    country_code = models.CharField(max_length=5, default="US")
+    area_code = models.IntegerField(null=True, blank=True)
+    is_toll_free = models.BooleanField(default=False)
+    monthly_cost = models.DecimalField(max_digits=6, decimal_places=2, default=2.00)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_fulfilled = models.BooleanField(default=False)
+    is_failed = models.BooleanField(default=False)
+    failure_reason = models.TextField(blank=True, default="")
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "is_fulfilled"]),
+        ]
+
+    def __str__(self):
+        return f"PendingPurchase(user={self.user_id}, {self.country_code}, fulfilled={self.is_fulfilled})"
+
+
 class ActiveCall(models.Model):
     """Tracks live/ongoing calls for real-time billing."""
     call_id = models.CharField(max_length=255, primary_key=True)

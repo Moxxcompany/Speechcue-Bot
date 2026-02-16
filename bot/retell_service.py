@@ -93,3 +93,37 @@ def list_retell_phone_numbers():
     except Exception as e:
         logger.error(f"Failed to list phone numbers: {e}")
         return []
+
+
+def get_retell_phone_number_set():
+    """Returns a set of all phone numbers registered in Retell (E.164 format)."""
+    numbers = list_retell_phone_numbers()
+    return {n.phone_number for n in numbers if hasattr(n, "phone_number")}
+
+
+def sync_caller_ids_with_retell():
+    """
+    Validate CallerIds table against Retell's actual phone numbers.
+    Removes entries that don't exist in Retell.
+    Returns (kept_count, removed_count).
+    """
+    from bot.models import CallerIds
+
+    retell_numbers = get_retell_phone_number_set()
+    if not retell_numbers:
+        logger.warning("sync_caller_ids: No numbers returned from Retell — skipping purge")
+        return 0, 0
+
+    all_caller_ids = CallerIds.objects.all()
+    kept = 0
+    removed = 0
+    for cid in all_caller_ids:
+        if cid.caller_id not in retell_numbers:
+            logger.info(f"sync_caller_ids: Removing invalid CallerIds entry: {cid.caller_id}")
+            cid.delete()
+            removed += 1
+        else:
+            kept += 1
+
+    logger.info(f"sync_caller_ids: kept={kept}, removed={removed}")
+    return kept, removed
