@@ -3,7 +3,7 @@ import os, telebot
 from django.core.wsgi import get_wsgi_application
 from telebot.types import BotCommand, BotCommandScopeDefault
 
-API_TOKEN = os.getenv("API_TOKEN") or "placeholder:token"
+API_TOKEN = os.getenv("API_TOKEN") or "000000000:AAFakeTokenForLocalDev"
 bot = telebot.TeleBot(API_TOKEN, parse_mode="MARKDOWN")
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "TelegramBot.settings")
 application = get_wsgi_application()
