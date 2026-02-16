@@ -11,6 +11,7 @@ APP_DIR="/app"
 
 cd "$APP_DIR"
 export DJANGO_SETTINGS_MODULE=TelegramBot.settings
+export PATH="/root/.venv/bin:$PATH"
 
 # Source .env
 set -a
