@@ -2112,10 +2112,22 @@ def make_payment(user_id, amount):
     currency = user_data[user_id]["currency"]
     top_up = False
     redirect_uri = f"{webhook_url}/webhook/crypto_deposit"
-    auto_renewal = UserSubscription.objects.get(user_id=user_id).auto_renewal
-    if user_data[user_id]["transaction_type"] == "top_up":
+    tx_type = user_data[user_id].get("transaction_type", "payment")
+
+    if tx_type == "top_up":
         top_up = True
         redirect_uri = f"{webhook_url}/webhook/crypto_transaction"
+    elif tx_type == "buy_number":
+        # For phone number purchase via crypto: credit wallet first, then buy
+        top_up = True
+        redirect_uri = f"{webhook_url}/webhook/crypto_transaction"
+
+    auto_renewal = False
+    try:
+        auto_renewal = UserSubscription.objects.get(user_id=user_id).auto_renewal
+    except UserSubscription.DoesNotExist:
+        pass
+
     crypto_payment = create_crypto_payment(
         user_id, amount, currency, redirect_uri, auto_renewal, top_up
     )
@@ -2128,6 +2140,14 @@ def make_payment(user_id, amount):
     qr_code_base64 = response_data.get("qr_code")
     address = response_data.get("address")
     crypto_amount = response_data.get("crypto_amount")
+
+    if tx_type == "buy_number":
+        bot.send_message(
+            user_id,
+            f"💎 After crypto payment is confirmed, your wallet will be credited "
+            f"and the phone number will be purchased automatically.\n",
+        )
+
     send_qr_code(user_id, address, crypto_amount, qr_code_base64)
 
 
