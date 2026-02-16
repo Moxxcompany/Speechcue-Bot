@@ -4378,11 +4378,19 @@ def handle_my_numbers(call):
 
     for num in numbers:
         renew_date = num.next_renewal_date.strftime("%Y-%m-%d")
+        vm_icon = "📬" if num.voicemail_enabled else ""
+        fwd_icon = f"→ {num.forwarding_number}" if num.forwarding_enabled and num.forwarding_number else ""
         msg += (
             f"📞 `{num.phone_number}`\n"
             f"   💰 ${num.monthly_cost}/mo | Renews: {renew_date}\n"
-            f"   Auto-renew: {'✅' if num.auto_renew else '❌'}\n\n"
+            f"   Auto-renew: {'✅' if num.auto_renew else '❌'}"
+            f"{' | ' + vm_icon + ' VM' if vm_icon else ''}"
+            f"{' | ' + fwd_icon if fwd_icon else ''}\n\n"
         )
+        markup.add(types.InlineKeyboardButton(
+            f"⚙️ Settings {num.phone_number[-4:]}",
+            callback_data=f"numset_{num.phone_number}"
+        ))
         markup.add(types.InlineKeyboardButton(
             f"🔗 Bind Agent {num.phone_number[-4:]}",
             callback_data=f"bindagent_{num.phone_number}"
@@ -4401,6 +4409,11 @@ def handle_my_numbers(call):
                 f"🔔 Enable auto-renew {num.phone_number[-4:]}",
                 callback_data=f"togglerenew_{num.phone_number}"
             ))
+
+    # SMS Inbox button
+    unread_sms = SMSInbox.objects.filter(user__user_id=user_id, is_read=False).count()
+    sms_label = f"📩 SMS Inbox ({unread_sms} unread)" if unread_sms else "📩 SMS Inbox"
+    markup.add(types.InlineKeyboardButton(sms_label, callback_data="sms_inbox"))
 
     markup.add(types.InlineKeyboardButton("⬅️ Back", callback_data="buynum_back"))
     bot.send_message(user_id, msg, reply_markup=markup, parse_mode="Markdown")
