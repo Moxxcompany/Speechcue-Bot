@@ -2558,3 +2558,295 @@ DATE_RANGE_SELECTED = {
     "French": "Plage de dates sélectionnée :",
     "Hindi": "चयनित तिथि सीमा:",
 }
+
+# =============================================================================
+# NEW UI/UX — Phone Numbers, Inbox, Wallet, Dashboard, Onboarding
+# =============================================================================
+
+PHONE_NUMBERS_MENU = {
+    "English": "Phone Numbers",
+    "Chinese": "电话号码",
+    "French": "Numéros de téléphone",
+    "Hindi": "फोन नंबर",
+}
+
+MY_NUMBERS = {
+    "English": "My Numbers",
+    "Chinese": "我的号码",
+    "French": "Mes numéros",
+    "Hindi": "मेरे नंबर",
+}
+
+SMS_INBOX_MENU = {
+    "English": "SMS Inbox",
+    "Chinese": "短信收件箱",
+    "French": "Boîte SMS",
+    "Hindi": "SMS इनबॉक्स",
+}
+
+INBOX_MENU = {
+    "English": "Inbox",
+    "Chinese": "收件箱",
+    "French": "Boîte de réception",
+    "Hindi": "इनबॉक्स",
+}
+
+CALL_RECORDINGS_MENU = {
+    "English": "Call Recordings",
+    "Chinese": "通话录音",
+    "French": "Enregistrements d'appels",
+    "Hindi": "कॉल रिकॉर्डिंग",
+}
+
+CALL_HISTORY_MENU = {
+    "English": "Call History",
+    "Chinese": "通话记录",
+    "French": "Historique des appels",
+    "Hindi": "कॉल इतिहास",
+}
+
+WALLET_AND_BILLING = {
+    "English": "Wallet & Billing",
+    "Chinese": "钱包和账单",
+    "French": "Portefeuille et facturation",
+    "Hindi": "वॉलेट और बिलिंग",
+}
+
+TRANSACTION_HISTORY = {
+    "English": "Transaction History",
+    "Chinese": "交易记录",
+    "French": "Historique des transactions",
+    "Hindi": "लेनदेन इतिहास",
+}
+
+MAKE_CALL_MENU = {
+    "English": "Make a Call",
+    "Chinese": "拨打电话",
+    "French": "Passer un appel",
+    "Hindi": "कॉल करें",
+}
+
+IVR_FLOWS_MENU = {
+    "English": "IVR Flows",
+    "Chinese": "IVR 流程",
+    "French": "Flux IVR",
+    "Hindi": "IVR फ्लो",
+}
+
+CAMPAIGNS_MENU = {
+    "English": "Campaigns",
+    "Chinese": "活动",
+    "French": "Campagnes",
+    "Hindi": "अभियान",
+}
+
+DASHBOARD_SUMMARY = {
+    "English": "Your Dashboard",
+    "Chinese": "您的仪表板",
+    "French": "Votre tableau de bord",
+    "Hindi": "आपका डैशबोर्ड",
+}
+
+WELCOME_BACK = {
+    "English": "Welcome back",
+    "Chinese": "欢迎回来",
+    "French": "Bienvenue",
+    "Hindi": "वापसी पर स्वागत है",
+}
+
+QUICK_START_TITLE = {
+    "English": "Welcome to Speechcue! Here's how to get started:",
+    "Chinese": "欢迎来到 Speechcue！以下是入门指南：",
+    "French": "Bienvenue sur Speechcue ! Voici comment commencer :",
+    "Hindi": "Speechcue में आपका स्वागत है! शुरू करने का तरीका:",
+}
+
+QUICK_START_STEP_1 = {
+    "English": "Subscribe to a plan",
+    "Chinese": "订阅计划",
+    "French": "Souscrire à un plan",
+    "Hindi": "प्लान की सदस्यता लें",
+}
+
+QUICK_START_STEP_2 = {
+    "English": "Create your first IVR flow",
+    "Chinese": "创建您的第一个IVR流程",
+    "French": "Créez votre premier flux IVR",
+    "Hindi": "अपना पहला IVR फ्लो बनाएं",
+}
+
+QUICK_START_STEP_3 = {
+    "English": "Buy a phone number",
+    "Chinese": "购买电话号码",
+    "French": "Achetez un numéro de téléphone",
+    "Hindi": "एक फोन नंबर खरीदें",
+}
+
+QUICK_START_STEP_4 = {
+    "English": "Make your first call!",
+    "Chinese": "拨打您的第一个电话！",
+    "French": "Passez votre premier appel !",
+    "Hindi": "अपनी पहली कॉल करें!",
+}
+
+ACTIVATE_FREE_PLAN = {
+    "English": "Activate Free Plan",
+    "Chinese": "激活免费计划",
+    "French": "Activer le plan gratuit",
+    "Hindi": "मुफ़्त प्लान सक्रिय करें",
+}
+
+VIEW_PREMIUM_PLANS = {
+    "English": "View Premium Plans",
+    "Chinese": "查看高级计划",
+    "French": "Voir les plans premium",
+    "Hindi": "प्रीमियम प्लान देखें",
+}
+
+HOW_IT_WORKS = {
+    "English": "How It Works",
+    "Chinese": "使用方法",
+    "French": "Comment ça marche",
+    "Hindi": "यह कैसे काम करता है",
+}
+
+NO_CALLS_YET = {
+    "English": "No calls yet. Make your first call!",
+    "Chinese": "还没有通话记录。拨打您的第一个电话！",
+    "French": "Aucun appel pour le moment. Passez votre premier appel !",
+    "Hindi": "अभी तक कोई कॉल नहीं। अपनी पहली कॉल करें!",
+}
+
+NO_TRANSACTIONS_YET = {
+    "English": "No transactions yet. Top up your wallet to get started!",
+    "Chinese": "还没有交易记录。充值钱包开始使用！",
+    "French": "Aucune transaction. Rechargez votre portefeuille pour commencer !",
+    "Hindi": "अभी तक कोई लेनदेन नहीं। शुरू करने के लिए अपना वॉलेट टॉप अप करें!",
+}
+
+NO_RECORDINGS_YET = {
+    "English": "No recordings yet. Recordings appear after completed calls.",
+    "Chinese": "还没有录音。通话结束后会出现录音。",
+    "French": "Aucun enregistrement. Les enregistrements apparaissent après les appels.",
+    "Hindi": "अभी तक कोई रिकॉर्डिंग नहीं। कॉल पूरी होने के बाद रिकॉर्डिंग दिखेगी।",
+}
+
+NO_NUMBERS_YET = {
+    "English": "You don't have any phone numbers yet.",
+    "Chinese": "您还没有电话号码。",
+    "French": "Vous n'avez pas encore de numéro de téléphone.",
+    "Hindi": "आपके पास अभी कोई फोन नंबर नहीं है।",
+}
+
+PHONE_NUMBERS_HUB = {
+    "English": "Manage your phone numbers, buy new ones, and check your SMS inbox.",
+    "Chinese": "管理您的电话号码，购买新号码，查看短信收件箱。",
+    "French": "Gérez vos numéros, achetez-en de nouveaux et consultez vos SMS.",
+    "Hindi": "अपने फोन नंबर प्रबंधित करें, नए खरीदें और SMS इनबॉक्स देखें।",
+}
+
+INBOX_HUB = {
+    "English": "View your call recordings, DTMF responses, SMS messages, and call history.",
+    "Chinese": "查看您的通话录音、DTMF响应、短信和通话记录。",
+    "French": "Consultez vos enregistrements, réponses DTMF, SMS et historique d'appels.",
+    "Hindi": "अपनी कॉल रिकॉर्डिंग, DTMF रिस्पॉन्स, SMS और कॉल इतिहास देखें।",
+}
+
+PLAN_LABEL = {
+    "English": "Plan",
+    "Chinese": "计划",
+    "French": "Plan",
+    "Hindi": "प्लान",
+}
+
+WALLET_LABEL = {
+    "English": "Wallet",
+    "Chinese": "钱包",
+    "French": "Portefeuille",
+    "Hindi": "वॉलेट",
+}
+
+NUMBERS_LABEL = {
+    "English": "Numbers",
+    "Chinese": "号码",
+    "French": "Numéros",
+    "Hindi": "नंबर",
+}
+
+MINUTES_LEFT_LABEL = {
+    "English": "Minutes left",
+    "Chinese": "剩余分钟",
+    "French": "Minutes restantes",
+    "Hindi": "शेष मिनट",
+}
+
+FREE_PLAN_ACTIVATED = {
+    "English": "Your Free plan has been activated! You can explore all features and upgrade anytime.",
+    "Chinese": "您的免费计划已激活！您可以探索所有功能，随时升级。",
+    "French": "Votre plan gratuit est activé ! Explorez toutes les fonctionnalités et mettez à niveau à tout moment.",
+    "Hindi": "आपकी मुफ़्त योजना सक्रिय हो गई है! सभी सुविधाएं एक्सप्लोर करें और कभी भी अपग्रेड करें।",
+}
+
+HOW_IT_WORKS_TEXT = {
+    "English": (
+        "*How Speechcue Works*\n\n"
+        "1. *Create an IVR Flow* — Design your call script with nodes (play message, get input, transfer, etc.)\n"
+        "2. *Buy a Phone Number* — Get a US local or toll-free number for inbound calls\n"
+        "3. *Make Calls* — Single calls or bulk campaigns to your contact lists\n"
+        "4. *Monitor Results* — Check DTMF responses, call recordings, and transcripts in your Inbox\n\n"
+        "Need help? Use /support anytime!"
+    ),
+    "Chinese": (
+        "*Speechcue 使用方法*\n\n"
+        "1. *创建IVR流程* — 设计您的通话脚本\n"
+        "2. *购买电话号码* — 获取美国本地或免费号码\n"
+        "3. *拨打电话* — 单次或批量拨打\n"
+        "4. *监控结果* — 查看DTMF、录音和转录\n\n"
+        "需要帮助？随时使用 /support！"
+    ),
+    "French": (
+        "*Comment fonctionne Speechcue*\n\n"
+        "1. *Créer un flux IVR* — Concevez votre script d'appel\n"
+        "2. *Acheter un numéro* — Obtenez un numéro local ou gratuit\n"
+        "3. *Passer des appels* — Appels uniques ou campagnes\n"
+        "4. *Surveiller les résultats* — Consultez les réponses, enregistrements et transcriptions\n\n"
+        "Besoin d'aide ? Utilisez /support !"
+    ),
+    "Hindi": (
+        "*Speechcue कैसे काम करता है*\n\n"
+        "1. *IVR फ्लो बनाएं* — अपनी कॉल स्क्रिप्ट डिज़ाइन करें\n"
+        "2. *फोन नंबर खरीदें* — US लोकल या टोल-फ्री नंबर लें\n"
+        "3. *कॉल करें* — सिंगल या बल्क कैंपेन\n"
+        "4. *रिज़ल्ट देखें* — DTMF, रिकॉर्डिंग और ट्रांसक्रिप्ट\n\n"
+        "मदद चाहिए? /support इस्तेमाल करें!"
+    ),
+}
+
+VIEW_ALL_CALLS = {
+    "English": "View All Calls",
+    "Chinese": "查看所有通话",
+    "French": "Voir tous les appels",
+    "Hindi": "सभी कॉल देखें",
+}
+
+VIEW_ALL_TRANSACTIONS = {
+    "English": "View All Transactions",
+    "Chinese": "查看所有交易",
+    "French": "Voir toutes les transactions",
+    "Hindi": "सभी लेनदेन देखें",
+}
+
+MAIN_MENU_BTN = {
+    "English": "Main Menu",
+    "Chinese": "主菜单",
+    "French": "Menu principal",
+    "Hindi": "मुख्य मेनू",
+}
+
+BACK_BTN = {
+    "English": "Back",
+    "Chinese": "返回",
+    "French": "Retour",
+    "Hindi": "वापस",
+}
+
