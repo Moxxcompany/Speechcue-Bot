@@ -89,7 +89,8 @@ from translations.translations import (
 
 
 def filter_voices_by_gender(voice_data):
-    voices = voice_data.get("voices", [])
+    # voice_data is now a list directly from Retell (not {"voices": [...]})
+    voices = voice_data if isinstance(voice_data, list) else voice_data.get("voices", [])
     male_voices = categorize_voices_by_description(voices, "Male")
     female_voices = categorize_voices_by_description(voices, "Female")
 
