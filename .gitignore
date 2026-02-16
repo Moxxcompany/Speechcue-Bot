@@ -5,3 +5,7 @@ telebotvenv/
 .idea
 dump.rdb
 *.rdb
+-e 
+# Environment files
+*.env
+*.env.*
