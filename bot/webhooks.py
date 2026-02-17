@@ -42,6 +42,8 @@ from bot.recording_utils import (
     get_batch_recordings_url,
     format_duration,
     mask_phone_number,
+    format_transcript,
+    format_transcript_for_telegram,
 )
 from payment.models import (
     ManageFreePlanSingleIVRCall,
