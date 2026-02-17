@@ -12,58 +12,58 @@ Django Telegram Bot for IVR call management via Retell AI, crypto payments via D
 - **Payments**: DynoPay crypto + internal wallet
 - **Frontend**: React 19 (styled-components, react-router-dom v5)
 
-## What's Been Implemented
+## Session 4 — Full UX Audit & Fixes (Jan 2026)
 
-### Session 4 — Setup, Button Fixes, Admin Shared Numbers, UX Rewrite (Jan 2026)
+### Bugs Found & Fixed
+1. **`display_create_ivr_flows_ai` was EMPTY** — "AI-Powered Script" button from main menu did nothing. Fixed: now calls `initiate_ai_assisted_flow()`
+2. **`user_id[lg]` crash** in `handle_call_back_view_task` (line 6194) — trying to subscript an integer with language string. Fixed: changed to `user_id`
+3. **`ai_assisted_user_flow_keyboard` passed as reference** not called — Fixed: added `(user_id)` call
+4. **Missing `answer_callback_query`** on 90/95 handlers — auto-answer in webhook
+5. **Empty message crashes** in Scheduled/Active Campaigns — added empty-state handling
 
-**Environment Setup:**
-- Installed all Python/Node dependencies, configured real API credentials
-- Set Telegram webhook to pod URL, PostgreSQL connected
+### Friction Points Identified & Fixed
 
-**Bot Button Fixes (3 critical issues):**
-1. Missing `answer_callback_query` in 90/95 handlers — auto-answer in webhook
-2. Empty message crashes in Scheduled/Active Campaigns — added empty-state handling
-3. Silent exception swallowing — added global BotExceptionHandler
+**Onboarding Flow:**
+- Terms URL was hardcoded to a generic template site — still needs real T&C URL
+- After accepting terms, "Quick Start" guide exists but referenced /support which doesn't exist → Fixed to "Tap Help anytime!"
 
-**Admin Shared Phone Numbers:**
-- Added `is_admin` and `telegram_username` fields to TelegramUser model
-- `@onarrival1` (user_id=5590563715) auto-flagged as admin on every interaction
-- Admin's phone numbers appear as "Shared" caller IDs for all users
-- Education tip nudges users toward buying private numbers
-- Username + chat_id captured/synced on every webhook interaction
-
-**Complete UX Text Rewrite (100+ changes across 4 languages):**
-
-| Before (Jargon) | After (User-Friendly) |
+**Jargon Elimination (100+ changes, 4 languages):**
+| Before | After |
 |---|---|
-| IVR Flow | Call Script |
-| Pathway | Call Script |
+| IVR Flow / Pathway | Call Script |
 | Node | Step |
 | Edge | Connection |
 | DTMF / DTMF Input | Keypress / Keypress Responses |
 | Bulk IVR Call | Batch Calls |
 | Single IVR Call | Quick Call |
-| Source Node / Target Node | From Step / To Step |
+| Source/Target Node | From Step / To Step |
 | Start Node | First Step |
-| Feedback Node | Feedback Step |
 | E.164 format | "with country code, e.g., +1..." |
+| Feedback Node | Feedback Step |
 | "Add Another Node" | "Add Another Step" |
 | "Done Adding Edges" | "Done Connecting Steps" |
-| "Select target node" | "Select the next step" |
-| "Edges list is empty" | "No connections set up yet" |
-| "Flow deleted successfully" | "Call script deleted!" |
-| "No blocks" | "No steps yet" |
-| /support | "Tap Help anytime!" |
+| "Overage auto-deducts" | "Extra usage auto-deducts" |
+| "Minimum wallet balance for 2 minutes" | "You need at least $0.70 in your wallet" |
 
-**How It Works guide** fully rewritten in plain language (4 languages)
-**Quick Start** updated to match new terminology
-**All node type labels** updated (Get DTMF Input → Collect Keypress, etc.)
+**Call Flow UX:**
+- Pay-as-you-go pricing message cleaned up — removed "(wallet deduction)" jargon
+- "Intl calls" → "International calls"
+- Subscription status messages simplified
+
+### Remaining Friction Points (Backlog)
+- Terms URL still points to generic template — needs real URL
+- No inline "cancel" during multi-step flows (script creation, number purchase)
+- Campaign scheduling has no timezone awareness hint for users
+- "Bind Agent" button in My Numbers uses technical language
 
 ## Test Results
 - Button Audit: 47/47 handlers passing via webhook E2E tests
-- All syntax checks pass (translations.py, telegrambot.py, keyboard_menus.py)
+- All syntax checks pass
 
 ## Backlog
+- [ ] Real Terms & Conditions URL
+- [ ] Cancel/back buttons in multi-step flows
+- [ ] Timezone hint in campaign scheduling
+- [ ] "Bind Agent" → "Set Inbound Script" rename
 - [ ] Outbound SMS (requires A2P 10DLC)
 - [ ] Call analytics web dashboard
-- [ ] Multi-language voice selection in onboarding
