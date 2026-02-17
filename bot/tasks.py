@@ -105,6 +105,29 @@ def call_status_free_plan():
 
 
 @shared_task
+def download_and_cache_recording(call_id, retell_url):
+    """Download a call recording from Retell and cache locally."""
+    from bot.models import CallRecording
+    try:
+        rec = CallRecording.objects.filter(call_id=call_id).first()
+        if not rec:
+            logger.warning(f"[download_recording] No CallRecording for {call_id}")
+            return "No record"
+
+        file_path = download_recording(call_id, retell_url)
+        if file_path:
+            rec.file_path = file_path
+            rec.downloaded = True
+            rec.save()
+            logger.info(f"[download_recording] Cached {call_id} at {file_path}")
+            return f"Downloaded: {file_path}"
+        return "Download failed"
+    except Exception as e:
+        logger.error(f"[download_recording] Error for {call_id}: {e}")
+        return f"Error: {e}"
+
+
+@shared_task
 def monitor_active_calls():
     """
     Real-time billing monitor — runs every 30 seconds.
