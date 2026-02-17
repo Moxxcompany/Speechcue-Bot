@@ -2850,3 +2850,64 @@ BACK_BTN = {
     "Hindi": "वापस",
 }
 
+
+# == First Call Wizard ==
+WIZARD_OFFER = {
+    "English": "Want to see Speechcue in action? Try a free test call right now -- it takes 30 seconds!",
+    "Chinese": "想看看 Speechcue 的效果吗？立即试一个免费测试电话——只需30秒！",
+    "French": "Envie de voir Speechcue en action ? Essayez un appel test gratuit maintenant -- 30 secondes !",
+    "Hindi": "Speechcue को एक्शन में देखना चाहते हैं? अभी एक फ्री टेस्ट कॉल करें -- सिर्फ 30 सेकंड!",
+}
+WIZARD_TRY_CALL = {
+    "English": "Try Your First Call",
+    "Chinese": "试试您的第一个电话",
+    "French": "Essayez votre premier appel",
+    "Hindi": "अपना पहला कॉल ट्राई करें",
+}
+WIZARD_SKIP = {
+    "English": "Skip for now",
+    "Chinese": "暂时跳过",
+    "French": "Passer pour l'instant",
+    "Hindi": "अभी के लिए छोड़ें",
+}
+WIZARD_ENTER_PHONE = {
+    "English": "Enter your phone number to receive a test call (with country code, e.g., +14155552671).\n\nYou'll hear a short AI greeting -- it's that simple!",
+    "Chinese": "输入您的电话号码以接收测试电话（含国家代码，例如 +14155552671）。\n\n您将听到一段简短的AI问候——就这么简单！",
+    "French": "Entrez votre numero pour recevoir un appel test (avec indicatif, ex. +14155552671).\n\nVous entendrez un court message AI -- c'est aussi simple que ca !",
+    "Hindi": "टेस्ट कॉल प्राप्त करने के लिए अपना फोन नंबर दर्ज करें (देश कोड सहित, जैसे +14155552671)।\n\nआप एक छोटा AI ग्रीटिंग सुनेंगे -- बस इतना आसान है!",
+}
+WIZARD_CALLING = {
+    "English": "Calling you now... Pick up and hear your AI assistant in action!",
+    "Chinese": "正在拨打您的电话...接听并听听您的AI助手！",
+    "French": "Appel en cours... Decrochez et ecoutez votre assistant IA !",
+    "Hindi": "अभी आपको कॉल कर रहे हैं... उठाइए और अपना AI असिस्टेंट सुनिए!",
+}
+WIZARD_SUCCESS = {
+    "English": "That's it! You just made your first AI call.\n\nReady to build your own custom scripts? Head to *Call Scripts* from the main menu.",
+    "Chinese": "就是这样！您刚刚完成了第一个AI电话。\n\n准备好创建自己的脚本了吗？从主菜单进入*通话脚本*。",
+    "French": "Voila ! Vous venez de passer votre premier appel IA.\n\nPret a creer vos propres scripts ? Allez dans *Scripts d'appel*.",
+    "Hindi": "बस! आपने अभी अपना पहला AI कॉल किया।\n\nअपनी खुद की स्क्रिप्ट बनाने के लिए तैयार हैं? मुख्य मेनू से *कॉल स्क्रिप्ट* में जाएं।",
+}
+WIZARD_FAILED = {
+    "English": "Couldn't place the test call right now. Don't worry -- you can make calls anytime from the main menu!",
+    "Chinese": "暂时无法拨打测试电话。别担心——您随时可以从主菜单拨打电话！",
+    "French": "Impossible de passer l'appel test. Pas d'inquietude -- vous pouvez appeler depuis le menu principal !",
+    "Hindi": "अभी टेस्ट कॉल नहीं हो पाया। चिंता न करें -- आप मुख्य मेनू से कभी भी कॉल कर सकते हैं!",
+}
+
+# == Cancel Command ==
+CANCEL_CONFIRM = {
+    "English": "Cancelled. Returning to main menu.",
+    "Chinese": "已取消。返回主菜单。",
+    "French": "Annule. Retour au menu principal.",
+    "Hindi": "रद्द किया गया। मुख्य मेनू पर वापस जा रहे हैं।",
+}
+
+# == Timezone Hint ==
+SCHEDULE_TIMEZONE_HINT = {
+    "English": "Enter date, time, and your city so we schedule in your local timezone.\n\nFormat: `YYYY-MM-DD HH:mm City`\nExample: `2026-03-15 09:00 New York`\n\nCommon cities: New York, London, Tokyo, Sydney, Mumbai, Paris",
+    "Chinese": "输入日期、时间和您的城市，我们会按您的本地时区安排。\n\n格式: `YYYY-MM-DD HH:mm 城市`\n例如: `2026-03-15 09:00 纽约`\n\n常用城市: 纽约, 伦敦, 东京, 悉尼, 孟买, 巴黎",
+    "French": "Entrez la date, l'heure et votre ville pour planifier dans votre fuseau horaire.\n\nFormat : `YYYY-MM-DD HH:mm Ville`\nExemple : `2026-03-15 09:00 Paris`\n\nVilles courantes : New York, Londres, Tokyo, Sydney, Mumbai, Paris",
+    "Hindi": "तारीख, समय और अपना शहर दर्ज करें ताकि हम आपके स्थानीय समय अनुसार शेड्यूल कर सकें।\n\nफ़ॉर्मेट: `YYYY-MM-DD HH:mm शहर`\nउदाहरण: `2026-03-15 09:00 New York`\n\nसामान्य शहर: New York, London, Tokyo, Sydney, Mumbai, Paris",
+}
+
