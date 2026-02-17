@@ -230,12 +230,12 @@ def support_keyboard(user_id):
 
 def get_main_menu():
     options = [
-        "Create IVR Flow ➕",
+        "Create Call Script ➕",
         "View Flows 📂",
         "Delete Flow ❌",
         "Help ℹ️",
-        "Single IVR Call ☎️",
-        "Bulk IVR Call 📞📞",
+        "Quick Call ☎️",
+        "Batch Calls 📞📞",
         "Billing and Subscription 📅",
         "Join Channel 🔗",
         "Profile 👤",
@@ -248,7 +248,7 @@ def get_main_menu():
 
 def get_available_commands():
     options = [
-        "Create IVR Flow ➕",
+        "Create Call Script ➕",
         "View Flows 📂",
         "Delete Flow ❌",
         "Help ℹ️",
@@ -530,7 +530,7 @@ def get_inbox_hub_keyboard(user_id):
         "📞 Call Recordings", callback_data="call_recordings"
     ))
     markup.add(types.InlineKeyboardButton(
-        "🔢 DTMF Responses", callback_data="dtmf_responses_hub"
+        "🔢 Keypress Responses", callback_data="dtmf_responses_hub"
     ))
     markup.add(types.InlineKeyboardButton(
         "📨 SMS Messages", callback_data="sms_inbox"
