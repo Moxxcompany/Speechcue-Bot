@@ -199,7 +199,7 @@ NO_DTMF_INPUT_FOUND = {
 }
 ADD_ANOTHER_OR_DONE_PROMPT = {
     "English": "Add another step or tap 'Done' to finish.",
-    "Chinese": "请选择‘添加另一个节点’或‘完成’。",
+    "Chinese": "请选择'添加另一个节点'或'完成'。",
     "French": "Veuillez choisir 'Ajouter un autre nœud' ou 'Terminé'.",
     "Hindi": "कृपया 'एक और नोड जोड़ें' या 'पूरा हुआ' चुनें।",
 }
@@ -241,7 +241,7 @@ TERMS_AND_CONDITIONS_TOOLTIP = {
     "Hindi": "टूलटिप: आप कभी भी अपने प्रोफाइल सेटिंग्स में शर्तों और नियमों को फिर से देख सकते हैं।",
 }
 PROFILE_SETTING_PROMPT = {
-    "English": "We’re setting up your account now. Please hold on for just a moment while we finalize the details.",
+    "English": "We're setting up your account now. Please hold on for just a moment while we finalize the details.",
     "Chinese": "我们正在设置您的账户。请稍等片刻，待我们完成设置。",
     "French": "Nous configurons maintenant votre compte. Veuillez patienter un instant pendant que nous finalisons les détails.",
     "Hindi": "हम अब आपका खाता सेटअप कर रहे हैं। कृपया एक पल प्रतीक्षा करें जबकि हम विवरण अंतिम रूप दे रहे हैं।",
@@ -374,9 +374,9 @@ INVALID_MONTH_PROMPT = {
 }
 CAMPAIGN_NAME_PROMPT = {
     "English": "🏷️ Give your campaign a name (e.g., "Spring Promo").",
-    "Chinese": "🏷️ 输入活动名称（例如：“春季促销”）。",
-    "French": "🏷️ Entrez un nom de campagne (ex. : “Promo Printemps”).",
-    "Hindi": "🏷️ एक अभियान का नाम दर्ज करें (उदाहरण: “स्प्रिंग प्रोमो”)।",
+    "Chinese": "🏷️ 输入活动名称（例如：'春季促销'）。",
+    "French": "🏷️ Entrez un nom de campagne (ex. : 'Promo Printemps').",
+    "Hindi": "🏷️ एक अभियान का नाम दर्ज करें (उदाहरण: 'स्प्रिंग प्रोमो')।",
 }
 SUBSCRIPTION_WARNING_PT_1 = {
     "English": "Current active plan details: \n",
@@ -499,7 +499,7 @@ PROCESSING_ERROR_MESSAGE = {
     "Hindi": "हम आपकी अनुरोध को निम्नलिखित त्रुटि के कारण प्रोसेस नहीं कर सके:",
 }
 PLAN_SELECTED = {
-    "English": "You’ve selected the following plan.",
+    "English": "You've selected the following plan.",
     "Chinese": "您选择了以下计划：",
     "French": "Vous avez sélectionné le plan suivant.",
     "Hindi": "आपने निम्नलिखित योजना चुनी है।",
@@ -559,7 +559,7 @@ RECENT_CALLS = {
     "Hindi": "📋 हाल की कॉल्स",
 }
 ENTER_PHONE_OR_CALL_ID = {
-    "English": "Please enter the phone number or call ID you’d like to retrieve data for 🔢",
+    "English": "Please enter the phone number or call ID you'd like to retrieve data for 🔢",
     "Chinese": "请输入您想要检索数据的电话号码或呼叫 ID 🔢",
     "French": "Veuillez entrer le numéro de téléphone ou l'ID d'appel pour lequel vous souhaitez récupérer des données 🔢",
     "Hindi": "कृपया वह फ़ोन नंबर या कॉल आईडी दर्ज करें जिसके लिए आप डेटा प्राप्त करना चाहते हैं 🔢",
@@ -698,7 +698,7 @@ UNPAID_MINUTES_PROMPT = {
     "Hindi": "आपके पास अप्रदत्त अतिरिक्त मिनट हैं। कृपया आगे बढ़ने से पहले शुल्क चुकता करें।",
 }
 SETUP_TOOLTIP = {
-    "English": "The setup is fast and easy. You’ll be ready in just a few steps!",
+    "English": "The setup is fast and easy. You'll be ready in just a few steps!",
     "Chinese": "设置快速简便。您只需几个步骤就能完成！",
     "French": "La configuration est rapide et facile. Vous serez prêt en quelques étapes seulement !",
     "Hindi": "सेटअप तेज़ और आसान है। आप केवल कुछ कदमों में तैयार हो जाएंगे!",
@@ -728,7 +728,7 @@ PAYMENT_METHOD_PROMPT = {
     "Hindi": "कृपया सदस्यता के लिए भुगतान विधि चुनें",
 }
 SETUP_PROMPT = {
-    "English": "We’re thrilled to have you here! 🎉 \nLet’s get you started so you can explore all the exciting features we offer. 🌟 \nThis setup is quick and easy—let's dive in! 🚀",
+    "English": "We're thrilled to have you here! 🎉 \nLet's get you started so you can explore all the exciting features we offer. 🌟 \nThis setup is quick and easy—let's dive in! 🚀",
     "Chinese": "我们很高兴您加入！🎉\n让我们开始设置，让您体验我们提供的所有激动人心的功能。🌟\n这个设置过程快捷又简单—让我们开始吧！🚀",
     "French": "Nous sommes ravis de vous accueillir ici ! 🎉 \nCommençons rapidement afin que vous puissiez explorer toutes les fonctionnalités intéressantes que nous proposons. 🌟 \nCette configuration est rapide et facile—allons-y ! 🚀",
     "Hindi": "हमारे साथ जुड़कर खुशी हुई! 🎉 \nआइए हम आपको शुरू करते हैं ताकि आप हमारी सभी रोमांचक सुविधाओं का अन्वेषण कर सकें। 🌟 \nयह सेटअप त्वरित और आसान है—आइए इसमें डुबकी लगाएं! 🚀",
@@ -1002,7 +1002,7 @@ INVALID_PHONE_NUMBER = {
 }
 YES_OR_NO_PROMPT = {
     "English": "Please choose 'Yes' or 'No'.",
-    "Chinese": "请选择‘是’或‘否’。",
+    "Chinese": "请选择'是'或'否'。",
     "French": "Veuillez choisir 'Oui' ou 'Non'.",
     "Hindi": "कृपया 'हाँ' या 'नहीं' चुनें।",
 }
@@ -1283,7 +1283,7 @@ SUCCESSFUL_FREE_TRIAL_ACTIVATION = {
     "Hindi": "आपने सफलतापूर्वक अपनी निःशुल्क ट्रायल सक्रिय कर ली है!",
 }
 ACCOUNT_SETUP_TOOLTIP = {
-    "English": "We’re doing the work behind the scenes. Just follow the steps!",
+    "English": "We're doing the work behind the scenes. Just follow the steps!",
     "Chinese": "我们正在幕后处理工作。只需按照步骤进行操作！",
     "French": "Nous effectuons les dernières étapes en coulisses. Suivez simplement les instructions !",
     "Hindi": "हम पर्दे के पीछे काम कर रहे हैं। बस कदमों का पालन करें!",
@@ -1331,7 +1331,7 @@ DISPLAY_IVR_FLOWS = {
     "Hindi": "यहां आपके IVR फ्लोज़ हैं:",
 }
 SETUP_COMPLETION_SECOND_HALF = {
-    "English": " and even better, you’re eligible for a free trial! 💃🎉",
+    "English": " and even better, you're eligible for a free trial! 💃🎉",
     "Chinese": "而且更棒的是，您有资格获得免费试用！💃🎉",
     "French": " et encore mieux, vous êtes éligible à un essai gratuit ! 💃🎉",
     "Hindi": " और इससे भी बेहतर, आप एक निःशुल्क ट्रायल के लिए पात्र हैं! 💃🎉",
@@ -1901,7 +1901,7 @@ CANCEL = {
     "Hindi": "❌ रद्द करें",
 }
 BEGIN_USING_SPEECHCAD = {
-    "English": "You’re all set to begin using Speechcad. Let’s move to the fun part!",
+    "English": "You're all set to begin using Speechcad. Let's move to the fun part!",
     "Chinese": "您已经准备好开始使用Speechcad。让我们进入有趣的部分！",
     "French": "Vous êtes prêt à commencer à utiliser Speechcad. Passons à la partie amusante !",
     "Hindi": "आप Speechcad का उपयोग शुरू करने के लिए तैयार हैं। आइए मजेदार हिस्से की ओर बढ़ें!",
@@ -1937,7 +1937,7 @@ CALLER_ID = {
     "Hindi": "कॉलर आईडी:",
 }
 SUBSCRIPTION_PLAN_OPTIONS = {
-    "English": "Now, let’s get you on the right plan. Please choose a subscription plan from the options below:",
+    "English": "Now, let's get you on the right plan. Please choose a subscription plan from the options below:",
     "Chinese": "现在，让我们为您选择合适的订阅计划。请选择下面的订阅计划：",
     "French": "Choisissez un plan d'abonnement parmi les options ci-dessous :",
     "Hindi": "अब, चलिए आपको सही योजना पर लाते हैं। कृपया नीचे दिए गए विकल्पों से एक सदस्यता योजना चुनें:",
@@ -2016,7 +2016,7 @@ REQUEST_FAILED = {
     "Hindi": "निम्नलिखित कारण से अनुरोध विफल हो गया:",
 }
 CREATE_TASK_PROMPT = {
-    "English": "Let’s build your call script step by step. Choose an option:",
+    "English": "Let's build your call script step by step. Choose an option:",
     "Chinese": "让我们一步步创建您的 IVR。请选择一个选项开始：",
     "French": "Créons votre IVR étape par étape. Choisissez une option pour commencer :",
     "Hindi": "चलिए आपका IVR चरण-दर-चरण बनाते हैं। शुरू करने के लिए एक विकल्प चुनें:",
@@ -2451,7 +2451,7 @@ SEARCH_CALLS = {
     "Hindi": "कॉल खोजें",
 }
 NAME_INPUT_PROMPT = {
-    "English": "What’s your name? Let’s personalize your experience! (e.g., Ren)",
+    "English": "What's your name? Let's personalize your experience! (e.g., Ren)",
     "Chinese": "请告诉我您的名字？让我们为您个性化体验！(例如：Ren)",
     "French": "Quel est votre nom ? Personnalisons votre expérience ! (par exemple, Ren)",
     "Hindi": "आपका नाम क्या है? आइए आपके अनुभव को व्यक्तिगत बनाएं! (उदाहरण: रेन)",
@@ -2469,7 +2469,7 @@ NO_BULK_MINS_LEFT = {
     "Hindi": "कोई बल्क IVR कॉल मिनट नहीं बची हैं",
 }
 SUBSCRIPTION_WARNING_PT_5 = {
-    "English": "Remaining days on this plan won’t carry over.\n",
+    "English": "Remaining days on this plan won't carry over.\n",
     "Chinese": "此计划上的剩余天数将不会转移。\n",
     "French": "Les jours restants sur ce plan ne seront pas reportés.\n",
     "Hindi": "इस योजना पर शेष दिन अगले प्लान में ट्रांसफर नहीं होंगे।\n",
