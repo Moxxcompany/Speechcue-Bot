@@ -303,3 +303,25 @@ class ReminderTable(models.Model):
 
     def __str__(self):
         return f"Reminder for Call {self.scheduled_call.id} at {self.reminder_time}"
+
+
+class CallRecording(models.Model):
+    """Stores call recordings downloaded from Retell, served via our own URL."""
+    call_id = models.CharField(max_length=255, primary_key=True)
+    user_id = models.BigIntegerField()
+    batch_id = models.CharField(max_length=255, blank=True, default="")
+    retell_url = models.URLField(max_length=1024, blank=True, default="")
+    file_path = models.CharField(max_length=512, blank=True, default="")
+    token = models.CharField(max_length=128, unique=True, db_index=True)
+    downloaded = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user_id"]),
+            models.Index(fields=["batch_id"]),
+        ]
+
+    def __str__(self):
+        return f"Recording({self.call_id}, downloaded={self.downloaded})"
+
