@@ -585,6 +585,55 @@ def send_task_through_call(task, phone_number, caller_id, user_id):
         return FakeResponse(400, {"error": str(e)})
 
 
+def make_wizard_test_call(phone_number, user_id, caller_id=None):
+    """
+    Place a simple demo call for the first-call wizard.
+    Creates a temporary Retell agent with a greeting prompt and calls the user.
+    """
+    try:
+        client = get_retell_client()
+
+        # Create a simple agent for the test call
+        agent = client.agent.create(
+            response_engine={"type": "retell-llm"},
+            agent_name=f"wizard_demo_{user_id}",
+            voice_id="11labs-Adrian",
+            general_prompt=(
+                "You are a friendly AI assistant from Speechcue. "
+                "Greet the caller warmly and say: 'Hi there! This is a test call from Speechcue "
+                "to show you how AI-powered calls work. You can build custom scripts to automate "
+                "calls just like this one. Pretty cool, right? Have a wonderful day!' "
+                "Then politely end the call."
+            ),
+        )
+        agent_id = agent.agent_id
+
+        kwargs = {
+            "override_agent_id": agent_id,
+            "to_number": phone_number,
+            "metadata": {"user_id": str(user_id), "wizard": "true"},
+        }
+        if caller_id:
+            kwargs["from_number"] = caller_id
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
+
+        call = client.call.create_phone_call(**kwargs)
+
+        CallLogsTable.objects.create(
+            call_id=call.call_id,
+            call_number=phone_number,
+            pathway_id=agent_id,
+            user_id=user_id,
+            call_status="new",
+        )
+
+        return {"call_id": call.call_id, "status": call.call_status}, 200
+    except Exception as e:
+        logging.error(f"make_wizard_test_call error: {e}")
+        return {"error": str(e)}, 400
+
+
+
 # =============================================================================
 # Call Details & Status — Retell call.retrieve()
 # =============================================================================
