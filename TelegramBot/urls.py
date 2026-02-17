@@ -67,4 +67,15 @@ urlpatterns = [
         bot_views.terms_and_conditions,
         name="terms_and_conditions",
     ),
+    # Recording endpoints
+    path(
+        "api/recordings/<str:token>/",
+        bot_views.serve_recording,
+        name="serve_recording",
+    ),
+    path(
+        "api/recordings/batch/<str:token>/",
+        bot_views.batch_recordings_page,
+        name="batch_recordings_page",
+    ),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
