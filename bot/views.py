@@ -497,7 +497,7 @@ def handle_transfer_call_node(pathway_id, node_id, transfer_number, node_name, p
 # Call Management — Retell phone call API
 # =============================================================================
 
-def send_call_through_pathway(pathway_id, phone_number, user_id, caller_id):
+def send_call_through_pathway(pathway_id, phone_number, user_id, caller_id, recording_requested=False):
     """Make an outbound call using Retell (replaces Bland POST /v1/calls with pathway_id)."""
     try:
         client = get_retell_client()
@@ -533,6 +533,8 @@ def send_call_through_pathway(pathway_id, phone_number, user_id, caller_id):
             pathway_id=pathway_id,
             user_id=user_id,
             call_status="new",
+            recording_requested=recording_requested,
+            recording_fee=0.02 if recording_requested else 0.00,
         )
 
         return {"call_id": call_id, "status": call.call_status}, 200
