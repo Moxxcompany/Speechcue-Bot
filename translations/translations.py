@@ -198,7 +198,7 @@ NO_DTMF_INPUT_FOUND = {
     "Hindi": "इस कॉल के लिए कोई कीपैड रिस्पॉन्स नहीं मिला।",
 }
 ADD_ANOTHER_OR_DONE_PROMPT = {
-    "English": "Please choose 'Add Another Node' or 'Done'.",
+    "English": "Add another step or tap 'Done' to finish.",
     "Chinese": "请选择‘添加另一个节点’或‘完成’。",
     "French": "Veuillez choisir 'Ajouter un autre nœud' ou 'Terminé'.",
     "Hindi": "कृपया 'एक और नोड जोड़ें' या 'पूरा हुआ' चुनें।",
@@ -295,7 +295,7 @@ SELECT_FROM_MENU = {
     "Hindi": "नीचे दिए गए मेनू से चयन करें:",
 }
 CONNECT_NODE = {
-    "English": "Please select another node to connect to the start node:",
+    "English": "Select another step to connect to the first step:",
     "Chinese": "请选择另一个节点与起始节点连接：",
     "French": "Veuillez sélectionner un autre nœud pour le connecter au nœud de départ :",
     "Hindi": "कृपया प्रारंभ नोड से कनेक्ट करने के लिए दूसरा नोड चुनें:",
@@ -343,13 +343,13 @@ UPLOAD_TXT = {
     "Hindi": "अपलोड करें एक फ़ाइल (TXT या CSV प्रारूप) जिसमें 50 फोन नंबर तक हो।",
 }
 START_NODE_ID = {
-    "English": "Start Node ID:",
+    "English": "First Step ID:",
     "Chinese": "起始节点ID：",
     "French": "ID du nœud de départ :",
     "Hindi": "प्रारंभ नोड आईडी:",
 }
 VIEW_VARIABLES_PROMPT = {
-    "English": "Select a call to view variables:",
+    "English": "Select a call to see details:",
     "Chinese": "请选择一个通话以查看变量：",
     "French": "Sélectionnez un appel pour afficher les variables :",
     "Hindi": "वेरिएबल्स देखने के लिए कृपया एक कॉल चुनें:",
@@ -439,7 +439,7 @@ CHOOSE_OTHER_PAYMENT_OPTION = {
     "Hindi": "अन्य भुगतान विकल्प चुनें",
 }
 OUTGOING_CONNECTIONS_MISSING = {
-    "English": "The following nodes do not have any outgoing connections to other nodes: ",
+    "English": "These steps are not connected to any next step: ",
     "Chinese": "以下节点没有任何输出连接到其他节点：",
     "French": "Les nœuds suivants n'ont pas de connexions sortantes vers d'autres nœuds : ",
     "Hindi": "निम्नलिखित नोड्स में अन्य नोड्स से कोई आउटगोइंग कनेक्शन नहीं हैं: ",
@@ -475,7 +475,7 @@ ADDED_SUCCESSFULLY = {
     "Hindi": " सफलतापूर्वक जोड़ा गया!",
 }
 FINISHED_ADDING_NODES = {
-    "English": "You have finished adding nodes.",
+    "English": "You have finished adding steps.",
     "Chinese": "您已完成节点添加。",
     "French": "Vous avez terminé d'ajouter des nœuds.",
     "Hindi": "आपने नोड्स जोड़ना समाप्त कर दिया है।",
@@ -535,7 +535,7 @@ INVALID_YEAR_PROMPT = {
     "Hindi": "अमान्य वर्ष। कृपया एक मान्य वर्ष दर्ज करें (जैसे, 2023):",
 }
 ADD_GREETING_NODE = {
-    "English": "Add your greeting node!",
+    "English": "Add your welcome message!",
     "Chinese": "添加您的问候节点！",
     "French": "Ajoutez votre nœud de bienvenue !",
     "Hindi": "अपना ग्रीटिंग नोड जोड़ें!",
@@ -547,7 +547,7 @@ DELETED_SUCCESSFULLY = {
     "Hindi": "✅ सफलतापूर्वक हटा दिया गया!",
 }
 PROMPT_MESSAGE_FOR_MENU = {
-    "English": "Please enter the prompt message for the menu:",
+    "English": "Enter the message callers hear before choosing an option:",
     "Chinese": "请输入菜单的提示消息：",
     "French": "Veuillez entrer le message d'invite pour le menu :",
     "Hindi": "कृपया मेनू के लिए प्रॉम्प्ट संदेश दर्ज करें:",
@@ -572,7 +572,7 @@ ADD_ANOTHER_PHONE_NUMBER = {
     "Hindi": "एक और फोन नंबर जोड़ें",
 }
 BULK_IVR_CALLS = {
-    "English": "Bulk IVR call minutes",
+    "English": "Batch call minutes",
     "Chinese": "批量IVR通话分钟",
     "French": "Minutes d'appels IVR en gros",
     "Hindi": "बुल्क IVR कॉल मिनट",
@@ -596,7 +596,7 @@ YES_CANCEL = {
     "Hindi": "✅ हां, रद्द करें",
 }
 SIMILAR_FLOW_NAME_EXISTS = {
-    "English": "A flow with similar name already exists. Please enter the name again:",
+    "English": "A script with that name already exists. Please choose another name:",
     "Chinese": "已存在相似名称的流程。请重新输入名称：",
     "French": "Un flux avec un nom similaire existe déjà. Veuillez entrer à nouveau le nom :",
     "Hindi": "समान नाम वाला फ्लो पहले से मौजूद है। कृपया नाम फिर से दर्ज करें:",
@@ -626,13 +626,13 @@ INVOICE_REVIEW_PROMPT = {
     "Hindi": "कृपया अपनी चयनित सदस्यता योजना के लिए चालान की समीक्षा करें:",
 }
 DELETE_FLOW = {
-    "English": "Delete Flow 🛠️",
+    "English": "Delete Script 🛠️",
     "Chinese": "删除流程 🛠️",
     "French": "Supprimer le flux 🛠️",
     "Hindi": "फ्लो हटाएं 🛠️",
 }
 FULL_NODE_ACCESS = {
-    "English": "Full Node Access",
+    "English": "Full Step Access",
     "Chinese": "完全节点访问",
     "French": "Accès complet au nœud",
     "Hindi": "पूर्ण नोड एक्सेस",
@@ -680,7 +680,7 @@ WELCOME_PROMPT_INBOX = {
     "Hindi": "स्वागत है! 🌟 आज मैं आपकी किस प्रकार मदद कर सकता हूँ?",
 }
 NODE_EDGES_DELETED = {
-    "English": "Node and its associated edges have been deleted successfully.",
+    "English": "Step and its connections removed successfully.",
     "Chinese": "节点及其相关连接已成功删除。",
     "French": "Le nœud et ses arêtes associées ont été supprimés avec succès.",
     "Hindi": "नोड और उसके संबंधित एजेस सफलतापूर्वक हटा दिए गए हैं।",
@@ -746,7 +746,7 @@ WELCOME_PROMPT = {
     "Hindi": "मुख्य मेनू में आपका स्वागत है!",
 }
 DTMF_PROMPT = {
-    "English": "Please enter the prompt message for DTMF input.",
+    "English": "Enter the message callers will hear before pressing a key.",
     "Chinese": "请输入DTMF输入的提示信息。",
     "French": "Veuillez entrer le message d'invite pour l'entrée DTMF.",
     "Hindi": "DTMF इनपुट के लिए कृपया प्रॉम्प्ट संदेश दर्ज करें।",
@@ -801,7 +801,7 @@ SELECT_PHONE_NUMBER_INBOX = {
     "Hindi": "एक फ़ोन नंबर चुनें:",
 }
 FLOW_CREATED = {
-    "English": "IVR Flow Created!",
+    "English": "Call Script Created!",
     "Chinese": "IVR 流程已创建！",
     "French": "Flux IVR créé !",
     "Hindi": "IVR फ्लो सफलतापूर्वक बनाया गया!",
@@ -813,7 +813,7 @@ TOP_UP_PROMPT = {
     "Hindi": "कृपया अपना बैलेंस टॉप अप करने के लिए एक भुगतान विधि चुनें:",
 }
 SELECT_IVR_FLOW = {
-    "English": "Please select an IVR Call Flow:",
+    "English": "Select a call script:",
     "Chinese": "请选择一个IVR通话流程：",
     "French": "Veuillez sélectionner un flux d'appel IVR :",
     "Hindi": "कृपया एक IVR कॉल फ्लो चुनें:",
@@ -843,13 +843,13 @@ SUBSCRIPTION_WARNING_PT_3 = {
     "Hindi": "नई योजना में स्विच करने से आपकी वर्तमान योजना रद्द हो जाएगी ",
 }
 NO_START_NODE_FOUND = {
-    "English": "No start node found.",
+    "English": "No first step found.",
     "Chinese": "未找到起始节点。",
     "French": "Aucun nœud de départ trouvé.",
     "Hindi": "कोई प्रारंभ नोड नहीं मिला।",
 }
 AI_ASSISTED_FLOW_KEYBOARD = {
-    "English": "🤖 AI Assisted Flow",
+    "English": "🤖 AI-Powered Script",
     "Chinese": "🤖 AI 辅助流程",
     "French": "🤖 Flux assisté par l'IA",
     "Hindi": "🤖 AI सहायक प्रवाह",
@@ -879,7 +879,7 @@ CALL_TRANSFER_EXCLUDED = {
     "Hindi": "कॉल ट्रांसफर बाहर",
 }
 CHOOSE_IVR_FLOW_TYPE = {
-    "English": "🏷️ Choose IVR flow type: ",
+    "English": "🏷️ Choose how to build your script: ",
     "Chinese": "🏷️ 选择 IVR 流程类型：",
     "French": "🏷️ Choisissez le type de flux IVR :",
     "Hindi": "🏷️ IVR फ्लो प्रकार चुनें:",
@@ -897,7 +897,7 @@ VALIDITY = {
     "Hindi": "वैधता:",
 }
 ENTER_PATHWAY_DESCRIPTION_PROMPT = {
-    "English": "Please enter the description of the pathway:",
+    "English": "Describe what this call script does:",
     "Chinese": "请输入路径描述：",
     "French": "Veuillez entrer la description du chemin :",
     "Hindi": "कृपया पाथवे का विवरण दर्ज करें:",
@@ -922,7 +922,7 @@ SETTINGS = {
     "Hindi": "सेटिंग्स ⚙",
 }
 DELETE_FLOW_AI = {
-    "English": "Delete Flow 🤖",
+    "English": "Delete Script 🤖",
     "Chinese": "删除流程 🤖",
     "French": "Supprimer le flux 🤖",
     "Hindi": "फ्लो हटाएं 🤖",
@@ -940,14 +940,14 @@ ENTER_PHONE_NUMBER_FOR_CALL_TRANSFER = {
     "Hindi": "कृपया कॉल ट्रांसफर करने के लिए फोन नंबर दर्ज करें।",
 }
 FLOW_OPERATIONS_SELECTION_PROMPT = {
-    "English": "Select your flow operation:",
+    "English": "What would you like to do?",
     "Chinese": "选择您的流程操作：",
     "French": "Sélectionnez votre opération de flux :",
     "Hindi": "अपना प्रवाह संचालन चुनें:",
 }
 back = {"English": "back", "Chinese": "返回", "French": "retour", "Hindi": "वापस"}
 NODE_ADDED = {
-    "English": "Node Added Successfully!",
+    "English": "Step added!",
     "Chinese": "节点添加成功！",
     "French": "Nœud ajouté avec succès !",
     "Hindi": "नोड सफलतापूर्वक जोड़ा गया!",
@@ -959,7 +959,7 @@ MAIN_MENU_REDIRECTION = {
     "Hindi": "आपको मुख्य मेनू में पुनः निर्देशित किया जा रहा है!",
 }
 SETUP_WELCOME = {
-    "English": "Welcome to Speechcad IVR Bot!",
+    "English": "Welcome to Speechcue!",
     "Chinese": "欢迎使用Speechcad IVR机器人！",
     "French": "Bienvenue sur Speechcad IVR Bot !",
     "Hindi": "Speechcad IVR Bot में आपका स्वागत है!",
@@ -977,7 +977,7 @@ MAIN_MENU_PROMPT = {
     "Hindi": "यहां मुख्य मेनू है:",
 }
 SELECT_CALL_TO_VIEW_VARIABLES = {
-    "English": "Select a call to view variables:",
+    "English": "Select a call to see details:",
     "Chinese": "选择一个通话以查看变量：",
     "French": "Sélectionnez un appel pour afficher les variables :",
     "Hindi": "वेरिएबल्स देखने के लिए कृपया एक कॉल चुनें:",
@@ -1013,13 +1013,13 @@ ENTER_PHONE_NUMBER_TO_TRANSFER = {
     "Hindi": "कृपया ट्रांसफर के लिए फोन नंबर दर्ज करें।",
 }
 DTMF_INBOX = {
-    "English": "DTMF Inbox",
+    "English": "Keypress Responses",
     "Chinese": "DTMF 收件箱",
     "French": "Boîte de réception DTMF",
     "Hindi": "DTMF इनबॉक्स",
 }
 GET_DTMF_INPUT = {
-    "English": "Get DTMF Input 📞",
+    "English": "Collect Keypress 📞",
     "Chinese": "获取DTMF输入 📞",
     "French": "Obtenir l'entrée DTMF 📞",
     "Hindi": "डीटीएमएफ इनपुट प्राप्त करें 📞",
@@ -1043,13 +1043,13 @@ UPGRADE_SUBSCRIPTION = {
     "Hindi": "सदस्यता अपग्रेड करें ⬆️",
 }
 SELECT_PATHWAY = {
-    "English": "Select a pathway:",
+    "English": "Select a call script:",
     "Chinese": "选择一条路径：",
     "French": "Sélectionnez un chemin :",
     "Hindi": "एक मार्ग चुनें:",
 }
 BULK_CALL = {
-    "English": "Bulk IVR Call 🔵",
+    "English": "Batch Calls 🔵",
     "Chinese": "批量IVR通话 🔵",
     "French": "Appel IVR en masse 🔵",
     "Hindi": "बल्क IVR कॉल 🔵",
@@ -1103,13 +1103,13 @@ DONE_ADDING_PHONE_NUMBERS = {
     "Hindi": "फ़ोन नंबर जोड़ना पूरा हुआ",
 }
 TARGET_NODE = {
-    "English": "Target Node:",
+    "English": "To Step:",
     "Chinese": "目标节点：",
     "French": "Nœud cible :",
     "Hindi": "लक्ष्य नोड:",
 }
 ENTER_MESSAGE_PROMPT = {
-    "English": "Please enter the prompt message for",
+    "English": "Enter the message for",
     "Chinese": "请输入提示信息为",
     "French": "Veuillez entrer le message d'invite pour",
     "Hindi": "कृपया के लिए प्रॉम्प्ट संदेश दर्ज करें",
@@ -1139,7 +1139,7 @@ MENU = {
     "Hindi": "मेन्यू 📋",
 }
 MAKE_IVR_CALL = {
-    "English": "📞 Make IVR Call",
+    "English": "📞 Make a Call",
     "Chinese": "📞 进行 IVR 呼叫",
     "French": "📞 Passer un appel IVR",
     "Hindi": "📞 IVR कॉल करें",
@@ -1163,25 +1163,25 @@ GENDER_SELECTION_PROMPT = {
     "Hindi": "कृपया आवाज़ का लिंग चुनें.",
 }
 CREATE_IVR_FLOW = {
-    "English": "Create Flow 🛠️",
+    "English": "Create Script 🛠️",
     "Chinese": "创建流程 🛠️",
     "French": "Créer un flux 🛠️",
     "Hindi": "फ्लो बनाएं 🛠️",
 }
 NO_NODES_FOUND = {
-    "English": "No nodes found for this flow!",
+    "English": "This script has no steps yet.",
     "Chinese": "没有找到该流的节点！",
     "French": "Aucun nœud trouvé pour ce flux !",
     "Hindi": "इस प्रवाह के लिए कोई नोड नहीं मिला!",
 }
 ASSIGN_NUMBERS_FOR_MENU = {
-    "English": "Please assign numbers and corresponding actions for each option.",
+    "English": "Set which key (0-9) the caller presses for each option.",
     "Chinese": "请为每个选项分配数字（0-9）及对应的操作。",
     "French": "Veuillez attribuer des numéros et les actions correspondantes pour chaque option.",
     "Hindi": "कृपया मेनू के लिए नंबर और संबंधित क्रियाएं सौंपें।",
 }
 ADD_EDGE = {
-    "English": "Add Edge",
+    "English": "Connect Steps",
     "Chinese": "添加边",
     "French": "Ajouter un bord",
     "Hindi": "किनारा जोड़ें",
@@ -1205,13 +1205,13 @@ AI_MADE_TASKS = {
     "Hindi": "🤖 एआई-निर्मित कार्य",
 }
 ASSIGN_NODE_NUMBER = {
-    "English": "Please assign a number for this node.",
+    "English": "Assign a keypress number (0-9) for this option.",
     "Chinese": "请为此节点分配一个数字（0-9）。",
     "French": "Veuillez attribuer un numéro  à ce nœud.",
     "Hindi": "कृपया इस नोड के लिए एक नंबर सौंपें।",
 }
 ADD_NODE_OR_DONE_PROMPT = {
-    "English": "Add another node or select 'Done' if you are finished.",
+    "English": "Add another step or tap Done when finished.",
     "Chinese": "添加另一个节点或选择'完成'如果您已经完成。",
     "French": "Ajoutez un autre nœud ou sélectionnez 'Terminé' si vous avez fini.",
     "Hindi": "एक और नोड जोड़ें या 'हो गया' चुनें यदि आप समाप्त कर चुके हैं।",
@@ -1229,13 +1229,13 @@ PLAY_MESSAGE = {
     "Hindi": "संदेश चलाएं ▶️",
 }
 EDGES_LIST_EMPTY = {
-    "English": "Edges list is empty.",
+    "English": "No connections set up yet.",
     "Chinese": "连接列表为空。",
     "French": "La liste des arêtes est vide.",
     "Hindi": "एजेस सूची खाली है।",
 }
 DELETE_FLOW_CONFIRMATION = {
-    "English": "Are you sure you want to delete this flow?",
+    "English": "Are you sure you want to delete this script?",
     "Chinese": "您确定要删除此流程吗？",
     "French": "Êtes-vous sûr de vouloir supprimer ce flux ?",
     "Hindi": "क्या आप वाकई इस फ्लो को हटाना चाहते हैं?",
@@ -1301,7 +1301,7 @@ WALLET_DETAILS_ERROR = {
     "Hindi": "वॉलेट विवरण प्राप्त करने में त्रुटि!",
 }
 CREATE_IVR_FLOW_AI = {
-    "English": "Create Flow 🤖",
+    "English": "Create Script 🤖",
     "Chinese": "创建流程 🤖",
     "French": "Créer un flux 🤖",
     "Hindi": "फ्लो बनाएं 🤖",
@@ -1325,7 +1325,7 @@ BUY_NUMBER = {
     "Hindi": "💰 नंबर खरीदें ($15)",
 }
 DISPLAY_IVR_FLOWS = {
-    "English": "Here are your IVR flows:",
+    "English": "Your call scripts:",
     "Chinese": "这是您的IVR流程：",
     "French": "Voici vos flux IVR :",
     "Hindi": "यहां आपके IVR फ्लोज़ हैं:",
@@ -1434,7 +1434,7 @@ INVALID_NUMBER_INPUT = {
     "Hindi": "अमान्य इनपुट। कृपया 0 और 9 के बीच एक वैध संख्या दर्ज करें।",
 }
 VIEW_FLOWS_AI = {
-    "English": "View Flows 🤖",
+    "English": "View Scripts 🤖",
     "Chinese": "查看流程 🤖",
     "French": "Voir les flux 🤖",
     "Hindi": "फ्लो देखें 🤖",
@@ -1464,7 +1464,7 @@ TIME_LABEL = {
     "Hindi": "🕒 समय:",
 }
 ADD_ONE_EDGE = {
-    "English": "At least, add one edge for the missing nodes!",
+    "English": "Please connect all steps before saving.",
     "Chinese": "至少为缺少的节点添加一条连接！",
     "French": "Ajoutez au moins une connexion pour les nœuds manquants!",
     "Hindi": "कम से कम एक एज जोड़ें!",
@@ -1482,7 +1482,7 @@ USERNAME = {
     "Hindi": "उपयोगकर्ता नाम",
 }
 NO_IVR_FLOW_AVAILABLE = {
-    "English": "No IVR flow available! Please create a new IVR flow",
+    "English": "No call scripts yet! Create your first one to get started",
     "Chinese": "没有可用的IVR流程！请创建一个新的IVR流程。",
     "French": "Aucun flux IVR disponible ! Veuillez créer un nouveau flux IVR.",
     "Hindi": "कोई IVR फ्लो उपलब्ध नहीं है! कृपया नया IVR फ्लो बनाएं",
@@ -1500,7 +1500,7 @@ base_url = {
     "Hindi": "https://api.bland.ai",
 }
 ENTER_PATHWAY_NAME_PROMPT = {
-    "English": "Please enter the name of the pathway:",
+    "English": "Name your call script:",
     "Chinese": "请输入路径名称：",
     "French": "Veuillez entrer le nom du chemin :",
     "Hindi": "कृपया पाथवे का नाम दर्ज करें:",
@@ -1536,13 +1536,13 @@ SELECTED = {
     "Hindi": " चयनित!",
 }
 SINGLE_IVR_MINUTES = {
-    "English": "Single IVR Call minutes",
+    "English": "Quick call minutes",
     "Chinese": "单次IVR通话分钟",
     "French": "Minutes d'appel IVR simples",
     "Hindi": "सिंगल IVR कॉल मिनट",
 }
 ENTER_LABEL_PROMPT = {
-    "English": "Enter Label: (Default: User Responds, For DTMF: User enters {your option}) ",
+    "English": "Enter a label (e.g., "Caller says yes" or "Caller presses 1"): ",
     "Chinese": "请输入标签：（默认：用户响应，DTMF：用户输入{您的选项}）",
     "French": "Entrez l'étiquette : (Par défaut : Réponse de l'utilisateur, Pour DTMF : L'utilisateur entre {votre option})",
     "Hindi": "लेबल दर्ज करें: (डिफ़ॉल्ट: उपयोगकर्ता का उत्तर, DTMF के लिए: उपयोगकर्ता {आपका विकल्प} दर्ज करता है)",
@@ -1554,13 +1554,13 @@ CALL_INFORMATION = {
     "Hindi": "यह कॉल की जानकारी है",
 }
 SINGLE_IVR = {
-    "English": "Single IVR Call 🟢",
+    "English": "Quick Call 🟢",
     "Chinese": "单一IVR通话 🟢",
     "French": "Appel IVR unique 🟢",
     "Hindi": "सिंगल IVR कॉल 🟢",
 }
 START_BULK_IVR = {
-    "English": "⏳ Start Bulk IVR:",
+    "English": "⏳ Start Batch Calls:",
     "Chinese": "⏳ 开始批量 IVR：",
     "French": "⏳ Démarrer l'IVR en masse :",
     "Hindi": "⏳ बल्क IVR शुरू करें:",
@@ -1584,7 +1584,7 @@ WALLET_BALANCE = {
     "Hindi": "आपके वॉलेट में निम्नलिखित बैलेंस है:",
 }
 EDGES_DELETED = {
-    "English": "Node and its associated edges have been deleted successfully.",
+    "English": "Step and its connections removed successfully.",
     "Chinese": "节点及其相关连接已成功删除。",
     "French": "Le nœud et ses arêtes associées ont été supprimés avec succès.",
     "Hindi": "नोड और उसके संबंधित एजेस सफलतापूर्वक हटा दिए गए हैं।",
@@ -1608,7 +1608,7 @@ TRANSFER_TO_LIVE_AGENT = {
     "Hindi": "लाइव एजेंट को ट्रांसफर करें 👤",
 }
 PATHWAY_NOT_FOUND = {
-    "English": "Pathway not found!",
+    "English": "Call script not found!",
     "Chinese": "路径未找到！",
     "French": "Chemin introuvable !",
     "Hindi": "पाथवे नहीं मिला!",
@@ -1620,7 +1620,7 @@ VIEW_FEEDBACK = {
     "Hindi": "फीडबैक देखें",
 }
 UNAUTHORIZED_NODE_ACCESS = {
-    "English": "You are node allowed to use call transfer node with your current subscription plan. Choose another flow and try again!",
+    "English": "Your current plan does not include call transfers. Please upgrade your plan or choose a different script.",
     "Chinese": "您是节点允许使用调用使用您当前的订阅计划转移节点。选择另一个流程并重试！",
     "French": "Vous êtes un nœud autorisé à utiliser l'appel transférez le nœud avec votre plan d'abonnement actuel. Choisissezun autre flux et réessayez !",
     "Hindi": "आपको नोड को कॉल का उपयोग करने की अनुमति हैअपनी वर्तमान सदस्यता योजना के साथ नोड स्थानांतरित करें। चुनेंएक और प्रवाह और पुनः प्रयास करें!",
@@ -1645,7 +1645,7 @@ CUSTOM_MADE_TASKS = {
     "Hindi": "📝 कस्टम-मेड कार्य",
 }
 SOURCE_NODE = {
-    "English": "Source Node:",
+    "English": "From Step:",
     "Chinese": "源节点：",
     "French": "Nœud source :",
     "Hindi": "स्रोत नोड:",
@@ -1675,7 +1675,7 @@ VIEW_TERMS_AGAIN_BUTTON = {
     "Hindi": "🔄 फिर से नियम देखें",
 }
 DTMF_INPUT_TEXT = {
-    "English": "DTMF Input: ",
+    "English": "Key Pressed: ",
     "Chinese": "DTMF 输入：",
     "French": "Entrée DTMF : ",
     "Hindi": "DTMF इनपुट:",
@@ -1687,7 +1687,7 @@ CANCEL_CAMPAIGN = {
     "Hindi": "❌ अभियान रद्द करें",
 }
 START_NODE_NAME = {
-    "English": "Start Node Name:",
+    "English": "First Step:",
     "Chinese": "起始节点名称：",
     "French": "Nom du nœud de départ :",
     "Hindi": "प्रारंभ नोड नाम:",
@@ -2421,7 +2421,7 @@ RETRY_NODE = {
     "Hindi": "नोड पुनः प्रयास करें 🔄",
 }
 PROMPT_MESSAGE_FOR_DTMF = {
-    "English": "Please enter the prompt message for DTMF input.",
+    "English": "Enter the message callers will hear before pressing a key.",
     "Chinese": "请输入DTMF输入的提示消息。",
     "French": "Veuillez entrer le message d'invite pour l'entrée DTMF.",
     "Hindi": "DTMF इनपुट के लिए कृपया प्रॉम्प्ट संदेश दर्ज करें।",
@@ -2627,7 +2627,7 @@ MAKE_CALL_MENU = {
 }
 
 IVR_FLOWS_MENU = {
-    "English": "IVR Flows",
+    "English": "Call Scripts",
     "Chinese": "IVR 流程",
     "French": "Flux IVR",
     "Hindi": "IVR फ्लो",
@@ -2746,7 +2746,7 @@ PHONE_NUMBERS_HUB = {
 }
 
 INBOX_HUB = {
-    "English": "View your call recordings, DTMF responses, SMS messages, and call history.",
+    "English": "View your call recordings, keypress responses, SMS messages, and call history.",
     "Chinese": "查看您的通话录音、DTMF响应、短信和通话记录。",
     "French": "Consultez vos enregistrements, réponses DTMF, SMS et historique d'appels.",
     "Hindi": "अपनी कॉल रिकॉर्डिंग, DTMF रिस्पॉन्स, SMS और कॉल इतिहास देखें।",
