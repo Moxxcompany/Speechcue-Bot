@@ -1,7 +1,7 @@
 {
   "total": 47,
-  "passed": 45,
-  "failed": 2,
+  "passed": 47,
+  "failed": 0,
   "details": [
     {
       "name": "\ud83d\udcde Phone Numbers",
@@ -221,22 +221,14 @@
     },
     {
       "name": "\ud83d\uddd3\ufe0f Scheduled Campaigns",
-      "passed": false,
-      "errors": [
-        "2026-02-17 00:21:29,998 - ERROR - Bot handler exception: A request to the Telegram API was unsuccessful. Error code: 400. Description: Bad Request: message text is empty",
-        "Traceback (most recent call last):",
-        "raise ApiTelegramException(method_name, result, result_json)"
-      ],
+      "passed": true,
+      "errors": [],
       "status": 200
     },
     {
       "name": "\ud83d\ude80 Active Campaigns",
-      "passed": false,
-      "errors": [
-        "2026-02-17 00:21:31,309 - ERROR - Bot handler exception: A request to the Telegram API was unsuccessful. Error code: 400. Description: Bad Request: message text is empty",
-        "Traceback (most recent call last):",
-        "raise ApiTelegramException(method_name, result, result_json)"
-      ],
+      "passed": true,
+      "errors": [],
       "status": 200
     },
     {
