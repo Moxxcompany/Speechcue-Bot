@@ -1,74 +1,54 @@
-# Speechcue — PRD & Project Memory
+# Speechcue Telegram Bot - PRD
 
 ## Original Problem Statement
-Django Telegram Bot for IVR call management via Retell AI, crypto payments via DynoPay, user subscriptions.
+Setup the Speechcue Telegram bot application with all environment variables configured and webhook pointing to the current pod URL.
 
 ## Architecture
-- **Framework**: Django 4.2.13 (ASGI via uvicorn on port 8001)
-- **Database**: PostgreSQL 17.7 on Railway
-- **Bot**: pyTelegramBotAPI — @Speechcuebot
+- **Framework**: Django 4.2.13 (ASGI via uvicorn)
+- **Telegram Bot**: pyTelegramBotAPI (webhook mode)
 - **Voice AI**: Retell AI SDK
-- **Task Queue**: Celery + Redis (Railway)
-- **Payments**: DynoPay crypto + internal wallet
-- **Frontend**: React 19 (styled-components, react-router-dom v5)
+- **Payments**: DynoPay (crypto) + Internal Wallet (PostgreSQL)
+- **Database**: PostgreSQL on Railway (nozomi.proxy.rlwy.net:19535)
+- **Cache/Broker**: Redis on Railway (metro.proxy.rlwy.net:40681)
+- **Task Queue**: Celery + Celery Beat (with django-celery-beat scheduler)
 
-## What's Been Implemented
+## Core Features
+- IVR call script creation and management via Telegram bot
+- Single and bulk voice calls via Retell AI
+- DTMF input collection with supervisor approval flow
+- Subscription plans (Free, Starter, Pro, Business)
+- Internal wallet system with crypto top-up (DynoPay)
+- Phone number purchasing and management (Retell)
+- SMS inbox, call recordings, call history
+- Multi-language support (English, Hindi, Chinese, French)
+- Campaign scheduling and management
 
-### Session 4 — Full UX Overhaul (Jan 2026)
+## What's Been Implemented (Feb 17, 2026)
+- Created `/app/.env` and `/app/backend/.env` with all credentials
+- Configured webhook_url to current pod: `https://quickstart-43.preview.emergentagent.com`
+- Installed all Python dependencies from requirements.txt
+- Verified PostgreSQL and Redis connections
+- Ran Django migrations (all applied)
+- Set Telegram webhook via API
+- Backend running on port 8001 (supervisor managed)
+- Celery worker + beat running (auto-started by server.py)
+- All webhook endpoints verified: Telegram, Retell, DTMF, SMS, Time-check
 
-**Environment Setup:**
-- All Python/Node deps installed, real API credentials configured
-- Telegram webhook set to pod URL, PostgreSQL connected
+## Webhook Endpoints
+| Endpoint | URL Path | Status |
+|---|---|---|
+| Telegram | `/api/telegram/webhook/` | Active |
+| Retell AI | `/api/webhook/retell` | Active |
+| DTMF Supervisor | `/api/dtmf/supervisor-check` | Active |
+| SMS Inbound | `/api/webhook/sms` | Active |
+| Time Check | `/api/time-check` | Active |
 
-**Bug Fixes:**
-1. Missing `answer_callback_query` in 90/95 handlers — auto-answer in webhook
-2. Empty message crashes in Scheduled/Active Campaigns
-3. `display_create_ivr_flows_ai` was an empty function (no-op)
-4. `user_id[lg]` crash in View AI Scripts
-5. `ai_assisted_user_flow_keyboard` passed as reference not called
-
-**Admin Shared Phone Numbers:**
-- `is_admin` + `telegram_username` fields on TelegramUser
-- `@onarrival1` auto-flagged as admin; numbers show as Shared caller IDs
-- Education tip nudges private number purchase
-
-**Complete UX Text Rewrite (100+ changes, 4 languages):**
-- IVR Flow/Pathway → Call Script, Node → Step, Edge → Connection
-- DTMF → Keypress, Bulk IVR → Batch Calls, Single IVR → Quick Call
-- All prompts, guides, error messages rewritten in plain language
-
-**Guided First-Call Wizard:**
-- After activating free plan, users see "Try Your First Call" offer
-- Enter phone number → Retell creates temp agent → AI calls user in 30 seconds
-- Uses shared admin caller ID if available
-- Skip option available; Cancel returns to main menu
-- Success message directs to Call Scripts for next step
-
-**Cancel/Back in Multi-Step Flows:**
-- `/cancel` command handler clears any active step → main menu
-- "Cancel" text button handler during any step flow
-- `get_force_reply()` now shows Cancel button instead of bare ForceReply
-- Works across: script creation, number purchase, phone input, name entry, campaign setup
-
-**"Bind Agent" → "Set Inbound Script":**
-- Button label: "Set Inbound Script" (was "Bind Agent")
-- Prompt explains: "Choose a call script to handle incoming calls"
-- Unbind label: "Remove inbound script" (was "Unbind")
-- Confirmation messages use plain language
-
-**Timezone Hint in Campaign Scheduling:**
-- Replaced bare datetime prompt with rich timezone hint
-- Shows format, example, and common cities list
-- Users enter: `YYYY-MM-DD HH:mm City`
-
-## Test Results
-- Button Audit: 47/47 handlers passing
-- Wizard callbacks: wizard_start, wizard_skip working
-- /cancel command: working
-- All syntax checks pass
+## User Personas
+- **Bot Admin**: Manages IVR flows, campaigns, phone numbers
+- **End User**: Uses Telegram bot to create call scripts and make calls
 
 ## Backlog
-- [ ] Real Terms & Conditions URL
-- [ ] Outbound SMS (requires A2P 10DLC)
-- [ ] Call analytics web dashboard
-- [ ] Multi-language voice selection in onboarding
+- P0: None (all core features working)
+- P1: Configure Retell webhook URL in Retell dashboard to point to `/api/webhook/retell`
+- P2: Update TERMS_AND_CONDITIONS_URL and CHANNEL_LINK to actual values
+- P2: Add /api prefix to terms-and-conditions route for ingress compatibility
