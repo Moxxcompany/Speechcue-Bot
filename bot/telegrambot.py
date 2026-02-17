@@ -5181,22 +5181,22 @@ def handle_bind_agent_prompt(call):
     else:
         bot.send_message(
             user_id,
-            "You don't have any IVR flows yet. Create a flow first, then bind it to your number.",
+            "You don't have any call scripts yet. Create a script first, then assign it to your number.",
             reply_markup=get_main_menu_keyboard(user_id),
         )
         return
 
     # Option to unbind
     markup.add(types.InlineKeyboardButton(
-        "🚫 Unbind (no inbound agent)", callback_data=f"setbind_{phone}_none"
+        "🚫 Remove inbound script", callback_data=f"setbind_{phone}_none"
     ))
-    markup.add(types.InlineKeyboardButton("⬅️ Back", callback_data="my_numbers"))
+    markup.add(types.InlineKeyboardButton("Back", callback_data="my_numbers"))
 
     bot.send_message(
         user_id,
-        f"🔗 *Bind Agent to* `{phone}`\n\n"
-        f"Choose an IVR flow to handle *inbound calls* to this number.\n"
-        f"Outbound calls always use the flow you select at call time.",
+        f"📞 *Set Inbound Script for* `{phone}`\n\n"
+        f"Choose a call script to handle *incoming calls* to this number.\n"
+        f"When someone calls you, the AI will follow this script automatically.",
         reply_markup=markup,
         parse_mode="Markdown",
     )
