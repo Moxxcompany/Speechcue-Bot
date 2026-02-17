@@ -104,3 +104,64 @@ def mask_phone_number(phone):
     if len(phone) > 4:
         return phone[:-4].replace(phone[:-4], "*" * len(phone[:-4])) + phone[-4:]
     return phone
+
+
+
+def format_transcript(transcript_object):
+    """
+    Format Retell transcript_object into a clean Agent/Caller dialogue.
+    Returns (full_text, short_summary).
+    transcript_object is a list of {role, content} dicts.
+    """
+    if not transcript_object:
+        return "", ""
+
+    lines = []
+    for entry in transcript_object:
+        role = entry.get("role", "")
+        content = entry.get("content", "").strip()
+        if not content:
+            continue
+
+        # Skip DTMF entries (already shown in summary)
+        if "Pressed Button:" in content:
+            continue
+
+        if role == "agent":
+            lines.append(f"Agent: {content}")
+        elif role == "user":
+            lines.append(f"Caller: {content}")
+
+    full_text = "\n".join(lines)
+
+    # Build a short summary (first 3 exchanges max)
+    short_lines = lines[:6]  # Up to 3 exchanges (agent + caller pairs)
+    short_summary = "\n".join(short_lines)
+    if len(lines) > 6:
+        short_summary += f"\n... ({len(lines) - 6} more lines)"
+
+    return full_text, short_summary
+
+
+def format_transcript_for_telegram(transcript_text, call_summary="", sentiment="", max_length=3500):
+    """
+    Format transcript + optional AI summary for Telegram message.
+    Truncates if too long for Telegram (4096 char limit).
+    """
+    parts = []
+
+    if call_summary:
+        parts.append(f"*Summary:* {call_summary}")
+
+    if sentiment:
+        sentiment_icon = {"Positive": "😊", "Negative": "😞", "Neutral": "😐"}.get(sentiment, "📊")
+        parts.append(f"*Sentiment:* {sentiment_icon} {sentiment}")
+
+    if transcript_text:
+        # Truncate transcript if needed
+        available = max_length - sum(len(p) for p in parts) - 50
+        if len(transcript_text) > available:
+            transcript_text = transcript_text[:available] + "\n... (truncated)"
+        parts.append(f"\n📝 *Transcript:*\n```\n{transcript_text}\n```")
+
+    return "\n".join(parts)
