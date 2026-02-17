@@ -5037,7 +5037,7 @@ def handle_my_numbers(call):
             callback_data=f"numset_{num.phone_number}"
         ))
         markup.add(types.InlineKeyboardButton(
-            f"🔗 Bind Agent {num.phone_number[-4:]}",
+            f"🔗 Set Inbound Script {num.phone_number[-4:]}",
             callback_data=f"bindagent_{num.phone_number}"
         ))
         markup.add(types.InlineKeyboardButton(
