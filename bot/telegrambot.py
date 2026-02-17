@@ -398,7 +398,7 @@ def handle_dtmf_responses_hub(call):
     # Show all pathways with DTMF data
     user = TelegramUser.objects.filter(user_id=user_id).first()
     if not user:
-        bot.send_message(user_id, "No DTMF data found.")
+        bot.send_message(user_id, "No keypress responses found.")
         return
 
     dtmf_records = DTMF_Inbox.objects.filter(user_id=user).values_list("pathway_id", flat=True).distinct()
