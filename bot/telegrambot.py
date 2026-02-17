@@ -508,7 +508,7 @@ def handle_activate_free_plan(call):
         try:
             sub = UserSubscription.objects.get(user_id=user_id)
             if sub.subscription_status == "active" and sub.plan_id:
-                bot.send_message(user_id, f"✅ You already have an active plan: *{sub.plan_id.name}*", parse_mode="Markdown")
+                bot.send_message(user_id, f"You already have an active plan: *{sub.plan_id.name}*", parse_mode="Markdown")
                 send_welcome(call.message)
                 return
         except UserSubscription.DoesNotExist:
@@ -525,7 +525,91 @@ def handle_activate_free_plan(call):
         handle_activate_subscription(call)
         return
 
+    # Offer the First Call Wizard
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton(
+        f"📞 {WIZARD_TRY_CALL[lg]}", callback_data="wizard_start"
+    ))
+    markup.add(types.InlineKeyboardButton(
+        f"⏭ {WIZARD_SKIP[lg]}", callback_data="wizard_skip"
+    ))
+    bot.send_message(user_id, f"🎯 {WIZARD_OFFER[lg]}", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "wizard_skip")
+def handle_wizard_skip(call):
+    """Skip wizard, go to main menu."""
     send_welcome(call.message)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == "wizard_start")
+def handle_wizard_start(call):
+    """Start the first-call wizard — ask for phone number."""
+    user_id = call.message.chat.id
+    lg = get_user_language(user_id)
+    if user_id not in user_data:
+        user_data[user_id] = {}
+    user_data[user_id]["step"] = "wizard_phone"
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(types.KeyboardButton("Cancel"))
+    bot.send_message(user_id, f"📞 {WIZARD_ENTER_PHONE[lg]}", reply_markup=markup)
+
+
+@bot.message_handler(
+    func=lambda message: user_data.get(message.chat.id, {}).get("step") == "wizard_phone"
+)
+def handle_wizard_phone(message):
+    """Receive phone number and place the test call."""
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+
+    if message.text and message.text.lower() == "cancel":
+        user_data[user_id]["step"] = ""
+        bot.send_message(user_id, CANCEL_CONFIRM[lg], reply_markup=get_main_menu_keyboard(user_id))
+        return
+
+    phone = message.text.strip() if message.text else ""
+    if not validate_mobile(phone):
+        bot.send_message(
+            user_id,
+            "Please enter a valid phone number with country code (e.g., +14155552671).",
+        )
+        return
+
+    user_data[user_id]["step"] = ""
+    bot.send_message(user_id, f"📲 {WIZARD_CALLING[lg]}", reply_markup=types.ReplyKeyboardRemove())
+
+    # Place the test call using AI-assisted task description
+    try:
+        test_task = (
+            "You are a friendly AI assistant from Speechcue. Greet the caller warmly, "
+            "introduce yourself, and say: 'This is a test call to show you how Speechcue works. "
+            "You can build custom call scripts just like this one. Have a great day!' Then end the call."
+        )
+        response, status_code = send_call_through_pathway(
+            pathway_id=None,
+            phone_number=phone,
+            user_id=user_id,
+            caller_id=None,
+            task=test_task,
+        )
+        if status_code == 200 or status_code == 201:
+            bot.send_message(
+                user_id, WIZARD_SUCCESS[lg],
+                reply_markup=get_main_menu_keyboard(user_id),
+                parse_mode="Markdown",
+            )
+        else:
+            bot.send_message(
+                user_id, WIZARD_FAILED[lg],
+                reply_markup=get_main_menu_keyboard(user_id),
+            )
+    except Exception as e:
+        _handler_logger.error(f"Wizard call failed: {e}")
+        bot.send_message(
+            user_id, WIZARD_FAILED[lg],
+            reply_markup=get_main_menu_keyboard(user_id),
+        )
 
 
 @bot.callback_query_handler(func=lambda call: call.data == "how_it_works")
