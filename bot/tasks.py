@@ -136,7 +136,6 @@ def download_and_cache_recording(call_id, retell_url):
 
 def _send_recording_inline(rec, call_id, file_path):
     """Send the audio file directly in Telegram chat."""
-    import os
     try:
         call_log = CallLogsTable.objects.filter(call_id=call_id).first()
         to_number = call_log.call_number if call_log else "Unknown"
