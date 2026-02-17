@@ -4552,7 +4552,7 @@ def get_recipient_single_ivr(message):
     if not validate_mobile(phone_number):
         bot.send_message(
             user_id,
-            "☎️ Please enter recipient’s phone number in the right format"
+            "☎️ Please enter recipient's phone number in the right format"
             " (e.g., +14155552671). ",
         )
         return
@@ -6104,7 +6104,7 @@ def subscribed_users_message_ivr(user_id):
             )
         else:
             msg = (
-                f"Welcome! Let’s get started:\n"
+                f"Welcome! Let's get started:\n"
                 f"🌟 Active Plan: {plan.name} ({current_day_of_subscription} of {plan.validity_days} Days)\n"
                 f"📞 Quick Calls: {single_calls}\n"
                 f"⏱️ Bulk Calls: {bulk_calls}\n"
