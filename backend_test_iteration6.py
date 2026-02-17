@@ -21,7 +21,7 @@ import re
 from datetime import datetime, timezone
 
 class TelegramBotFinalTester:
-    def __init__(self, base_url="https://initial-config-3.preview.emergentagent.com"):
+    def __init__(self, base_url="https://quickstart-43.preview.emergentagent.com"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0

@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 class NewFeaturesTester:
     def __init__(self):
         """Initialize tester with backend URL from environment"""
-        self.base_url = os.getenv('webhook_url', 'https://initial-config-3.preview.emergentagent.com').rstrip('/')
+        self.base_url = os.getenv('webhook_url', 'https://quickstart-43.preview.emergentagent.com').rstrip('/')
         
         self.tests_run = 0
         self.tests_passed = 0
