@@ -2016,7 +2016,7 @@ REQUEST_FAILED = {
     "Hindi": "निम्नलिखित कारण से अनुरोध विफल हो गया:",
 }
 CREATE_TASK_PROMPT = {
-    "English": "Let’s create your IVR step by step. Choose an option to begin:",
+    "English": "Let’s build your call script step by step. Choose an option:",
     "Chinese": "让我们一步步创建您的 IVR。请选择一个选项开始：",
     "French": "Créons votre IVR étape par étape. Choisissez une option pour commencer :",
     "Hindi": "चलिए आपका IVR चरण-दर-चरण बनाते हैं। शुरू करने के लिए एक विकल्प चुनें:",
@@ -2107,7 +2107,7 @@ USER_INFORMATION_NOT_FOUND = {
     "Hindi": "उपयोगकर्ता जानकारी नहीं मिली!",
 }
 ASK_TASK_NAME = {
-    "English": "🏷️ What is the name of this IVR task?",
+    "English": "🏷️ What would you like to name this script?",
     "Chinese": "🏷️ 这个 IVR 任务的名称是什么？",
     "French": "🏷️ Quel est le nom de cette tâche IVR ?",
     "Hindi": "🏷️ इस IVR कार्य का नाम क्या है?",
