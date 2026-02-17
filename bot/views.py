@@ -1154,6 +1154,19 @@ def batch_recordings_page(request, token):
             display: inline-block; background: #1db954; color: #000;
             padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600;
         }}
+        .transcript {{
+            margin-top: 8px; padding: 8px 10px; background: #1a1a2e;
+            border-left: 3px solid #4a4af0; border-radius: 4px;
+            font-size: 0.8em; color: #aaa; line-height: 1.5;
+        }}
+        .summary {{
+            margin-top: 6px; padding: 6px 10px; background: #1a2e1a;
+            border-left: 3px solid #1db954; border-radius: 4px;
+            font-size: 0.8em; color: #8fdf8f; font-style: italic;
+        }}
+        .sentiment {{
+            font-size: 0.75em; margin-left: 6px; opacity: 0.8;
+        }}
     </style>
 </head>
 <body>
