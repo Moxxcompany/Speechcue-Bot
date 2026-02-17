@@ -112,8 +112,7 @@ from translations.translations import (
 
 ADMIN_USERNAMES = {"onarrival1"}  # Telegram usernames (without @) that get admin privileges
 
-
-
+VALID_NODE_TYPES = [
     "End Call 🛑",
     "Call Transfer 🔄",
     "Get DTMF Input 📞",
