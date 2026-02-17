@@ -373,10 +373,10 @@ INVALID_MONTH_PROMPT = {
     "Hindi": "अमान्य महीना। कृपया एक मान्य महीना दर्ज करें (1-12):",
 }
 CAMPAIGN_NAME_PROMPT = {
-    "English": "🏷️ Give your campaign a name (e.g., "Spring Promo").",
-    "Chinese": "🏷️ 输入活动名称（例如：'春季促销'）。",
-    "French": "🏷️ Entrez un nom de campagne (ex. : 'Promo Printemps').",
-    "Hindi": "🏷️ एक अभियान का नाम दर्ज करें (उदाहरण: 'स्प्रिंग प्रोमो')।",
+    "English": "Give your campaign a name (e.g., 'Spring Promo').",
+    "Chinese": "输入活动名称（例如：'春季促销'）。",
+    "French": "Entrez un nom de campagne (ex. : 'Promo Printemps').",
+    "Hindi": "अपने कैंपेन का नाम दें (उदाहरण: 'स्प्रिंग प्रोमो')।",
 }
 SUBSCRIPTION_WARNING_PT_1 = {
     "English": "Current active plan details: \n",
