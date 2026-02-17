@@ -743,7 +743,7 @@ def get_voices():
 # Bulk/Batch Calls — Retell batch_call API
 # =============================================================================
 
-def bulk_ivr_flow(call_data, user_id, caller_id, campaign_id, task=None, pathway_id=None):
+def bulk_ivr_flow(call_data, user_id, caller_id, campaign_id, task=None, pathway_id=None, recording_requested=False):
     """
     Send batch calls via Retell (replaces Bland POST /v1/batches).
     """
@@ -793,6 +793,7 @@ def bulk_ivr_flow(call_data, user_id, caller_id, campaign_id, task=None, pathway
                 to_number=phone,
                 from_number=caller_id or "",
                 call_status="queued",
+                recording_requested=recording_requested,
             )
             CallLogsTable.objects.create(
                 call_id=call_id_entry,
@@ -800,6 +801,8 @@ def bulk_ivr_flow(call_data, user_id, caller_id, campaign_id, task=None, pathway
                 pathway_id=pathway_id or "",
                 user_id=user_id,
                 call_status="new",
+                recording_requested=recording_requested,
+                recording_fee=0.02 if recording_requested else 0.00,
             )
 
         return FakeResponse(200, {"batch_id": batch_id, "total_calls": len(call_data)})
