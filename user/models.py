@@ -11,6 +11,7 @@ class TelegramUser(models.Model):
     subscription_status = models.CharField(max_length=50, null=True, default='inactive')
     free_plan = models.BooleanField(default=True)
     wallet_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    is_admin = models.BooleanField(default=False)
 
     def __str__(self):
         return self.user_name
