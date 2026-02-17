@@ -797,8 +797,20 @@ def _send_call_outcome_summary(call_data):
         _send_transcript_message(user_id, short_transcript, full_transcript)
 
 
+def _send_transcript_message(user_id, short_transcript, full_transcript=""):
+    """Send transcript as a follow-up Telegram message after the call summary."""
+    try:
+        # Use full transcript if short enough, otherwise use short version
+        display = full_transcript if len(full_transcript) < 3000 else short_transcript
+        msg = f"📝 *Call Transcript:*\n```\n{display}\n```"
+        bot.send_message(user_id, msg, parse_mode="Markdown")
+    except Exception as e:
+        logger.warning(f"[transcript] Failed to send transcript to user {user_id}: {e}")
+
+
 def _handle_batch_call_summary(batch_call, call_data, user_id, duration_str,
-                                dtmf_digits, recording_line, disconnection_reason):
+                                dtmf_digits, recording_line, disconnection_reason,
+                                short_transcript=""):
     """
     Threshold-based batch call delivery:
     - < BATCH_THRESHOLD calls: send individual summaries
