@@ -1,0 +1,289 @@
+{
+  "total": 47,
+  "passed": 47,
+  "failed": 0,
+  "details": [
+    {
+      "name": "\ud83d\udcde Phone Numbers",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "\ud83c\udf99 IVR Flows",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "\u260e\ufe0f Make a Call",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "\ud83d\udccb Campaigns",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "\ud83d\udcec Inbox",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "\ud83d\udcb0 Wallet & Billing",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Account \ud83d\udc64",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Help \u2139\ufe0f",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Buy Number",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "My Numbers",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "SMS Inbox",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Phone Hub Back",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Call History",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Call Recordings",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "DTMF Responses Hub",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Inbox Hub Back",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Top Up Wallet",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Transaction History",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "View Subscription",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Update Subscription",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Wallet Hub Back",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Check Wallet",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Back to Welcome",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Back to Billing",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Back Account",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Back to Campaign Home",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "How It Works",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Activate Free Plan",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Profile \ud83d\udc64",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Settings \u2699",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Back \u21a9\ufe0f",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "\ud83e\udd16 AI Assisted Flow",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "\ud83d\udee0\ufe0f Advanced User Flow",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Single IVR Call \ud83d\udfe2",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Bulk IVR Call \ud83d\udd35",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Call Status \u2139",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "\ud83d\uddd3\ufe0f Scheduled Campaigns",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "\ud83d\ude80 Active Campaigns",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "\ud83c\udfe0 Return Home",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Change Language",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Help (callback)",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "View Terms",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Activate Subscription",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Buy US Local",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Buy US Toll-Free",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Buy CA Local",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    },
+    {
+      "name": "Buy Num Back",
+      "passed": true,
+      "errors": [],
+      "status": 200
+    }
+  ]
+}
