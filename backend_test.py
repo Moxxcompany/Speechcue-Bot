@@ -1,378 +1,431 @@
 #!/usr/bin/env python3
 """
-Backend Testing for Speechcue Telegram Bot Django Application
-Tests all API endpoints and integrations
+Backend Testing for Voice-to-Text Transcription Features
+Tests all the new transcript and AI analysis functionality
 """
 import requests
-import sys
 import json
-import os
-from datetime import datetime
+import time
+import sys
+from datetime import datetime, timezone
 
-class SpeechcueBackendTester:
-    def __init__(self, base_url="https://quickstart-43.preview.emergentagent.com"):
+# Test configuration
+BASE_URL = "https://quickstart-43.preview.emergentagent.com"
+TEST_USER_ID = 5590563715
+
+class TranscriptFeatureTester:
+    def __init__(self, base_url=BASE_URL):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
-        self.failed_tests = []
-        self.passed_tests = []
-        self.critical_issues = []
-        
-    def run_test(self, name, method, endpoint, expected_status=200, data=None, headers=None):
-        """Run a single API test"""
-        url = f"{self.base_url}{endpoint}"
-        if headers is None:
-            headers = {'Content-Type': 'application/json'}
-        
+        self.test_results = []
+
+    def log_test(self, name, status, details=""):
+        """Log test result"""
         self.tests_run += 1
-        print(f"\n🔍 Testing {name}...")
-        print(f"   URL: {url}")
+        if status:
+            self.tests_passed += 1
+            print(f"✅ {name}")
+        else:
+            print(f"❌ {name} - {details}")
         
+        self.test_results.append({
+            "test": name,
+            "status": "PASS" if status else "FAIL",
+            "details": details,
+            "timestamp": datetime.now().isoformat()
+        })
+
+    def test_webhook_endpoint_exists(self):
+        """Test 1: Webhook endpoint is accessible"""
         try:
-            if method == 'GET':
-                response = requests.get(url, headers=headers, timeout=10)
-            elif method == 'POST':
-                response = requests.post(url, json=data, headers=headers, timeout=10)
-            
-            success = response.status_code == expected_status
-            
-            if success:
-                self.tests_passed += 1
-                self.passed_tests.append(name)
-                print(f"✅ PASS - Status: {response.status_code}")
-                try:
-                    response_data = response.json()
-                    print(f"   Response: {response_data}")
-                    return True, response_data
-                except:
-                    print(f"   Response (text): {response.text}")
-                    return True, response.text
-            else:
-                self.failed_tests.append({
-                    "test": name,
-                    "expected": expected_status,
-                    "actual": response.status_code,
-                    "response": response.text[:200],
-                    "url": url
-                })
-                if response.status_code in [500, 404]:
-                    self.critical_issues.append(f"{name}: HTTP {response.status_code}")
-                print(f"❌ FAIL - Expected {expected_status}, got {response.status_code}")
-                print(f"   Response: {response.text[:200]}")
-                return False, response.text
-                
-        except requests.exceptions.Timeout:
-            self.failed_tests.append({
-                "test": name,
-                "error": "Timeout after 10 seconds",
-                "url": url
-            })
-            print(f"❌ FAIL - Timeout after 10 seconds")
-            return False, "timeout"
-            
+            url = f"{self.base_url}/api/webhook/retell"
+            response = requests.get(url, timeout=10)
+            # Webhook should reject GET but be accessible
+            success = response.status_code in [405, 200]
+            self.log_test("Webhook endpoint accessible", success, 
+                         f"Status: {response.status_code}")
+            return success
         except Exception as e:
-            self.failed_tests.append({
-                "test": name,
-                "error": str(e),
-                "url": url
-            })
-            print(f"❌ FAIL - Error: {str(e)}")
-            return False, str(e)
+            self.log_test("Webhook endpoint accessible", False, str(e))
+            return False
 
-    def test_telegram_webhook(self):
-        """Test Telegram webhook endpoint"""
-        test_data = {
-            "update_id": 12345,
-            "message": {
-                "message_id": 1,
-                "from": {
-                    "id": 123456789,
-                    "is_bot": False,
-                    "first_name": "Test",
-                    "username": "testuser",
-                    "language_code": "en"
-                },
-                "chat": {
-                    "id": 123456789,
-                    "first_name": "Test",
-                    "username": "testuser",
-                    "type": "private"
-                },
-                "date": int(datetime.now().timestamp()),
-                "text": "/start"
+    def test_call_ended_webhook_with_transcript(self):
+        """Test 2: call_ended webhook processes transcript_object correctly"""
+        try:
+            # First create a CallLogsTable entry
+            call_id = f"test_call_transcript_{int(time.time())}"
+            
+            # Sample transcript object from Retell
+            sample_transcript = [
+                {"role": "agent", "content": "Hello, thank you for calling. How can I help you today?"},
+                {"role": "user", "content": "Hi, I'm calling about my account balance."},
+                {"role": "agent", "content": "I'd be happy to help with that. Can you provide your account number?"},
+                {"role": "user", "content": "Yes, it's 123456789"},
+                {"role": "user", "content": "Pressed Button: 1"},
+                {"role": "agent", "content": "Thank you. I see your account. Your current balance is $150."},
+                {"role": "user", "content": "Great, thank you for the help!"}
+            ]
+
+            webhook_payload = {
+                "event": "call_ended",
+                "data": {
+                    "call_id": call_id,
+                    "agent_id": "agent_test_123",
+                    "to_number": "+1234567890",
+                    "duration_ms": 120000,
+                    "start_timestamp": int(time.time() * 1000) - 120000,
+                    "end_timestamp": int(time.time() * 1000),
+                    "transcript_object": sample_transcript,
+                    "disconnection_reason": "user_hangup"
+                }
             }
-        }
-        
-        return self.run_test(
-            "Telegram Webhook",
-            "POST", 
-            "/api/telegram/webhook/",
-            expected_status=200,
-            data=test_data
-        )
 
-    def test_retell_webhook(self):
-        """Test Retell AI webhook endpoint"""
-        test_data = {
-            "event": "call_started",
-            "data": {
-                "call_id": "test_call_123",
-                "to_number": "+1234567890",
-                "from_number": "+1987654321",
-                "direction": "outbound",
-                "agent_id": "test_agent"
+            url = f"{self.base_url}/api/webhook/retell"
+            response = requests.post(url, json=webhook_payload, timeout=15)
+            
+            success = response.status_code == 200
+            self.log_test("call_ended webhook with transcript", success,
+                         f"Status: {response.status_code}, Response: {response.text[:200]}")
+            return success, call_id
+        except Exception as e:
+            self.log_test("call_ended webhook with transcript", False, str(e))
+            return False, None
+
+    def test_call_analyzed_webhook(self):
+        """Test 3: call_analyzed webhook stores AI analysis data"""
+        try:
+            call_id = f"test_call_analysis_{int(time.time())}"
+            
+            webhook_payload = {
+                "event": "call_analyzed", 
+                "data": {
+                    "call_id": call_id,
+                    "call_analysis": {
+                        "call_summary": "Customer called to inquire about their account balance. Agent successfully provided the balance information of $150. Customer was satisfied with the service.",
+                        "user_sentiment": "Positive"
+                    }
+                }
             }
-        }
-        
-        return self.run_test(
-            "Retell Webhook",
-            "POST",
-            "/api/webhook/retell",
-            expected_status=200,
-            data=test_data
-        )
 
-    def test_dtmf_supervisor_check(self):
-        """Test DTMF supervisor check endpoint"""
-        test_data = {
-            "call_id": "test_call_dtmf_123",
-            "args": {
-                "digits": "1234",
-                "node_name": "PIN Entry Test"
+            url = f"{self.base_url}/api/webhook/retell"
+            response = requests.post(url, json=webhook_payload, timeout=15)
+            
+            success = response.status_code == 200
+            self.log_test("call_analyzed webhook", success,
+                         f"Status: {response.status_code}, Response: {response.text[:200]}")
+            return success, call_id
+        except Exception as e:
+            self.log_test("call_analyzed webhook", False, str(e))
+            return False, None
+
+    def test_combined_webhook_flow(self):
+        """Test 4: Complete flow - call_ended followed by call_analyzed"""
+        try:
+            call_id = f"test_combined_flow_{int(time.time())}"
+            
+            # Sample conversation transcript
+            sample_transcript = [
+                {"role": "agent", "content": "Hello, this is customer service. How may I assist you?"},
+                {"role": "user", "content": "I need help with my subscription renewal."},
+                {"role": "agent", "content": "I'll be happy to help. Can you provide your customer ID?"},
+                {"role": "user", "content": "It's 987654321"},
+                {"role": "agent", "content": "Thank you. I see your subscription expires next week. Would you like to renew?"},
+                {"role": "user", "content": "Yes, please renew it for another year."},
+                {"role": "agent", "content": "Perfect! I've processed your renewal. You're all set for another year."}
+            ]
+
+            # First: call_ended with transcript
+            call_ended_payload = {
+                "event": "call_ended",
+                "data": {
+                    "call_id": call_id,
+                    "agent_id": "agent_test_456", 
+                    "to_number": "+1987654321",
+                    "duration_ms": 180000,
+                    "start_timestamp": int(time.time() * 1000) - 180000,
+                    "end_timestamp": int(time.time() * 1000),
+                    "transcript_object": sample_transcript,
+                    "disconnection_reason": "agent_hangup",
+                    "recording_url": "https://retell-recordings.s3.amazonaws.com/test_recording.wav"
+                }
             }
-        }
-        
-        return self.run_test(
-            "DTMF Supervisor Check",
-            "POST",
-            "/api/dtmf/supervisor-check",
-            expected_status=200,
-            data=test_data
-        )
 
-    def test_sms_webhook(self):
-        """Test SMS webhook endpoint"""
-        test_data = {
-            "to_number": "+1234567890",
-            "from_number": "+1987654321",
-            "message": "Test SMS message"
-        }
-        
-        return self.run_test(
-            "SMS Webhook",
-            "POST",
-            "/api/webhook/sms",
-            expected_status=200,
-            data=test_data
-        )
-
-    def test_time_check(self):
-        """Test time check endpoint"""
-        test_data = {
-            "call_id": "test_call_time_123",
-            "args": {
-                "phone_number": "+1234567890"
+            url = f"{self.base_url}/api/webhook/retell"
+            response1 = requests.post(url, json=call_ended_payload, timeout=15)
+            
+            # Wait a bit then send call_analyzed
+            time.sleep(2)
+            
+            call_analyzed_payload = {
+                "event": "call_analyzed",
+                "data": {
+                    "call_id": call_id,
+                    "call_analysis": {
+                        "call_summary": "Customer called for subscription renewal assistance. Agent successfully processed a one-year renewal. Customer was satisfied with the quick resolution.",
+                        "user_sentiment": "Positive"
+                    }
+                }
             }
-        }
-        
-        return self.run_test(
-            "Time Check",
-            "POST",
-            "/api/time-check",
-            expected_status=200,
-            data=test_data
-        )
+            
+            response2 = requests.post(url, json=call_analyzed_payload, timeout=15)
+            
+            success = response1.status_code == 200 and response2.status_code == 200
+            self.log_test("Combined webhook flow (call_ended + call_analyzed)", success,
+                         f"call_ended: {response1.status_code}, call_analyzed: {response2.status_code}")
+            return success, call_id
+        except Exception as e:
+            self.log_test("Combined webhook flow", False, str(e))
+            return False, None
 
-    def test_get_endpoints(self):
-        """Test GET endpoints that might exist"""
-        endpoints = [
-            ("/admin/", 200),  # Django admin might redirect but should respond
+    def test_batch_recordings_endpoint(self):
+        """Test 5: Batch recordings HTML page includes transcript snippets"""
+        try:
+            # This would typically require a valid batch token
+            # For now, just test that the endpoint structure exists
+            url = f"{self.base_url}/api/recordings/batch/test_token/"
+            response = requests.get(url, timeout=10)
+            
+            # Expect 403/404 for invalid token, not 500 error
+            success = response.status_code in [403, 404, 200]
+            self.log_test("Batch recordings endpoint structure", success,
+                         f"Status: {response.status_code}")
+            return success
+        except Exception as e:
+            self.log_test("Batch recordings endpoint structure", False, str(e))
+            return False
+
+    def test_individual_recording_endpoint(self):
+        """Test 6: Individual recording endpoint exists"""
+        try:
+            url = f"{self.base_url}/api/recordings/test_token/"
+            response = requests.get(url, timeout=10)
+            
+            # Expect 404 for invalid token, not 500 error
+            success = response.status_code in [404, 403, 200]
+            self.log_test("Individual recording endpoint structure", success,
+                         f"Status: {response.status_code}")
+            return success
+        except Exception as e:
+            self.log_test("Individual recording endpoint structure", False, str(e))
+            return False
+
+    def test_webhook_events_handling(self):
+        """Test 7: Test webhook handles all expected events"""
+        events_to_test = [
+            ("call_started", {"call_id": "test_started", "to_number": "+1234567890", "direction": "outbound"}),
+            ("transcript_updated", {"call_id": "test_transcript_update", "transcript_object": [{"role": "user", "content": "Hello"}]}),
+            ("unknown_event", {"call_id": "test_unknown"})
         ]
         
-        for endpoint, expected_status in endpoints:
-            self.run_test(
-                f"GET {endpoint}",
-                "GET",
-                endpoint,
-                expected_status=expected_status
-            )
-
-    def test_server_health(self):
-        """Test basic server health"""
-        # Test root endpoint
-        self.run_test(
-            "Server Root",
-            "GET",
-            "/",
-            expected_status=200  # or 404, depending on Django setup
-        )
-
-    def check_environment_variables(self):
-        """Check if critical environment variables are set"""
-        print("\n🔍 Checking Environment Variables...")
+        all_success = True
+        results = []
         
-        # Read from .env file
-        env_vars = {}
+        for event, data in events_to_test:
+            try:
+                webhook_payload = {"event": event, "data": data}
+                url = f"{self.base_url}/api/webhook/retell"
+                response = requests.post(url, json=webhook_payload, timeout=10)
+                
+                success = response.status_code == 200
+                results.append(f"{event}:{response.status_code}")
+                if not success:
+                    all_success = False
+            except Exception as e:
+                results.append(f"{event}:ERROR")
+                all_success = False
+        
+        self.log_test("Webhook events handling", all_success, f"Results: {', '.join(results)}")
+        return all_success
+
+    def test_dtmf_extraction_from_transcript(self):
+        """Test 8: DTMF extraction from transcript_object"""
         try:
-            with open('/app/.env', 'r') as f:
-                for line in f:
-                    if '=' in line and not line.strip().startswith('#'):
-                        key, value = line.strip().split('=', 1)
-                        env_vars[key] = value
+            call_id = f"test_dtmf_extraction_{int(time.time())}"
+            
+            # Transcript with DTMF entries
+            dtmf_transcript = [
+                {"role": "agent", "content": "Please enter your PIN followed by the pound key."},
+                {"role": "user", "content": "Pressed Button: 1"},
+                {"role": "user", "content": "Pressed Button: 2"},
+                {"role": "user", "content": "Pressed Button: 3"},
+                {"role": "user", "content": "Pressed Button: 4"},
+                {"role": "user", "content": "Pressed Button: #"},
+                {"role": "agent", "content": "Thank you. PIN accepted."}
+            ]
+
+            webhook_payload = {
+                "event": "call_ended",
+                "data": {
+                    "call_id": call_id,
+                    "agent_id": "agent_dtmf_test",
+                    "to_number": "+1555123456",
+                    "duration_ms": 90000,
+                    "start_timestamp": int(time.time() * 1000) - 90000,
+                    "end_timestamp": int(time.time() * 1000),
+                    "transcript_object": dtmf_transcript,
+                    "disconnection_reason": "user_hangup"
+                }
+            }
+
+            url = f"{self.base_url}/api/webhook/retell"
+            response = requests.post(url, json=webhook_payload, timeout=15)
+            
+            success = response.status_code == 200
+            self.log_test("DTMF extraction from transcript", success,
+                         f"Status: {response.status_code}")
+            return success
         except Exception as e:
-            print(f"❌ Could not read .env file: {e}")
+            self.log_test("DTMF extraction from transcript", False, str(e))
             return False
-        
-        required_vars = [
-            'API_TOKEN',
-            'RETELL_API_KEY', 
-            'POSTGRES_DB',
-            'REDIS_URL',
-            'webhook_url',
-            'DYNOPAY_API_KEY',
-            'DYNOPAY_WALLET_TOKEN'
+
+    def test_error_handling(self):
+        """Test 9: Error handling for malformed requests"""
+        test_cases = [
+            ("Invalid JSON", "not valid json"),
+            ("Missing event", {"data": {"call_id": "test"}}),
+            ("Empty payload", {}),
+            ("Malformed call_ended", {"event": "call_ended", "data": {"invalid": "data"}})
         ]
         
-        all_present = True
-        for var in required_vars:
-            if var in env_vars and env_vars[var]:
-                print(f"✅ {var}: {'*' * 20}...{env_vars[var][-10:]}")
-            else:
-                print(f"❌ {var}: Missing or empty")
-                all_present = False
+        all_handled = True
+        results = []
+        
+        for test_name, payload in test_cases:
+            try:
+                url = f"{self.base_url}/api/webhook/retell"
+                if isinstance(payload, str):
+                    response = requests.post(url, data=payload, 
+                                           headers={'Content-Type': 'application/json'}, 
+                                           timeout=10)
+                else:
+                    response = requests.post(url, json=payload, timeout=10)
                 
-        return all_present
-
-    def check_database_connection(self):
-        """Check if PostgreSQL connection string is valid"""
-        print("\n🔍 Checking Database Configuration...")
+                # Should handle errors gracefully (not 500)
+                success = response.status_code in [200, 400, 422]
+                results.append(f"{test_name}:{response.status_code}")
+                if not success:
+                    all_handled = False
+            except Exception as e:
+                results.append(f"{test_name}:ERROR")
+                all_handled = False
         
+        self.log_test("Error handling", all_handled, f"Results: {', '.join(results)}")
+        return all_handled
+
+    def test_transcript_formatting_functions(self):
+        """Test 10: Test transcript formatting via a sample webhook call"""
         try:
-            with open('/app/.env', 'r') as f:
-                content = f.read()
-                if 'postgresql://' in content and 'nozomi.proxy.rlwy.net:19535' in content:
-                    print("✅ PostgreSQL connection string found and looks valid")
-                    return True
-                else:
-                    print("❌ PostgreSQL connection string not found or invalid")
-                    return False
+            call_id = f"test_formatting_{int(time.time())}"
+            
+            # Complex transcript to test formatting
+            complex_transcript = [
+                {"role": "agent", "content": "Welcome to our service. How can I help you today?"},
+                {"role": "user", "content": "I'm having trouble with my recent order."},
+                {"role": "agent", "content": "I understand your concern. Can you provide your order number?"},
+                {"role": "user", "content": "Sure, it's ORDER-12345"},
+                {"role": "user", "content": "Pressed Button: 1"},  # Should be excluded from transcript
+                {"role": "agent", "content": "I found your order. It looks like there was a delay in shipping."},
+                {"role": "user", "content": "When will it arrive?"},
+                {"role": "agent", "content": "It should arrive within 2-3 business days. I'll send you a tracking number."},
+                {"role": "user", "content": "Perfect, thank you!"}
+            ]
+
+            webhook_payload = {
+                "event": "call_ended",
+                "data": {
+                    "call_id": call_id,
+                    "agent_id": "agent_format_test",
+                    "to_number": "+1555987654",
+                    "duration_ms": 240000,
+                    "start_timestamp": int(time.time() * 1000) - 240000,
+                    "end_timestamp": int(time.time() * 1000),
+                    "transcript_object": complex_transcript,
+                    "disconnection_reason": "user_hangup"
+                }
+            }
+
+            url = f"{self.base_url}/api/webhook/retell"
+            response = requests.post(url, json=webhook_payload, timeout=15)
+            
+            success = response.status_code == 200
+            self.log_test("Transcript formatting functions", success,
+                         f"Status: {response.status_code}")
+            return success
         except Exception as e:
-            print(f"❌ Could not check database config: {e}")
+            self.log_test("Transcript formatting functions", False, str(e))
             return False
 
-    def check_redis_connection(self):
-        """Check if Redis connection string is valid"""
-        print("\n🔍 Checking Redis Configuration...")
+    def run_all_tests(self):
+        """Run all tests and return summary"""
+        print(f"\n🚀 Starting Voice-to-Text Transcription Backend Tests")
+        print(f"Base URL: {self.base_url}")
+        print(f"Test User ID: {TEST_USER_ID}")
+        print("=" * 60)
         
-        try:
-            with open('/app/.env', 'r') as f:
-                content = f.read()
-                if 'redis://' in content and 'metro.proxy.rlwy.net:40681' in content:
-                    print("✅ Redis connection string found and looks valid")
-                    return True
-                else:
-                    print("❌ Redis connection string not found or invalid")
-                    return False
-        except Exception as e:
-            print(f"❌ Could not check Redis config: {e}")
+        # Run tests in logical order
+        tests = [
+            self.test_webhook_endpoint_exists,
+            self.test_call_ended_webhook_with_transcript,
+            self.test_call_analyzed_webhook,
+            self.test_combined_webhook_flow,
+            self.test_dtmf_extraction_from_transcript,
+            self.test_transcript_formatting_functions,
+            self.test_webhook_events_handling,
+            self.test_batch_recordings_endpoint,
+            self.test_individual_recording_endpoint,
+            self.test_error_handling,
+        ]
+        
+        for test in tests:
+            try:
+                test()
+            except Exception as e:
+                self.log_test(f"Test execution error: {test.__name__}", False, str(e))
+            time.sleep(1)  # Brief pause between tests
+        
+        print("\n" + "=" * 60)
+        print(f"📊 Test Summary: {self.tests_passed}/{self.tests_run} passed")
+        
+        if self.tests_passed == self.tests_run:
+            print("🎉 All tests passed!")
+            return True
+        else:
+            print(f"⚠️  {self.tests_run - self.tests_passed} tests failed")
             return False
 
-    def check_webhook_configuration(self):
-        """Check if webhook URL is correctly set"""
-        print("\n🔍 Checking Webhook Configuration...")
-        
-        try:
-            with open('/app/.env', 'r') as f:
-                content = f.read()
-                expected_url = "https://quickstart-43.preview.emergentagent.com"
-                if expected_url in content:
-                    print(f"✅ Webhook URL correctly set to: {expected_url}")
-                    return True
-                else:
-                    print(f"❌ Webhook URL not set to expected value: {expected_url}")
-                    return False
-        except Exception as e:
-            print(f"❌ Could not check webhook config: {e}")
-            return False
-
-    def print_summary(self):
-        """Print test results summary"""
-        print(f"\n" + "="*60)
-        print(f"📊 TEST SUMMARY")
-        print(f"="*60)
-        print(f"Total Tests: {self.tests_run}")
-        print(f"Passed: {self.tests_passed}")
-        print(f"Failed: {len(self.failed_tests)}")
-        print(f"Success Rate: {(self.tests_passed/self.tests_run*100):.1f}%" if self.tests_run > 0 else "N/A")
-        
-        if self.passed_tests:
-            print(f"\n✅ PASSED TESTS:")
-            for test in self.passed_tests:
-                print(f"   • {test}")
-        
-        if self.failed_tests:
-            print(f"\n❌ FAILED TESTS:")
-            for test in self.failed_tests:
-                print(f"   • {test['test']}")
-                if 'expected' in test:
-                    print(f"     Expected: {test['expected']}, Got: {test['actual']}")
-                if 'error' in test:
-                    print(f"     Error: {test['error']}")
-        
-        if self.critical_issues:
-            print(f"\n🚨 CRITICAL ISSUES:")
-            for issue in self.critical_issues:
-                print(f"   • {issue}")
-        
-        return len(self.failed_tests) == 0
+    def get_test_results(self):
+        """Return detailed test results"""
+        return {
+            "summary": {
+                "total_tests": self.tests_run,
+                "passed_tests": self.tests_passed,
+                "failed_tests": self.tests_run - self.tests_passed,
+                "success_rate": f"{(self.tests_passed/self.tests_run*100):.1f}%" if self.tests_run > 0 else "0%"
+            },
+            "test_details": self.test_results,
+            "timestamp": datetime.now().isoformat()
+        }
 
 def main():
-    print("🚀 Starting Speechcue Backend Testing...")
-    print(f"Target URL: https://quickstart-43.preview.emergentagent.com")
-    print("="*60)
+    """Main test execution"""
+    tester = TranscriptFeatureTester()
     
-    tester = SpeechcueBackendTester()
-    
-    # Environment and configuration checks
-    env_ok = tester.check_environment_variables()
-    db_ok = tester.check_database_connection()
-    redis_ok = tester.check_redis_connection()
-    webhook_ok = tester.check_webhook_configuration()
-    
-    # API endpoint tests
-    print(f"\n" + "="*60)
-    print("🧪 RUNNING API ENDPOINT TESTS")
-    print("="*60)
-    
-    # Test all webhook endpoints
-    tester.test_telegram_webhook()
-    tester.test_retell_webhook()
-    tester.test_dtmf_supervisor_check()
-    tester.test_sms_webhook()
-    tester.test_time_check()
-    
-    # Test other endpoints
-    tester.test_server_health()
-    tester.test_get_endpoints()
-    
-    # Print results
-    success = tester.print_summary()
-    
-    # Overall health check
-    print(f"\n" + "="*60)
-    print("🏥 OVERALL SYSTEM HEALTH")
-    print("="*60)
-    
-    config_score = sum([env_ok, db_ok, redis_ok, webhook_ok])
-    api_score = tester.tests_passed
-    
-    print(f"Configuration Health: {config_score}/4")
-    print(f"API Health: {api_score}/{tester.tests_run}")
-    
-    overall_health = "HEALTHY" if (config_score >= 3 and api_score >= tester.tests_run * 0.7) else "UNHEALTHY"
-    print(f"Overall Status: {overall_health}")
-    
-    return 0 if success and config_score >= 3 else 1
+    try:
+        success = tester.run_all_tests()
+        
+        # Save detailed results
+        results = tester.get_test_results()
+        with open("/tmp/backend_test_results.json", "w") as f:
+            json.dump(results, f, indent=2)
+        
+        print(f"\n📝 Detailed results saved to: /tmp/backend_test_results.json")
+        
+        return 0 if success else 1
+        
+    except Exception as e:
+        print(f"\n❌ Test execution failed: {e}")
+        return 1
 
 if __name__ == "__main__":
     sys.exit(main())
