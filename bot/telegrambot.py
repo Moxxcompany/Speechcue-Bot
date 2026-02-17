@@ -4352,16 +4352,37 @@ def send_caller_id_selection_prompt(user_id):
     lg = get_user_language(user_id)
     markup = types.InlineKeyboardMarkup()
 
-    # Show user's own purchased numbers first
+    # Show user's own purchased numbers first (Private)
     user_numbers = UserPhoneNumber.objects.filter(
         user__user_id=user_id, is_active=True
     ).values_list("phone_number", flat=True)
 
+    has_private = False
     if user_numbers:
+        has_private = True
         for num in user_numbers:
             markup.add(
                 types.InlineKeyboardButton(
-                    f"📱 {num} (My Number)", callback_data=f"callerid_{num}"
+                    f"🔒 {num} (Private)", callback_data=f"callerid_{num}"
+                )
+            )
+
+    # Show admin shared numbers — available to all users
+    admin_users = TelegramUser.objects.filter(is_admin=True).values_list("user_id", flat=True)
+    admin_numbers = []
+    if admin_users:
+        admin_numbers = list(
+            UserPhoneNumber.objects.filter(
+                user__user_id__in=admin_users, is_active=True
+            ).exclude(user__user_id=user_id)  # Don't duplicate if admin is the current user
+            .values_list("phone_number", flat=True)
+        )
+
+    if admin_numbers:
+        for num in admin_numbers:
+            markup.add(
+                types.InlineKeyboardButton(
+                    f"🌐 {num} (Shared)", callback_data=f"callerid_{num}"
                 )
             )
 
@@ -4382,6 +4403,9 @@ def send_caller_id_selection_prompt(user_id):
             # Skip numbers not in Retell (if we could fetch the list)
             if retell_numbers is not None and caller_id not in retell_numbers:
                 continue
+            # Skip if already shown as admin or user number
+            if caller_id in list(user_numbers) + admin_numbers:
+                continue
             markup.add(
                 types.InlineKeyboardButton(
                     caller_id, callback_data=f"callerid_{caller_id}"
@@ -4395,7 +4419,26 @@ def send_caller_id_selection_prompt(user_id):
             "📋 My Numbers", callback_data="my_numbers"
         ))
 
-    bot.send_message(user_id, CALLER_ID_SELECTION_PROMPT[lg], reply_markup=markup)
+    # Education tip: nudge users toward private numbers
+    tip = ""
+    if admin_numbers and not has_private:
+        tip = (
+            "\n\n💡 *Tip:* Shared numbers work, but a *private number* "
+            "gives you better answer rates and a dedicated caller identity. "
+            "Tap *Buy Number* below to get your own!"
+        )
+    elif admin_numbers and has_private:
+        tip = (
+            "\n\n💡 *Tip:* Your private numbers give better answer rates "
+            "than shared ones. We recommend using your own number."
+        )
+
+    bot.send_message(
+        user_id,
+        f"{CALLER_ID_SELECTION_PROMPT[lg]}{tip}",
+        reply_markup=markup,
+        parse_mode="Markdown",
+    )
 
 
 def get_summary_details():
