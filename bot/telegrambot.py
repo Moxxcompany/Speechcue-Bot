@@ -6191,7 +6191,7 @@ def handle_call_back_view_task(call):
         f"{TASK_DESCRIPTION[lg]} {task.task_description}"
     )
     bot.send_message(
-        user_id[lg], msg, reply_markup=ai_assisted_user_flow_keyboard(user_id)
+        user_id, msg, reply_markup=ai_assisted_user_flow_keyboard(user_id)
     )
 
 
