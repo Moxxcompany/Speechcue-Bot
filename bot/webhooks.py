@@ -645,7 +645,7 @@ def _handle_call_analyzed(call_data):
                 parts.append(f"*AI Summary:* {call_summary}")
             if user_sentiment:
                 parts.append(f"*Caller Sentiment:* {sentiment_icon} {user_sentiment}")
-            msg = f"🤖 *Call Analysis*\n\n" + "\n".join(parts)
+            msg = "🤖 *Call Analysis*\n\n" + "\n".join(parts)
             try:
                 bot.send_message(user_id, msg, parse_mode="Markdown")
             except Exception as e:
