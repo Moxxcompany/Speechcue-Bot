@@ -26,6 +26,8 @@ class CallLogsTable(models.Model):
     user_id = models.BigIntegerField(null=True)
     call_status = models.TextField(null=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    recording_requested = models.BooleanField(default=False)
+    recording_fee = models.DecimalField(max_digits=6, decimal_places=2, default=0.00)
 
 
 class CallDetails(models.Model):
@@ -78,6 +80,7 @@ class BatchCallLogs(models.Model):
     to_number = models.CharField(max_length=255, null=True, blank=True)
     from_number = models.CharField(max_length=255, null=True, blank=True)
     call_status = models.CharField(max_length=50, null=True, blank=True)
+    recording_requested = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Call {self.call_id} Batch Call: {self.batch_id}"
