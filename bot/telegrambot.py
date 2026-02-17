@@ -145,9 +145,9 @@ VALID_NODE_TYPES = [
     "Question",
 ]
 available_commands = {
-    "/create_flow": "Create a new pathway",
-    "/view_flows": "Get all pathways",
-    "/add_node": "Add a node to the pathway",
+    "/create_flow": "Create a new call script",
+    "/view_flows": "View all call scripts",
+    "/add_node": "Add a step to a script",
 }
 webhook_url = os.getenv("webhook_url")
 
@@ -1871,7 +1871,7 @@ def display_ai_assisted_flows(message):
 
 @bot.message_handler(func=lambda message: message.text in CREATE_IVR_FLOW_AI.values())
 def display_create_ivr_flows_ai(message):
-    user_id = message.chat.id
+    initiate_ai_assisted_flow(message)
 
 
 @bot.message_handler(
@@ -6099,16 +6099,16 @@ def subscribed_users_message_ivr(user_id):
             msg = (
                 f"🆓 Free Trial \n"
                 f"⏳ Status: Day {current_day_of_subscription} of {plan.validity_days}\n"
-                f"☎️ Single IVR Usage: {subscription.single_ivr_left}\n"
+                f"☎️ Quick Calls Used: {subscription.single_ivr_left}\n"
                 f"😊 Note: Subscribe after trial! "
             )
         else:
             msg = (
-                f"Welcome to Speechcue IVR Service! Let’s get started:\n"
+                f"Welcome! Let’s get started:\n"
                 f"🌟 Active Plan: {plan.name} ({current_day_of_subscription} of {plan.validity_days} Days)\n"
-                f"📞 Single IVR: {single_calls}\n"
+                f"📞 Quick Calls: {single_calls}\n"
                 f"⏱️ Bulk Calls: {bulk_calls}\n"
-                f"💳  Note: Overage auto-deducts from wallet at $0.35/min. Intl calls billed per-minute from wallet."
+                f"💳  Note: Extra usage auto-deducts from wallet at $0.35/min. International calls billed per-minute."
             )
 
         bot.send_message(user_id, msg, reply_markup=get_task_type_keyboard(user_id))
@@ -6118,7 +6118,7 @@ def subscribed_users_message_ivr(user_id):
             "📞 Single IVR: $0.35/min\n"
             "📋 Bulk IVR: $0.35/min\n"
             "🌍 International: $0.45-$0.85/min\n"
-            "🛑 Minimum wallet balance for 2 minutes required before each call."
+            "🛑 You need at least $0.70 in your wallet (covers 2 minutes) before making a call."
         )
         markup = types.ReplyKeyboardMarkup(one_time_keyboard=True)
         markup.add(types.KeyboardButton(MAKE_IVR_CALL[lg]))
@@ -6231,7 +6231,7 @@ def handle_call_back_view_task(call):
         bot.send_message(
             user_id,
             "Task not found. Please try again.",
-            reply_markup=ai_assisted_user_flow_keyboard,
+            reply_markup=ai_assisted_user_flow_keyboard(user_id),
         )
 
 
