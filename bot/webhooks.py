@@ -29,9 +29,20 @@ from bot.models import (
     UserPhoneNumber,
     PendingDTMFApproval,
     SMSInbox,
+    CallRecording,
 )
 from bot.utils import get_user_subscription_by_call_id, get_user_language
 from bot.call_gate import classify_destination, US_CA_OVERAGE_RATE
+from bot.recording_utils import (
+    RECORDING_FEE,
+    BATCH_THRESHOLD,
+    generate_recording_token,
+    generate_batch_token,
+    get_recording_url,
+    get_batch_recordings_url,
+    format_duration,
+    mask_phone_number,
+)
 from payment.models import (
     ManageFreePlanSingleIVRCall,
     UserSubscription,
