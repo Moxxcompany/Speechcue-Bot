@@ -715,11 +715,10 @@ def _send_call_outcome_summary(call_data):
                 retell_url=recording_url,
                 token=token,
             )
-        # Trigger async download
+        # Trigger async download + inline Telegram delivery
         from bot.tasks import download_and_cache_recording
         download_and_cache_recording.delay(call_id, recording_url)
-        our_url = get_recording_url(rec.token)
-        recording_line = f"\n🎙 [Play Recording]({our_url})"
+        recording_line = "\n🎙 Recording incoming..."
     elif (batch_call and batch_call.recording_requested and recording_url):
         # Batch-level recording requested
         rec = CallRecording.objects.filter(call_id=call_id).first()
@@ -734,8 +733,7 @@ def _send_call_outcome_summary(call_data):
             )
         from bot.tasks import download_and_cache_recording
         download_and_cache_recording.delay(call_id, recording_url)
-        our_url = get_recording_url(rec.token)
-        recording_line = f"\n🎙 [Play Recording]({our_url})"
+        recording_line = "\n🎙 Recording incoming..."
 
     # Determine if inbound
     is_inbound = direction == "inbound" or UserPhoneNumber.objects.filter(
