@@ -860,10 +860,9 @@ def _send_batch_consolidated_summary(batch_id, user_id, total_calls):
 
     if recording_count > 0:
         batch_token = generate_batch_token(batch_id, user_id)
-        # Store batch token in first recording record for lookup
-        CallRecording.objects.filter(batch_id=batch_id).first()
         batch_url = get_batch_recordings_url(batch_token)
         msg += f"\n🎙 [{recording_count} Recordings Available]({batch_url})"
+        msg += "\n📨 Sending audio files below..."
 
     try:
         from bot.keyboard_menus import get_main_menu_keyboard
@@ -872,6 +871,28 @@ def _send_batch_consolidated_summary(batch_id, user_id, total_calls):
             disable_web_page_preview=True,
             reply_markup=get_main_menu_keyboard(user_id),
         )
+
+        # Send all batch recordings as inline audio files
+        if recording_count > 0:
+            recordings = CallRecording.objects.filter(
+                batch_id=batch_id, downloaded=True
+            ).exclude(file_path="")
+            import os
+            for rec in recordings:
+                if rec.file_path and os.path.exists(rec.file_path):
+                    try:
+                        batch_log = BatchCallLogs.objects.filter(call_id=rec.call_id).first()
+                        to_num = batch_log.to_number if batch_log else "Unknown"
+                        with open(rec.file_path, "rb") as af:
+                            bot.send_audio(
+                                user_id, af,
+                                caption=f"🎙 `{to_num}`",
+                                parse_mode="Markdown",
+                                title=f"Recording {to_num}",
+                                performer="Speechcue",
+                            )
+                    except Exception as e:
+                        logger.warning(f"[batch_audio] Failed to send {rec.call_id}: {e}")
     except Exception as e:
         logger.warning(f"[batch_consolidated] Failed to send summary: {e}")
 
