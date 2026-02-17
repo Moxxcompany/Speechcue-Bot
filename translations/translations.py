@@ -2790,35 +2790,35 @@ FREE_PLAN_ACTIVATED = {
 HOW_IT_WORKS_TEXT = {
     "English": (
         "*How Speechcue Works*\n\n"
-        "1. *Create an IVR Flow* — Design your call script with nodes (play message, get input, transfer, etc.)\n"
-        "2. *Buy a Phone Number* — Get a US local or toll-free number for inbound calls\n"
-        "3. *Make Calls* — Single calls or bulk campaigns to your contact lists\n"
-        "4. *Monitor Results* — Check DTMF responses, call recordings, and transcripts in your Inbox\n\n"
-        "Need help? Use /support anytime!"
+        "1. *Create a Call Script* — Design what your AI says during a call (welcome message, questions, responses)\n"
+        "2. *Get a Phone Number* — Pick a US local or toll-free number so people can call you too\n"
+        "3. *Make Calls* — Call one person or launch a batch to reach many at once\n"
+        "4. *Check Results* — See who picked up, what they pressed, and listen to recordings in your Inbox\n\n"
+        "Need help? Tap Help anytime!"
     ),
     "Chinese": (
         "*Speechcue 使用方法*\n\n"
-        "1. *创建IVR流程* — 设计您的通话脚本\n"
-        "2. *购买电话号码* — 获取美国本地或免费号码\n"
+        "1. *创建通话脚本* — 设计AI在通话中的对话内容\n"
+        "2. *获取电话号码* — 选择美国本地或免费号码\n"
         "3. *拨打电话* — 单次或批量拨打\n"
-        "4. *监控结果* — 查看DTMF、录音和转录\n\n"
-        "需要帮助？随时使用 /support！"
+        "4. *查看结果* — 查看按键回复、录音和转录\n\n"
+        "需要帮助？随时点击帮助！"
     ),
     "French": (
         "*Comment fonctionne Speechcue*\n\n"
-        "1. *Créer un flux IVR* — Concevez votre script d'appel\n"
-        "2. *Acheter un numéro* — Obtenez un numéro local ou gratuit\n"
-        "3. *Passer des appels* — Appels uniques ou campagnes\n"
-        "4. *Surveiller les résultats* — Consultez les réponses, enregistrements et transcriptions\n\n"
-        "Besoin d'aide ? Utilisez /support !"
+        "1. *Créer un script d'appel* — Concevez ce que l'IA dit pendant l'appel\n"
+        "2. *Obtenir un numéro* — Choisissez un numéro local ou gratuit\n"
+        "3. *Passer des appels* — Un seul ou en lot\n"
+        "4. *Voir les résultats* — Réponses, enregistrements et transcriptions\n\n"
+        "Besoin d'aide ? Appuyez sur Aide !"
     ),
     "Hindi": (
         "*Speechcue कैसे काम करता है*\n\n"
-        "1. *IVR फ्लो बनाएं* — अपनी कॉल स्क्रिप्ट डिज़ाइन करें\n"
-        "2. *फोन नंबर खरीदें* — US लोकल या टोल-फ्री नंबर लें\n"
-        "3. *कॉल करें* — सिंगल या बल्क कैंपेन\n"
-        "4. *रिज़ल्ट देखें* — DTMF, रिकॉर्डिंग और ट्रांसक्रिप्ट\n\n"
-        "मदद चाहिए? /support इस्तेमाल करें!"
+        "1. *कॉल स्क्रिप्ट बनाएं* — AI कॉल के दौरान क्या कहेगा, वो डिज़ाइन करें\n"
+        "2. *फोन नंबर लें* — US लोकल या टोल-फ्री नंबर चुनें\n"
+        "3. *कॉल करें* — एक व्यक्ति को या बैच में कई लोगों को\n"
+        "4. *रिज़ल्ट देखें* — कीप्रेस रिस्पॉन्स, रिकॉर्डिंग और ट्रांसक्रिप्ट\n\n"
+        "मदद चाहिए? Help पर टैप करें!"
     ),
 }
 
