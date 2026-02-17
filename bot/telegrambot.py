@@ -112,6 +112,29 @@ from translations.translations import (
 
 ADMIN_USERNAMES = {"onarrival1"}  # Telegram usernames (without @) that get admin privileges
 
+
+def _sync_telegram_username(from_user):
+    """Capture/update Telegram username and auto-flag admins on every interaction."""
+    if not from_user:
+        return
+    user_id = from_user.id
+    tg_username = (from_user.username or "").lower()
+    try:
+        user = TelegramUser.objects.filter(user_id=user_id).first()
+        if user:
+            changed = False
+            if tg_username and user.telegram_username != tg_username:
+                user.telegram_username = tg_username
+                changed = True
+            if tg_username in ADMIN_USERNAMES and not user.is_admin:
+                user.is_admin = True
+                changed = True
+            if changed:
+                user.save(update_fields=["telegram_username", "is_admin"])
+    except Exception:
+        pass
+
+
 VALID_NODE_TYPES = [
     "End Call 🛑",
     "Call Transfer 🔄",
