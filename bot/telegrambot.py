@@ -5809,6 +5809,97 @@ def handle_business_hours_input(message):
     user_data[user_id].pop("bh_phone", None)
 
 
+@bot.message_handler(func=lambda message: message.text and "Recording:" in message.text and ("tap to enable" in message.text or "ON ($0.02)" in message.text))
+def handle_recording_toggle(message):
+    """Toggle recording on/off in the call confirmation screen."""
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+
+    if user_id not in user_data:
+        return
+
+    # Toggle recording preference
+    current = user_data[user_id].get("recording_requested", False)
+    user_data[user_id]["recording_requested"] = not current
+
+    # Check wallet balance if enabling recording
+    if not current:  # turning ON
+        from payment.views import check_user_balance
+        wallet = check_user_balance(user_id)
+        balance = float(wallet.get("data", {}).get("amount", 0))
+        call_type = user_data[user_id].get("call_type", "single_ivr")
+        if call_type == "bulk_ivr":
+            total_count = user_data[user_id].get("call_count", 1)
+            rec_cost = 0.02 * total_count
+        else:
+            rec_cost = 0.02
+
+        if balance < rec_cost:
+            user_data[user_id]["recording_requested"] = False
+            bot.send_message(
+                user_id,
+                f"Insufficient balance for recording. Need ${rec_cost:.2f}, have ${balance:.2f}.\n"
+                f"Top up your wallet to enable recording.",
+            )
+
+    # Re-show the confirmation with updated toggle
+    # Rebuild summary
+    caller_id = user_data[user_id].get("caller_id")
+    phone_number = user_data[user_id].get("phone_number")
+    caller = caller_id if caller_id else "Random"
+
+    if user_data[user_id].get("call_type") == "single_ivr":
+        if "task" in user_data[user_id]:
+            task_name = user_data[user_id]["task"]
+        elif "pathway_id" in user_data[user_id]:
+            try:
+                task_name = Pathways.objects.get(pathway_id=user_data[user_id]["pathway_id"]).pathway_name
+            except Exception:
+                task_name = "Call"
+        else:
+            task_name = "Call"
+
+        rec_status = "ON" if user_data[user_id]["recording_requested"] else "OFF"
+        summary = (
+            f"Task: {task_name}\n\n"
+            f"Caller ID: {caller}\n"
+            f"Recipient: {phone_number}\n\n"
+            f"🎙 Recording: {rec_status} ($0.02/call)\n\n"
+            f"Proceed?"
+        )
+    else:
+        total_count = user_data[user_id].get("call_count", 0)
+        rec_cost = f"${0.02 * total_count:.2f}"
+        rec_status = "ON" if user_data[user_id]["recording_requested"] else "OFF"
+        campaign_name = user_data[user_id].get("campaign_name", "Campaign")
+
+        if "task" in user_data[user_id]:
+            task_name = user_data[user_id]["task"]
+        elif "pathway_id" in user_data[user_id]:
+            try:
+                task_name = Pathways.objects.get(pathway_id=user_data[user_id]["pathway_id"]).pathway_name
+            except Exception:
+                task_name = "Call"
+        else:
+            task_name = "Call"
+
+        summary = (
+            f"Task: {task_name}\n\n"
+            f"Caller ID: {caller}\n"
+            f"Campaign: {campaign_name}\n"
+            f"Total Numbers: {total_count}\n\n"
+            f"🎙 Recording: {rec_status} ({rec_cost} total)\n\n"
+            f"Proceed?"
+        )
+
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add(types.KeyboardButton(YES_PROCEED[lg]))
+    rec_label = "🔴 Recording: ON ($0.02)" if user_data[user_id]["recording_requested"] else "⚪ Recording: OFF (tap to enable $0.02)"
+    markup.add(types.KeyboardButton(rec_label))
+    markup.add(types.KeyboardButton(EDIT_DETAILS[lg]))
+    bot.send_message(user_id, summary, reply_markup=markup)
+
+
 @bot.message_handler(func=lambda message: message.text in YES_PROCEED.values())
 def proceed_single_ivr(message):
     user_id = message.chat.id
