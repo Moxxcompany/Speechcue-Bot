@@ -4125,7 +4125,7 @@ def handle_single_ivr_call_flow(message):
                 reply_markup=insufficient_balance_markup(user_id),
             )
             return
-        response, status = send_call_through_pathway(pathway_id, phone_number, user_id)
+        response, status = send_call_through_pathway(pathway_id, phone_number, user_id, caller_id=None)
         if status == 200:
             call_id = response["call_id"]
             bot.send_message(
