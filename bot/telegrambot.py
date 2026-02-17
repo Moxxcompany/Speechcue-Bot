@@ -5907,6 +5907,8 @@ def proceed_single_ivr(message):
 
     phone_number = user_data[user_id]["phone_number"]
     caller_id = user_data[user_id]["caller_id"]
+    recording_requested = user_data[user_id].get("recording_requested", False)
+
     if user_data[user_id]["call_type"] == "single_ivr":
         gate = pre_call_check(user_id, phone_number, call_type="single")
         if not gate["allowed"]:
@@ -5915,16 +5917,30 @@ def proceed_single_ivr(message):
                 reply_markup=insufficient_balance_markup(user_id),
             )
             return
+
+        # Charge recording fee if requested
+        if recording_requested:
+            from payment.views import debit_wallet as dw
+            rec_result = dw(
+                user_id, 0.02,
+                description="Recording fee: single call",
+                tx_type="REC",
+            )
+            if rec_result["status"] != 200:
+                bot.send_message(user_id, "Failed to charge recording fee. Call proceeding without recording.")
+                recording_requested = False
+
         if check_user_data(user_data, user_id) == "task":
             task = user_data[user_id]["task"]
-            response = send_task_through_call(task, phone_number, caller_id, user_id)
+            response = send_task_through_call(task, phone_number, caller_id, user_id, recording_requested=recording_requested)
             print(response)
             if response.status_code != 200:
                 bot.send_message(user_id, PROCESSING_ERROR_MESSAGE[lg])
             else:
+                rec_msg = " 🎙 Recording enabled." if recording_requested else ""
                 bot.send_message(
                     user_id,
-                    SINGLE_CALL_INITIATED[lg],
+                    f"{SINGLE_CALL_INITIATED[lg]}{rec_msg}",
                     reply_markup=ivr_call_keyboard(user_id),
                 )
             del user_data[user_id]["task"]
@@ -5932,21 +5948,22 @@ def proceed_single_ivr(message):
         else:
             pathway_id = user_data[user_id]["pathway_id"]
             response, status_code = send_call_through_pathway(
-                pathway_id, phone_number, user_id, caller_id
+                pathway_id, phone_number, user_id, caller_id, recording_requested=recording_requested
             )
             if status_code != 200:
                 bot.send_message(user_id, PROCESSING_ERROR_MESSAGE[lg])
             else:
+                rec_msg = " 🎙 Recording enabled." if recording_requested else ""
                 bot.send_message(
                     user_id,
-                    SINGLE_CALL_INITIATED[lg],
+                    f"{SINGLE_CALL_INITIATED[lg]}{rec_msg}",
                     reply_markup=ivr_call_keyboard(user_id),
                 )
-                # TODO: DISPLAY CALL ID HERE
 
             del user_data[user_id]["pathway_id"]
 
     else:
+        # Store recording preference for batch — will be used in start_batch_calls_now
         markup = ReplyKeyboardMarkup(resize_keyboard=True)
         markup.add(KeyboardButton(START_NOW[lg]))
         markup.add(KeyboardButton(SCHEDULE_FOR_LATER[lg]))
