@@ -4703,6 +4703,10 @@ def handle_caller_id(call):
 
     summary_details = f"{TASK[lg]} {task}\n\n" f"{CALLER_ID[lg]} {caller}\n"
 
+    # Initialize recording preference
+    if "recording_requested" not in user_data[user_id]:
+        user_data[user_id]["recording_requested"] = False
+
     if user_data[user_id]["call_type"] == "bulk_ivr":
         total_count = user_data[user_id]["call_count"]
         summary_details += f"{RECIPIENTS[lg]}\n"
@@ -4712,12 +4716,17 @@ def handle_caller_id(call):
             f"{CAMPAIGN[lg]} {user_data[user_id]['campaign_name']}\n\n"
             f"{TOTAL_NUMBERS_BULK[lg]} {total_count}\n"
         )
+        rec_cost = f"${0.02 * total_count:.2f}"
+        summary_details += f"\n🎙 Recording: {'ON' if user_data[user_id]['recording_requested'] else 'OFF'} ({rec_cost} total)\n"
     else:
         summary_details += f"{RECIPIENTS[lg]} {phone_number}\n"
+        summary_details += f"\n🎙 Recording: {'ON' if user_data[user_id]['recording_requested'] else 'OFF'} ($0.02/call)\n"
 
     summary_details += f"\n{PROCEED[lg]}"
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.add(types.KeyboardButton(YES_PROCEED[lg]))
+    rec_label = "🔴 Recording: ON ($0.02)" if user_data[user_id]["recording_requested"] else "⚪ Recording: OFF (tap to enable $0.02)"
+    markup.add(types.KeyboardButton(rec_label))
     markup.add(types.KeyboardButton(EDIT_DETAILS[lg]))
     bot.send_message(user_id, summary_details, reply_markup=markup)
 
