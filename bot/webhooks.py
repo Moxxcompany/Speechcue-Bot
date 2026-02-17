@@ -841,6 +841,9 @@ def _handle_batch_call_summary(batch_call, call_data, user_id, duration_str,
         )
         try:
             bot.send_message(user_id, msg, parse_mode="Markdown", disable_web_page_preview=True)
+            # Send transcript for individual batch calls
+            if short_transcript:
+                _send_transcript_message(user_id, short_transcript)
         except Exception as e:
             logger.warning(f"[batch_outcome] Individual msg failed: {e}")
     else:
