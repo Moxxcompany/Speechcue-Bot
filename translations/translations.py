@@ -2628,9 +2628,9 @@ MAKE_CALL_MENU = {
 
 IVR_FLOWS_MENU = {
     "English": "Call Scripts",
-    "Chinese": "IVR 流程",
-    "French": "Flux IVR",
-    "Hindi": "IVR फ्लो",
+    "Chinese": "通话脚本",
+    "French": "Scripts d'appel",
+    "Hindi": "कॉल स्क्रिप्ट",
 }
 
 CAMPAIGNS_MENU = {
