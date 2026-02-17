@@ -314,6 +314,9 @@ class CallRecording(models.Model):
     file_path = models.CharField(max_length=512, blank=True, default="")
     token = models.CharField(max_length=128, unique=True, db_index=True)
     downloaded = models.BooleanField(default=False)
+    transcript_text = models.TextField(blank=True, default="")
+    call_summary = models.TextField(blank=True, default="")
+    user_sentiment = models.CharField(max_length=50, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
