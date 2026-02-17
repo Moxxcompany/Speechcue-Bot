@@ -1,415 +1,378 @@
 #!/usr/bin/env python3
 """
-Comprehensive Backend Testing for Django Telegram Bot with Retell AI Integration
-Tests all API endpoints, database models, and Retell service functions.
+Backend Testing for Speechcue Telegram Bot Django Application
+Tests all API endpoints and integrations
 """
-import os
+import requests
 import sys
 import json
-import requests
-import django
-import logging
+import os
 from datetime import datetime
-from decimal import Decimal
 
-# Setup Django environment
-sys.path.insert(0, '/app')
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'TelegramBot.settings')
-
-# Load environment variables
-from dotenv import load_dotenv
-load_dotenv('/app/.env')
-
-# Initialize Django
-django.setup()
-
-# Django imports after setup
-from django.test import TestCase
-from django.db import connection, transaction
-from django.conf import settings
-from bot.models import PendingPhoneNumberPurchase, UserPhoneNumber, CallerIds
-from user.models import TelegramUser
-from bot.retell_service import sync_caller_ids_with_retell, get_retell_phone_number_set, get_retell_client
-from bot.tasks import sync_caller_ids_task
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-class DjangoTelegramBotTester:
-    def __init__(self, base_url=None):
-        """Initialize tester with backend URL from environment"""
-        if base_url:
-            self.base_url = base_url.rstrip('/')
-        else:
-            # Try to get from environment - this should be the public URL
-            self.base_url = os.getenv('REACT_APP_BACKEND_URL', 'http://localhost:8001').rstrip('/')
-        
+class SpeechcueBackendTester:
+    def __init__(self, base_url="https://quickstart-43.preview.emergentagent.com"):
+        self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
         self.failed_tests = []
+        self.passed_tests = []
+        self.critical_issues = []
         
-        # Test user data
-        self.test_user_id = 123456789
+    def run_test(self, name, method, endpoint, expected_status=200, data=None, headers=None):
+        """Run a single API test"""
+        url = f"{self.base_url}{endpoint}"
+        if headers is None:
+            headers = {'Content-Type': 'application/json'}
         
-        logger.info(f"🚀 Starting Django Telegram Bot Backend Tests")
-        logger.info(f"📡 Testing against: {self.base_url}")
-
-    def run_test(self, name, test_func):
-        """Run a single test and track results"""
         self.tests_run += 1
         print(f"\n🔍 Testing {name}...")
+        print(f"   URL: {url}")
         
         try:
-            success = test_func()
+            if method == 'GET':
+                response = requests.get(url, headers=headers, timeout=10)
+            elif method == 'POST':
+                response = requests.post(url, json=data, headers=headers, timeout=10)
+            
+            success = response.status_code == expected_status
+            
             if success:
                 self.tests_passed += 1
-                print(f"✅ PASSED - {name}")
-                return True
-            else:
-                self.failed_tests.append(name)
-                print(f"❌ FAILED - {name}")
-                return False
-        except Exception as e:
-            self.failed_tests.append(name)
-            print(f"❌ FAILED - {name}: {str(e)}")
-            logger.exception(f"Test {name} failed with exception")
-            return False
-
-    def test_backend_server_running(self):
-        """Test 1: Backend server starts and runs without errors on port 8001"""
-        try:
-            # Test if server is responsive
-            response = requests.get(f"{self.base_url}/", timeout=10)
-            print(f"   Status Code: {response.status_code}")
-            return response.status_code in [200, 404, 405]  # Server is running if we get any HTTP response
-        except requests.exceptions.ConnectionError:
-            print("   ❌ Connection failed - server not running")
-            return False
-        except Exception as e:
-            print(f"   ❌ Error: {e}")
-            return False
-
-    def test_view_flows_endpoint(self):
-        """Test 2: /view_flows/ returns valid JSON with Retell agents"""
-        try:
-            response = requests.get(f"{self.base_url}/view_flows/", timeout=10)
-            print(f"   Status Code: {response.status_code}")
-            
-            if response.status_code == 200:
+                self.passed_tests.append(name)
+                print(f"✅ PASS - Status: {response.status_code}")
                 try:
-                    data = response.json()
-                    print(f"   Response Type: JSON")
-                    print(f"   Response Keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
-                    return True
-                except json.JSONDecodeError:
-                    print("   ❌ Response is not valid JSON")
-                    return False
-            elif response.status_code == 404:
-                print("   ⚠️  Endpoint not found - may need to be implemented")
-                return True  # Count as success if endpoint doesn't crash server
+                    response_data = response.json()
+                    print(f"   Response: {response_data}")
+                    return True, response_data
+                except:
+                    print(f"   Response (text): {response.text}")
+                    return True, response.text
             else:
-                print(f"   ⚠️  Unexpected status code: {response.status_code}")
-                return False
+                self.failed_tests.append({
+                    "test": name,
+                    "expected": expected_status,
+                    "actual": response.status_code,
+                    "response": response.text[:200],
+                    "url": url
+                })
+                if response.status_code in [500, 404]:
+                    self.critical_issues.append(f"{name}: HTTP {response.status_code}")
+                print(f"❌ FAIL - Expected {expected_status}, got {response.status_code}")
+                print(f"   Response: {response.text[:200]}")
+                return False, response.text
+                
+        except requests.exceptions.Timeout:
+            self.failed_tests.append({
+                "test": name,
+                "error": "Timeout after 10 seconds",
+                "url": url
+            })
+            print(f"❌ FAIL - Timeout after 10 seconds")
+            return False, "timeout"
+            
         except Exception as e:
-            print(f"   ❌ Error: {e}")
-            return False
+            self.failed_tests.append({
+                "test": name,
+                "error": str(e),
+                "url": url
+            })
+            print(f"❌ FAIL - Error: {str(e)}")
+            return False, str(e)
 
-    def test_telegram_webhook_endpoint(self):
-        """Test 3: /api/telegram/webhook/ POST accepts webhook payloads without crashing"""
-        try:
-            # Test webhook endpoint with a sample payload
-            webhook_payload = {
-                "update_id": 123456,
-                "message": {
-                    "message_id": 1,
-                    "date": int(datetime.now().timestamp()),
-                    "chat": {"id": self.test_user_id, "type": "private"},
-                    "from": {"id": self.test_user_id, "first_name": "Test", "is_bot": False},
-                    "text": "/start"
-                }
+    def test_telegram_webhook(self):
+        """Test Telegram webhook endpoint"""
+        test_data = {
+            "update_id": 12345,
+            "message": {
+                "message_id": 1,
+                "from": {
+                    "id": 123456789,
+                    "is_bot": False,
+                    "first_name": "Test",
+                    "username": "testuser",
+                    "language_code": "en"
+                },
+                "chat": {
+                    "id": 123456789,
+                    "first_name": "Test",
+                    "username": "testuser",
+                    "type": "private"
+                },
+                "date": int(datetime.now().timestamp()),
+                "text": "/start"
             }
-            
-            response = requests.post(
-                f"{self.base_url}/api/telegram/webhook/",
-                json=webhook_payload,
-                headers={"Content-Type": "application/json"},
-                timeout=10
+        }
+        
+        return self.run_test(
+            "Telegram Webhook",
+            "POST", 
+            "/api/telegram/webhook/",
+            expected_status=200,
+            data=test_data
+        )
+
+    def test_retell_webhook(self):
+        """Test Retell AI webhook endpoint"""
+        test_data = {
+            "event": "call_started",
+            "data": {
+                "call_id": "test_call_123",
+                "to_number": "+1234567890",
+                "from_number": "+1987654321",
+                "direction": "outbound",
+                "agent_id": "test_agent"
+            }
+        }
+        
+        return self.run_test(
+            "Retell Webhook",
+            "POST",
+            "/api/webhook/retell",
+            expected_status=200,
+            data=test_data
+        )
+
+    def test_dtmf_supervisor_check(self):
+        """Test DTMF supervisor check endpoint"""
+        test_data = {
+            "call_id": "test_call_dtmf_123",
+            "args": {
+                "digits": "1234",
+                "node_name": "PIN Entry Test"
+            }
+        }
+        
+        return self.run_test(
+            "DTMF Supervisor Check",
+            "POST",
+            "/api/dtmf/supervisor-check",
+            expected_status=200,
+            data=test_data
+        )
+
+    def test_sms_webhook(self):
+        """Test SMS webhook endpoint"""
+        test_data = {
+            "to_number": "+1234567890",
+            "from_number": "+1987654321",
+            "message": "Test SMS message"
+        }
+        
+        return self.run_test(
+            "SMS Webhook",
+            "POST",
+            "/api/webhook/sms",
+            expected_status=200,
+            data=test_data
+        )
+
+    def test_time_check(self):
+        """Test time check endpoint"""
+        test_data = {
+            "call_id": "test_call_time_123",
+            "args": {
+                "phone_number": "+1234567890"
+            }
+        }
+        
+        return self.run_test(
+            "Time Check",
+            "POST",
+            "/api/time-check",
+            expected_status=200,
+            data=test_data
+        )
+
+    def test_get_endpoints(self):
+        """Test GET endpoints that might exist"""
+        endpoints = [
+            ("/admin/", 200),  # Django admin might redirect but should respond
+        ]
+        
+        for endpoint, expected_status in endpoints:
+            self.run_test(
+                f"GET {endpoint}",
+                "GET",
+                endpoint,
+                expected_status=expected_status
             )
-            print(f"   Status Code: {response.status_code}")
-            
-            # Check if we get a structured JSON response (good sign of proper handling)
-            try:
-                response_data = response.json()
-                if 'status' in response_data or 'message' in response_data:
-                    print("   ✅ Endpoint accepts requests and returns structured response")
+
+    def test_server_health(self):
+        """Test basic server health"""
+        # Test root endpoint
+        self.run_test(
+            "Server Root",
+            "GET",
+            "/",
+            expected_status=200  # or 404, depending on Django setup
+        )
+
+    def check_environment_variables(self):
+        """Check if critical environment variables are set"""
+        print("\n🔍 Checking Environment Variables...")
+        
+        # Read from .env file
+        env_vars = {}
+        try:
+            with open('/app/.env', 'r') as f:
+                for line in f:
+                    if '=' in line and not line.strip().startswith('#'):
+                        key, value = line.strip().split('=', 1)
+                        env_vars[key] = value
+        except Exception as e:
+            print(f"❌ Could not read .env file: {e}")
+            return False
+        
+        required_vars = [
+            'API_TOKEN',
+            'RETELL_API_KEY', 
+            'POSTGRES_DB',
+            'REDIS_URL',
+            'webhook_url',
+            'DYNOPAY_API_KEY',
+            'DYNOPAY_WALLET_TOKEN'
+        ]
+        
+        all_present = True
+        for var in required_vars:
+            if var in env_vars and env_vars[var]:
+                print(f"✅ {var}: {'*' * 20}...{env_vars[var][-10:]}")
+            else:
+                print(f"❌ {var}: Missing or empty")
+                all_present = False
+                
+        return all_present
+
+    def check_database_connection(self):
+        """Check if PostgreSQL connection string is valid"""
+        print("\n🔍 Checking Database Configuration...")
+        
+        try:
+            with open('/app/.env', 'r') as f:
+                content = f.read()
+                if 'postgresql://' in content and 'nozomi.proxy.rlwy.net:19535' in content:
+                    print("✅ PostgreSQL connection string found and looks valid")
                     return True
-            except:
-                pass
-            
-            # Accept any response that doesn't indicate server crash  
-            if response.status_code in [200, 201, 202, 400, 401, 403, 404, 405, 500]:
-                print("   ✅ Endpoint processes requests without server crash")
-                return True
-            else:
-                print(f"   ⚠️  Unexpected status: {response.status_code}")
-                return False
-                
+                else:
+                    print("❌ PostgreSQL connection string not found or invalid")
+                    return False
         except Exception as e:
-            print(f"   ❌ Error: {e}")
+            print(f"❌ Could not check database config: {e}")
             return False
 
-    def test_pending_phone_number_model(self):
-        """Test 4: PendingPhoneNumberPurchase model exists and is queryable"""
-        try:
-            # Test model existence and basic operations
-            count = PendingPhoneNumberPurchase.objects.count()
-            print(f"   Model exists - Current records: {count}")
-            
-            # Test model fields
-            fields = [field.name for field in PendingPhoneNumberPurchase._meta.fields]
-            expected_fields = ['id', 'user', 'country_code', 'area_code', 'is_toll_free', 
-                             'monthly_cost', 'created_at', 'is_fulfilled', 'is_failed', 'failure_reason']
-            
-            missing_fields = set(expected_fields) - set(fields)
-            if missing_fields:
-                print(f"   ⚠️  Missing fields: {missing_fields}")
-                return False
-            
-            print(f"   ✅ All expected fields present: {len(expected_fields)} fields")
-            return True
-            
-        except Exception as e:
-            print(f"   ❌ Model query error: {e}")
-            return False
-
-    def test_user_phone_number_model(self):
-        """Test 5: UserPhoneNumber model exists and is queryable"""
-        try:
-            # Test model existence and basic operations
-            count = UserPhoneNumber.objects.count()
-            print(f"   Model exists - Current records: {count}")
-            
-            # Test model fields
-            fields = [field.name for field in UserPhoneNumber._meta.fields]
-            expected_fields = ['id', 'user', 'phone_number', 'country_code', 'area_code', 
-                             'is_toll_free', 'nickname', 'monthly_cost', 'purchased_at', 
-                             'next_renewal_date', 'is_active', 'auto_renew']
-            
-            missing_fields = set(expected_fields) - set(fields)
-            if missing_fields:
-                print(f"   ⚠️  Missing fields: {missing_fields}")
-                return False
-            
-            print(f"   ✅ All expected fields present: {len(expected_fields)} fields")
-            return True
-            
-        except Exception as e:
-            print(f"   ❌ Model query error: {e}")
-            return False
-
-    def test_sync_caller_ids_function(self):
-        """Test 6: CallerIds sync function runs without errors"""
-        try:
-            # Test the sync function
-            kept, removed = sync_caller_ids_with_retell()
-            print(f"   ✅ Function executed - Kept: {kept}, Removed: {removed}")
-            
-            # Verify return types
-            if isinstance(kept, int) and isinstance(removed, int):
-                print("   ✅ Return values are correct types (integers)")
-                return True
-            else:
-                print(f"   ❌ Unexpected return types: kept={type(kept)}, removed={type(removed)}")
-                return False
-                
-        except Exception as e:
-            print(f"   ❌ Function execution error: {e}")
-            return False
-
-    def test_get_retell_phone_number_set(self):
-        """Test 7: get_retell_phone_number_set() returns a set without crashing"""
-        try:
-            # Test the function
-            phone_set = get_retell_phone_number_set()
-            print(f"   ✅ Function executed - Returned: {type(phone_set)}")
-            
-            # Verify return type
-            if isinstance(phone_set, set):
-                print(f"   ✅ Returns set with {len(phone_set)} phone numbers")
-                return True
-            else:
-                print(f"   ❌ Expected set, got {type(phone_set)}")
-                return False
-                
-        except Exception as e:
-            print(f"   ❌ Function execution error: {e}")
-            return False
-
-    def test_telegrambot_imports(self):
-        """Test 8: bot/telegrambot.py imports PendingPhoneNumberPurchase and get_retell_phone_number_set correctly"""
-        try:
-            # Check if imports work by attempting to access the imported items
-            import bot.telegrambot
-            
-            # Check if the modules have access to the imported classes/functions
-            from bot.models import PendingPhoneNumberPurchase as PendingModel
-            from bot.retell_service import get_retell_phone_number_set as get_phones_func
-            
-            print("   ✅ PendingPhoneNumberPurchase imported successfully")
-            print("   ✅ get_retell_phone_number_set imported successfully")
-            return True
-            
-        except ImportError as e:
-            print(f"   ❌ Import error: {e}")
-            return False
-        except Exception as e:
-            print(f"   ❌ Unexpected error: {e}")
-            return False
-
-    def test_retell_service_sync_function_exists(self):
-        """Test 9: bot/retell_service.py sync_caller_ids_with_retell function exists"""
-        try:
-            from bot.retell_service import sync_caller_ids_with_retell
-            
-            # Check if it's callable
-            if callable(sync_caller_ids_with_retell):
-                print("   ✅ sync_caller_ids_with_retell function exists and is callable")
-                return True
-            else:
-                print("   ❌ sync_caller_ids_with_retell is not callable")
-                return False
-                
-        except ImportError as e:
-            print(f"   ❌ Import error: {e}")
-            return False
-        except Exception as e:
-            print(f"   ❌ Unexpected error: {e}")
-            return False
-
-    def test_tasks_sync_function_exists(self):
-        """Test 10: bot/tasks.py sync_caller_ids_task function exists"""
-        try:
-            from bot.tasks import sync_caller_ids_task
-            
-            # Check if it's callable
-            if callable(sync_caller_ids_task):
-                print("   ✅ sync_caller_ids_task function exists and is callable")
-                return True
-            else:
-                print("   ❌ sync_caller_ids_task is not callable")
-                return False
-                
-        except ImportError as e:
-            print(f"   ❌ Import error: {e}")
-            return False
-        except Exception as e:
-            print(f"   ❌ Unexpected error: {e}")
-            return False
-
-    def test_database_connectivity(self):
-        """Bonus Test: Database connectivity"""
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT 1")
-                result = cursor.fetchone()
-                print(f"   ✅ Database connection successful: {result}")
-                return True
-        except Exception as e:
-            print(f"   ❌ Database connection failed: {e}")
-            return False
-
-    def test_retell_api_key_configured(self):
-        """Bonus Test: Retell API key is configured"""
-        try:
-            api_key = os.getenv('RETELL_API_KEY')
-            if api_key and api_key.startswith('key_'):
-                print(f"   ✅ Retell API key configured: {api_key[:20]}...")
-                return True
-            else:
-                print("   ❌ Retell API key not properly configured")
-                return False
-        except Exception as e:
-            print(f"   ❌ Error checking API key: {e}")
-            return False
-
-    def run_all_tests(self):
-        """Run all tests"""
-        print("="*60)
-        print("🧪 DJANGO TELEGRAM BOT BACKEND TESTS")
-        print("="*60)
+    def check_redis_connection(self):
+        """Check if Redis connection string is valid"""
+        print("\n🔍 Checking Redis Configuration...")
         
-        # Core required tests
-        test_methods = [
-            ("Backend Server Running", self.test_backend_server_running),
-            ("/view_flows/ Endpoint", self.test_view_flows_endpoint),
-            ("/api/telegram/webhook/ Endpoint", self.test_telegram_webhook_endpoint),
-            ("PendingPhoneNumberPurchase Model", self.test_pending_phone_number_model),
-            ("UserPhoneNumber Model", self.test_user_phone_number_model),
-            ("sync_caller_ids_with_retell Function", self.test_sync_caller_ids_function),
-            ("get_retell_phone_number_set Function", self.test_get_retell_phone_number_set),
-            ("telegrambot.py Imports", self.test_telegrambot_imports),
-            ("retell_service.py sync Function", self.test_retell_service_sync_function_exists),
-            ("tasks.py sync Function", self.test_tasks_sync_function_exists),
-        ]
+        try:
+            with open('/app/.env', 'r') as f:
+                content = f.read()
+                if 'redis://' in content and 'metro.proxy.rlwy.net:40681' in content:
+                    print("✅ Redis connection string found and looks valid")
+                    return True
+                else:
+                    print("❌ Redis connection string not found or invalid")
+                    return False
+        except Exception as e:
+            print(f"❌ Could not check Redis config: {e}")
+            return False
+
+    def check_webhook_configuration(self):
+        """Check if webhook URL is correctly set"""
+        print("\n🔍 Checking Webhook Configuration...")
         
-        # Bonus tests
-        bonus_tests = [
-            ("Database Connectivity", self.test_database_connectivity),
-            ("Retell API Key Configuration", self.test_retell_api_key_configured),
-        ]
+        try:
+            with open('/app/.env', 'r') as f:
+                content = f.read()
+                expected_url = "https://quickstart-43.preview.emergentagent.com"
+                if expected_url in content:
+                    print(f"✅ Webhook URL correctly set to: {expected_url}")
+                    return True
+                else:
+                    print(f"❌ Webhook URL not set to expected value: {expected_url}")
+                    return False
+        except Exception as e:
+            print(f"❌ Could not check webhook config: {e}")
+            return False
+
+    def print_summary(self):
+        """Print test results summary"""
+        print(f"\n" + "="*60)
+        print(f"📊 TEST SUMMARY")
+        print(f"="*60)
+        print(f"Total Tests: {self.tests_run}")
+        print(f"Passed: {self.tests_passed}")
+        print(f"Failed: {len(self.failed_tests)}")
+        print(f"Success Rate: {(self.tests_passed/self.tests_run*100):.1f}%" if self.tests_run > 0 else "N/A")
         
-        # Run core tests
-        print("\n📋 CORE FUNCTIONALITY TESTS:")
-        for name, test_func in test_methods:
-            self.run_test(name, test_func)
-        
-        # Run bonus tests
-        print("\n🎯 BONUS TESTS:")
-        for name, test_func in bonus_tests:
-            self.run_test(name, test_func)
-        
-        # Print final results
-        print("\n" + "="*60)
-        print("📊 TEST RESULTS SUMMARY")
-        print("="*60)
-        print(f"✅ Tests Passed: {self.tests_passed}")
-        print(f"❌ Tests Failed: {len(self.failed_tests)}")
-        print(f"📈 Success Rate: {(self.tests_passed/self.tests_run)*100:.1f}%")
+        if self.passed_tests:
+            print(f"\n✅ PASSED TESTS:")
+            for test in self.passed_tests:
+                print(f"   • {test}")
         
         if self.failed_tests:
-            print(f"\n💥 Failed Tests:")
+            print(f"\n❌ FAILED TESTS:")
             for test in self.failed_tests:
-                print(f"   - {test}")
+                print(f"   • {test['test']}")
+                if 'expected' in test:
+                    print(f"     Expected: {test['expected']}, Got: {test['actual']}")
+                if 'error' in test:
+                    print(f"     Error: {test['error']}")
         
-        return {
-            'tests_run': self.tests_run,
-            'tests_passed': self.tests_passed,
-            'tests_failed': len(self.failed_tests),
-            'failed_tests': self.failed_tests,
-            'success_rate': (self.tests_passed/self.tests_run)*100 if self.tests_run > 0 else 0
-        }
+        if self.critical_issues:
+            print(f"\n🚨 CRITICAL ISSUES:")
+            for issue in self.critical_issues:
+                print(f"   • {issue}")
+        
+        return len(self.failed_tests) == 0
 
 def main():
-    """Main test execution"""
-    try:
-        # Get backend URL from environment or use default
-        backend_url = os.getenv('REACT_APP_BACKEND_URL')
-        if not backend_url:
-            print("⚠️  REACT_APP_BACKEND_URL not found, using localhost:8001")
-            backend_url = "http://localhost:8001"
-        
-        tester = DjangoTelegramBotTester(backend_url)
-        results = tester.run_all_tests()
-        
-        # Return appropriate exit code
-        return 0 if results['tests_failed'] == 0 else 1
-        
-    except Exception as e:
-        print(f"💥 CRITICAL ERROR: {e}")
-        logger.exception("Critical error in main test execution")
-        return 1
+    print("🚀 Starting Speechcue Backend Testing...")
+    print(f"Target URL: https://quickstart-43.preview.emergentagent.com")
+    print("="*60)
+    
+    tester = SpeechcueBackendTester()
+    
+    # Environment and configuration checks
+    env_ok = tester.check_environment_variables()
+    db_ok = tester.check_database_connection()
+    redis_ok = tester.check_redis_connection()
+    webhook_ok = tester.check_webhook_configuration()
+    
+    # API endpoint tests
+    print(f"\n" + "="*60)
+    print("🧪 RUNNING API ENDPOINT TESTS")
+    print("="*60)
+    
+    # Test all webhook endpoints
+    tester.test_telegram_webhook()
+    tester.test_retell_webhook()
+    tester.test_dtmf_supervisor_check()
+    tester.test_sms_webhook()
+    tester.test_time_check()
+    
+    # Test other endpoints
+    tester.test_server_health()
+    tester.test_get_endpoints()
+    
+    # Print results
+    success = tester.print_summary()
+    
+    # Overall health check
+    print(f"\n" + "="*60)
+    print("🏥 OVERALL SYSTEM HEALTH")
+    print("="*60)
+    
+    config_score = sum([env_ok, db_ok, redis_ok, webhook_ok])
+    api_score = tester.tests_passed
+    
+    print(f"Configuration Health: {config_score}/4")
+    print(f"API Health: {api_score}/{tester.tests_run}")
+    
+    overall_health = "HEALTHY" if (config_score >= 3 and api_score >= tester.tests_run * 0.7) else "UNHEALTHY"
+    print(f"Overall Status: {overall_health}")
+    
+    return 0 if success and config_score >= 3 else 1
 
 if __name__ == "__main__":
-    exit_code = main()
-    sys.exit(exit_code)
+    sys.exit(main())
