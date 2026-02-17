@@ -6,6 +6,7 @@
 3. Recording should be off by default, opt-in per call at $0.02 fee
 4. Recordings served through our own URL (not Retell's)
 5. Batch calls: threshold-based delivery (<5 individual, >=5 consolidated)
+6. Inline audio playback in Telegram — send audio files directly in chat
 
 ## Architecture
 - **Framework**: Django 4.2.13 (ASGI via uvicorn)
@@ -14,76 +15,51 @@
 - **Payments**: DynoPay (crypto) + Internal Wallet (PostgreSQL)
 - **Database**: PostgreSQL on Railway (nozomi.proxy.rlwy.net:19535)
 - **Cache/Broker**: Redis on Railway (metro.proxy.rlwy.net:40681)
-- **Task Queue**: Celery + Celery Beat (with django-celery-beat scheduler)
+- **Task Queue**: Celery + Celery Beat (django-celery-beat scheduler)
 
 ## User Personas
 - **Bot Admin**: Manages IVR flows, campaigns, phone numbers
 - **End User**: Uses Telegram bot to create call scripts and make calls
 
-## Core Requirements (Static)
-- IVR call script creation and management via Telegram bot
-- Single and bulk voice calls via Retell AI
-- DTMF input collection with supervisor approval flow
-- Subscription plans (Free, Starter, Pro, Business)
-- Internal wallet system with crypto top-up (DynoPay)
-- Phone number purchasing and management (Retell)
-- SMS inbox, call recordings, call history
-- Multi-language support (English, Hindi, Chinese, French)
-- Campaign scheduling and management
-
 ## What's Been Implemented
 
-### Session 1 — Feb 17, 2026: Setup
-- Created `/app/.env` and `/app/backend/.env` with all credentials
-- Configured webhook_url to current pod: `https://quickstart-43.preview.emergentagent.com`
-- Installed all Python dependencies, ran migrations
-- Set Telegram webhook via API, verified all services running
+### Session 1 — Feb 17, 2026: Initial Setup
+- Environment variables configured, webhook set, all services running
 
-### Session 2 — Feb 17, 2026: Call Outcome Tracking & Recording
-**New files created:**
-- `bot/recording_utils.py` — Token generation, verification, download, URL builders, formatting utils
-- `bot/migrations/0034_*` — Model migrations for recording fields
-- `payment/migrations/0051_*` — TransactionType RECORDING choice
+### Session 2 — Feb 17, 2026: Call Outcome Tracking & Per-Call Recording
+- `_send_call_outcome_summary()`: Auto-sends duration, keypresses, disconnection reason after every call
+- Recording toggle in call confirmation: `⚪ Recording: OFF (tap to enable $0.02)` / `🔴 Recording: ON ($0.02)`
+- $0.02/call fee deducted from wallet; `TransactionType.RECORDING = "REC"` added
+- `CallRecording` model: stores call_id, user_id, batch_id, retell_url, file_path, token
+- Recording proxy: `GET /api/recordings/<token>/` downloads from Retell on first access, caches locally
+- Batch recordings page: `GET /api/recordings/batch/<token>/` renders HTML with audio players
+- Threshold delivery: <5 calls individual summaries, >=5 one consolidated summary
+- Celery task `download_and_cache_recording` for async download
 
-**Models changed:**
-- `CallLogsTable` — Added `recording_requested` (bool), `recording_fee` (decimal)
-- `BatchCallLogs` — Added `recording_requested` (bool)
-- `CallRecording` — NEW model: stores call_id, user_id, batch_id, retell_url, file_path, token, downloaded
-- `TransactionType` — Added `RECORDING = "REC"` choice
+### Session 3 — Feb 17, 2026: Inline Audio Playback
+- `_send_recording_inline()`: After Celery downloads recording, sends audio file via `bot.send_audio()` directly in Telegram chat
+- `_send_recording_fallback()`: Falls back to recording URL link if inline audio fails
+- Single calls: Summary message says "Recording incoming...", then audio file arrives async
+- Small batches (<5): Individual audio files sent per call as they complete
+- Large batches (>=5): All audio files sent together after consolidated summary message
+- Inbox "Play Recording" button: Sends cached audio inline if available, otherwise downloads from Retell and sends
+- HTTP proxy endpoint kept as fallback for web-based access
 
-**Call outcome summary (webhooks.py):**
-- `_send_call_outcome_summary()` — Replaces `_deliver_recording_to_user()`, sends: duration, keypresses, disconnection reason, recording link (if opted in)
-- `_handle_batch_call_summary()` — Threshold-based: <5 calls → individual, >=5 → consolidated
-- `_send_batch_consolidated_summary()` — Sends one summary with stats + batch recordings page link
-
-**Recording proxy (views.py):**
-- `GET /api/recordings/<token>/` — Downloads from Retell on first access, caches locally, serves audio
-- `GET /api/recordings/batch/<token>/` — HTML page listing all batch recordings with audio player
-
-**Call flow updates (telegrambot.py):**
-- Recording toggle button in call confirmation: `⚪ Recording: OFF (tap to enable $0.02)` / `🔴 Recording: ON ($0.02)`
-- Wallet balance check before enabling recording
-- $0.02 deducted from wallet per call on confirmation
-- Batch recording: total fee = $0.02 × N calls, charged on batch start
-
-**Async recording download (tasks.py):**
-- `download_and_cache_recording` Celery task — downloads from Retell URL, saves to `/app/media/recordings/`
-
-## Webhook Endpoints
-| Endpoint | URL Path | Status |
+## Files Modified/Created
+| File | Action | Description |
 |---|---|---|
-| Telegram | `/api/telegram/webhook/` | Active |
-| Retell AI | `/api/webhook/retell` | Active |
-| DTMF Supervisor | `/api/dtmf/supervisor-check` | Active |
-| SMS Inbound | `/api/webhook/sms` | Active |
-| Time Check | `/api/time-check` | Active |
-| Recording Proxy | `/api/recordings/<token>/` | NEW |
-| Batch Recordings | `/api/recordings/batch/<token>/` | NEW |
+| `bot/models.py` | Modified | Added recording_requested, recording_fee to CallLogsTable/BatchCallLogs; Created CallRecording model |
+| `bot/recording_utils.py` | Created | Token generation, verification, download, URL builders |
+| `bot/webhooks.py` | Modified | _send_call_outcome_summary, _handle_batch_call_summary, _send_batch_consolidated_summary |
+| `bot/tasks.py` | Modified | download_and_cache_recording + _send_recording_inline + _send_recording_fallback |
+| `bot/views.py` | Modified | serve_recording proxy, batch_recordings_page HTML |
+| `bot/telegrambot.py` | Modified | Recording toggle, inline audio in play_recording, batch flow |
+| `TelegramBot/urls.py` | Modified | Added /api/recordings/ routes |
+| `payment/models.py` | Modified | Added RECORDING transaction type |
 
 ## Prioritized Backlog
-- P1: Configure Retell webhook URL in Retell dashboard to point to `/api/recordings/`
-- P1: End-to-end test with real Retell call to verify recording download + Telegram delivery
-- P2: Add recording playback directly in Telegram (send audio file instead of link)
+- P1: Configure Retell dashboard webhook URL to point to our endpoint
+- P1: End-to-end test with real Retell call
 - P2: Recording retention policy (auto-delete after 30 days)
-- P2: Update TERMS_AND_CONDITIONS_URL and CHANNEL_LINK to actual values
-- P3: Analytics dashboard for recording usage and fees collected
+- P2: Update placeholder URLs (terms, channel link)
+- P3: Analytics dashboard for recording usage stats
