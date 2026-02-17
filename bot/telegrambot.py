@@ -361,24 +361,61 @@ def handle_call_recordings(call):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("play_recording_"))
 def handle_play_recording(call):
-    """Fetch and send call recording from Retell."""
+    """Fetch and send call recording inline in Telegram."""
     user_id = call.message.chat.id
     lg = get_user_language(user_id)
     call_id = call.data.replace("play_recording_", "")
 
     try:
+        from bot.models import CallRecording
+        from bot.recording_utils import download_recording as dl_recording
+
+        # Check if we already have a cached recording
+        rec = CallRecording.objects.filter(call_id__startswith=call_id).first()
+        if rec and rec.downloaded and rec.file_path and os.path.exists(rec.file_path):
+            # Send cached audio inline
+            call_log = CallLogsTable.objects.filter(call_id__startswith=call_id).first()
+            to_num = call_log.call_number if call_log else "Unknown"
+            with open(rec.file_path, "rb") as af:
+                bot.send_audio(
+                    user_id, af,
+                    caption=f"🎙 *Recording* — `{to_num}`",
+                    parse_mode="Markdown",
+                    title=f"Call Recording {to_num}",
+                    performer="Speechcue",
+                )
+            return
+
+        # No cached copy — fetch from Retell
         from retell import Retell
         retell_client = Retell(api_key=os.environ.get("RETELL_API_KEY"))
-        call_detail = retell_client.call.retrieve(call_id)
+        # Reconstruct full call_id if truncated
+        full_call_log = CallLogsTable.objects.filter(call_id__startswith=call_id).first()
+        full_call_id = full_call_log.call_id if full_call_log else call_id
+        call_detail = retell_client.call.retrieve(full_call_id)
         recording_url = getattr(call_detail, "recording_url", None)
 
         if recording_url:
-            bot.send_message(
-                user_id,
-                f"🎙 *Call Recording*\nCall: `{call_id[:12]}...`\n\n"
-                f"[Listen to Recording]({recording_url})",
-                parse_mode="Markdown",
-            )
+            bot.send_message(user_id, "🎙 Downloading recording...")
+            file_path = dl_recording(full_call_id, recording_url)
+            if file_path and os.path.exists(file_path):
+                to_num = full_call_log.call_number if full_call_log else "Unknown"
+                with open(file_path, "rb") as af:
+                    bot.send_audio(
+                        user_id, af,
+                        caption=f"🎙 *Recording* — `{to_num}`",
+                        parse_mode="Markdown",
+                        title=f"Call Recording {to_num}",
+                        performer="Speechcue",
+                    )
+            else:
+                # Fallback to link
+                bot.send_message(
+                    user_id,
+                    f"🎙 *Call Recording*\nCall: `{call_id[:12]}...`\n\n"
+                    f"[Listen to Recording]({recording_url})",
+                    parse_mode="Markdown",
+                )
         else:
             bot.send_message(user_id, "No recording available for this call.")
     except Exception as e:
