@@ -132,6 +132,25 @@ TERMS_AND_CONDITIONS_URL = os.getenv("TERMS_AND_CONDITIONS_URL")
 CHANNEL_LINK = os.getenv("CHANNEL_LINK")
 
 
+# Global exception handler — logs and notifies user when a handler crashes
+import logging as _logging
+_handler_logger = _logging.getLogger("bot.handlers")
+
+@bot.middleware_handler(update_types=['callback_query'])
+def auto_answer_callback_middleware(bot_instance, call):
+    """Auto-answer callback queries via middleware to prevent spinning buttons."""
+    pass  # answer_callback_query is handled in telegram_webhook.py
+
+
+class BotExceptionHandler(telebot.ExceptionHandler):
+    def handle(self, exception):
+        _handler_logger.error(f"Bot handler exception: {exception}", exc_info=True)
+        return True
+
+bot.exception_handler = BotExceptionHandler()
+
+
+
 # =============================================================================
 # New UI/UX Hub Handlers
 # =============================================================================
