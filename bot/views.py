@@ -982,3 +982,168 @@ def view_flows(request):
             return JsonResponse({"flows": response_data}, status=status)
         return JsonResponse(response_data, status=status)
     return JsonResponse({"error": "Invalid method"}, status=405)
+
+
+# =============================================================================
+# Recording Proxy & Batch Recordings Page
+# =============================================================================
+
+def serve_recording(request, token):
+    """
+    Proxy endpoint to serve call recordings via our own URL.
+    Downloads from Retell on-demand if not cached locally.
+    GET /api/recordings/<token>/
+    """
+    from django.http import FileResponse, HttpResponse
+    from bot.models import CallRecording
+    from bot.recording_utils import download_recording
+
+    rec = CallRecording.objects.filter(token=token).first()
+    if not rec:
+        return HttpResponse("Recording not found", status=404)
+
+    # If already downloaded locally, serve it
+    if rec.downloaded and rec.file_path and os.path.exists(rec.file_path):
+        return FileResponse(
+            open(rec.file_path, "rb"),
+            content_type="audio/wav",
+            as_attachment=False,
+            filename=f"recording_{rec.call_id[:12]}.wav",
+        )
+
+    # Download on-demand from Retell
+    if rec.retell_url:
+        file_path = download_recording(rec.call_id, rec.retell_url)
+        if file_path and os.path.exists(file_path):
+            rec.file_path = file_path
+            rec.downloaded = True
+            rec.save()
+            return FileResponse(
+                open(file_path, "rb"),
+                content_type="audio/wav",
+                as_attachment=False,
+                filename=f"recording_{rec.call_id[:12]}.wav",
+            )
+
+    return HttpResponse("Recording not available yet. Please try again shortly.", status=202)
+
+
+def batch_recordings_page(request, token):
+    """
+    HTML page listing all recordings in a batch.
+    GET /api/recordings/batch/<token>/
+    """
+    from django.http import HttpResponse
+    from bot.models import CallRecording, BatchCallLogs, CampaignLogs, CallDuration
+    from bot.recording_utils import get_recording_url, format_duration, mask_phone_number
+    from payment.models import DTMF_Inbox
+
+    # Parse batch token: format is b_<sig>_<batch_id>_<user_id>
+    parts = token.split("_", 3)
+    if len(parts) < 4:
+        return HttpResponse("Invalid token", status=403)
+
+    batch_id_partial = parts[2]
+    user_id_str = parts[3]
+
+    # Find recordings for this batch
+    recordings = CallRecording.objects.filter(
+        batch_id__startswith=batch_id_partial,
+        user_id=int(user_id_str),
+    ).order_by("created_at")
+
+    if not recordings.exists():
+        return HttpResponse("No recordings found for this batch.", status=404)
+
+    batch_id = recordings.first().batch_id
+
+    # Get campaign name
+    campaign = CampaignLogs.objects.filter(batch_id=batch_id).first()
+    campaign_name = campaign.campaign_name if campaign else "Batch Campaign"
+
+    # Build HTML rows
+    rows_html = ""
+    for rec in recordings:
+        # Get call details
+        batch_log = BatchCallLogs.objects.filter(call_id=rec.call_id).first()
+        phone = mask_phone_number(batch_log.to_number if batch_log else "")
+
+        # Duration
+        dur = CallDuration.objects.filter(call_id=rec.call_id).first()
+        duration = format_duration((dur.duration_in_seconds or 0) * 1000) if dur else "N/A"
+
+        # DTMF
+        dtmf = DTMF_Inbox.objects.filter(call_id=rec.call_id).first()
+        keypresses = dtmf.dtmf_input if dtmf and dtmf.dtmf_input else "-"
+
+        rec_url = get_recording_url(rec.token)
+
+        rows_html += f"""
+        <tr>
+            <td>{phone}</td>
+            <td>{duration}</td>
+            <td><code>{keypresses}</code></td>
+            <td>
+                <audio controls preload="none" style="height:32px;">
+                    <source src="{rec_url}" type="audio/wav">
+                </audio>
+            </td>
+        </tr>"""
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{campaign_name} - Recordings</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0f0f0f; color: #e0e0e0;
+            padding: 20px; max-width: 900px; margin: 0 auto;
+        }}
+        h1 {{ color: #ffffff; margin-bottom: 6px; font-size: 1.4em; }}
+        .subtitle {{ color: #888; margin-bottom: 24px; font-size: 0.9em; }}
+        table {{
+            width: 100%; border-collapse: collapse;
+            background: #1a1a1a; border-radius: 8px; overflow: hidden;
+        }}
+        th {{
+            background: #252525; padding: 12px 16px; text-align: left;
+            font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.5px;
+            color: #888;
+        }}
+        td {{ padding: 12px 16px; border-bottom: 1px solid #2a2a2a; font-size: 0.9em; }}
+        tr:last-child td {{ border-bottom: none; }}
+        tr:hover td {{ background: #222; }}
+        code {{
+            background: #2a2a2a; padding: 2px 8px; border-radius: 4px;
+            font-family: 'SF Mono', monospace; font-size: 0.85em;
+        }}
+        audio {{ max-width: 200px; }}
+        .badge {{
+            display: inline-block; background: #1db954; color: #000;
+            padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: 600;
+        }}
+    </style>
+</head>
+<body>
+    <h1>🎙 {campaign_name}</h1>
+    <p class="subtitle">{recordings.count()} recordings &middot; <span class="badge">Batch Complete</span></p>
+    <table>
+        <thead>
+            <tr>
+                <th>Phone</th>
+                <th>Duration</th>
+                <th>Keypresses</th>
+                <th>Recording</th>
+            </tr>
+        </thead>
+        <tbody>{rows_html}</tbody>
+    </table>
+</body>
+</html>"""
+
+    return HttpResponse(html, content_type="text/html")
+
