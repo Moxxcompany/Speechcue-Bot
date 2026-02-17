@@ -632,7 +632,7 @@ DELETE_FLOW = {
     "Hindi": "फ्लो हटाएं 🛠️",
 }
 FULL_NODE_ACCESS = {
-    "English": "Full Step Access",
+    "English": "All Step Types",
     "Chinese": "完全节点访问",
     "French": "Accès complet au nœud",
     "Hindi": "पूर्ण नोड एक्सेस",
@@ -961,8 +961,8 @@ MAIN_MENU_REDIRECTION = {
 SETUP_WELCOME = {
     "English": "Welcome to Speechcue!",
     "Chinese": "欢迎使用Speechcad IVR机器人！",
-    "French": "Bienvenue sur Speechcad IVR Bot !",
-    "Hindi": "Speechcad IVR Bot में आपका स्वागत है!",
+    "French": "Bienvenue sur Speechcue !",
+    "Hindi": "Speechcue में आपका स्वागत है!",
 }
 TOTAL_NUMBERS_BULK = {
     "English": "Total Numbers (Bulk):",
@@ -1350,7 +1350,7 @@ USE_TEXT_TO_SPEECH_PROMPT = {
     "Hindi": "क्या आप ग्रीटिंग संदेश के लिए टेक्स्ट-टू-स्पीच का उपयोग करना चाहेंगे?",
 }
 ADD_NODE = {
-    "English": "Add Node",
+    "English": "Add Step",
     "Chinese": "添加节点",
     "French": "Ajouter un nœud",
     "Hindi": "नोड जोड़ें",
@@ -1663,7 +1663,7 @@ ACKNOWLEDGE_AND_PROCEED = {
     "Hindi": "स्वीकार करें और आगे बढ़ें ✅",
 }
 ENTER_FLOW_NAME = {
-    "English": "Please enter the name of flow to add node:",
+    "English": "Enter the name of the script to add a step to:",
     "Chinese": "请输入要添加节点的流名称：",
     "French": "Veuillez entrer le nom du flux pour ajouter un nœud :",
     "Hindi": "कृपया उस फ्लो का नाम दर्ज करें जिसमें नोड जोड़ना है:",
@@ -1723,16 +1723,16 @@ INVALID_DATE_FORMAT = {
     "Hindi": "अमान्य तिथि प्रारूप!",
 }
 SKIP_NODE = {
-    "English": "Skip Node ⏭️",
+    "English": "Skip Step ⏭️",
     "Chinese": "跳过节点 ⏭️",
     "French": "Passer le nœud ⏭️",
     "Hindi": "नोड छोड़ें ⏭️",
 }
 SETUP_COMPLETE = {
-    "English": "Your account setup is complete! You can now explore all the features of the Speechcad IVR Bot. Let's get started!",
-    "Chinese": "您的账户设置已完成！您现在可以探索Speechcad IVR Bot的所有功能。让我们开始吧！",
-    "French": "La configuration de votre compte est terminée ! Vous pouvez maintenant explorer toutes les fonctionnalités de Speechcad IVR Bot. C'est parti !",
-    "Hindi": "आपका खाता सेटअप पूरा हो गया है! अब आप Speechcad IVR Bot की सभी सुविधाओं का अन्वेषण कर सकते हैं। चलिए शुरू करते हैं!",
+    "English": "Your account setup is complete! You can now explore all the features of the Speechcue. Let's get started!",
+    "Chinese": "您的账户设置已完成！您现在可以探索Speechcue的所有功能。让我们开始吧！",
+    "French": "La configuration de votre compte est terminée ! Vous pouvez maintenant explorer toutes les fonctionnalités de Speechcue. C'est parti !",
+    "Hindi": "आपका खाता सेटअप पूरा हो गया है! अब आप Speechcue की सभी सुविधाओं का अन्वेषण कर सकते हैं। चलिए शुरू करते हैं!",
 }
 SUBSCRIPTION_WARNING_PT_6 = {
     "English": "Do you want to continue?",
@@ -1828,7 +1828,7 @@ VIEW_VARIABLES = {
     "Hindi": "वेरिएबल्स देखें",
 }
 CALL_TRANSFER_NODE = {
-    "English": "Call Transfer Node",
+    "English": "Call Transfer",
     "Chinese": "电话转接节点",
     "French": "Nœud de transfert d'appel",
     "Hindi": "कॉल ट्रांसफर नोड",
@@ -1846,7 +1846,7 @@ BILLING_AND_SUBSCRIPTION = {
     "Hindi": "बिलिंग और सदस्यता 📅",
 }
 DONE_ADDING_NODES = {
-    "English": "Done Adding Nodes",
+    "English": "Done Adding Steps",
     "Chinese": "节点添加完成",
     "French": "Ajout de nœuds terminé",
     "Hindi": "नोड जोड़ना समाप्त",
@@ -1858,7 +1858,7 @@ PROFILE_INFORMATION_PROMPT = {
     "Hindi": "यह आपकी प्रोफाइल जानकारी है:",
 }
 SINGLE_CALLS_LEFT = {
-    "English": "Single IVR Calls left : ",
+    "English": "Quick calls remaining: ",
     "Chinese": "剩余单次IVR通话: ",
     "French": "Appels IVR restants : ",
     "Hindi": "सिंगल IVR कॉल्स बची हुई हैं: ",
@@ -1925,7 +1925,7 @@ INVALID_NUMBER_PROMPT = {
     "Hindi": "अमान्य मोबाइल नंबर प्रारूप। कृपया एक वैध मोबाइल नंबर दर्ज करें:",
 }
 INCOMING_CONNECTIONS_MISSING = {
-    "English": "The following nodes do not connect to any other nodes: ",
+    "English": "These steps are not connected to any next step: ",
     "Chinese": "以下节点没有连接到其他节点：",
     "French": "Les nœuds suivants ne se connectent à aucun autre nœud : ",
     "Hindi": "निम्नलिखित नोड्स किसी अन्य नोड से कनेक्ट नहीं होते हैं: ",
@@ -1967,7 +1967,7 @@ PART6_SCAN_PAYMENT_INFO = {
     "Hindi": "स्पीचकैड बॉट",
 }
 NODE_TYPE_SELECTION_PROMPT = {
-    "English": "Select the type of node that you want to add:",
+    "English": "What should this step do?",
     "Chinese": "请选择您要添加的节点类型：",
     "French": "Sélectionnez le type de nœud que vous souhaitez ajouter :",
     "Hindi": "कृपया वह नोड प्रकार चुनें जिसे आप जोड़ना चाहते हैं:",
@@ -2004,7 +2004,7 @@ NO_CALL_LOGS_FOUND = {
 }
 NODES = {"English": "Nodes", "Chinese": "节点", "French": "Nœuds", "Hindi": "नोड्स"}
 PARTIAL_NODE_ACCESS = {
-    "English": "Partial Node Access",
+    "English": "Basic Steps",
     "Chinese": "部分节点访问",
     "French": "Accès partiel au nœud",
     "Hindi": "आंशिक नोड एक्सेस",
@@ -2035,7 +2035,7 @@ EMAIL_PROMPT = {
 }
 DAY = {"English": "Day", "Chinese": "天", "French": "Jour", "Hindi": "दिन"}
 ADD_ANOTHER_NODE = {
-    "English": "Add Another Node",
+    "English": "Add Another Step",
     "Chinese": "添加另一个节点",
     "French": "Ajouter un autre nœud",
     "Hindi": "एक और नोड जोड़ें",
@@ -2053,13 +2053,13 @@ WHAT_WOULD_YOU_LIKE_TO_DO = {
     "Hindi": "आप क्या करना चाहेंगे?",
 }
 BULK_IVR_SUBSCRIPTION_PROMPT = {
-    "English": "A Bulk IVR call requires an active subscription. Please activate your subscription to proceed.",
+    "English": "Batch calls require an active plan. Please activate a plan to continue.",
     "Chinese": "批量IVR通话需要有效订阅。请激活订阅后继续。",
     "French": "Un appel IVR en gros nécessite un abonnement actif. Veuillez activer votre abonnement pour continuer.",
     "Hindi": "एक बल्क IVR कॉल के लिए सक्रिय सदस्यता की आवश्यकता है। कृपया अपनी सदस्यता सक्रिय करें।",
 }
 UNLIMITED_SINGLE_IVR = {
-    "English": "Unlimited Single IVR calls",
+    "English": "Unlimited quick calls",
     "Chinese": "无限单次IVR通话",
     "French": "Appels IVR simples illimités",
     "Hindi": "असीमित सिंगल IVR कॉल्स",
@@ -2071,7 +2071,7 @@ CAMPAIGN_MANAGEMENT = {
     "Hindi": "अभियान प्रबंधन 🗂️",
 }
 CONTINUE_ADDING_EDGES_PROMPT = {
-    "English": "Do you want to continue adding edges?",
+    "English": "Do you want to connect more steps?",
     "Chinese": "您想继续添加边吗？",
     "French": "Voulez-vous continuer à ajouter des arêtes ?",
     "Hindi": "क्या आप किनारे जोड़ना जारी रखना चाहते हैं?",
@@ -2083,7 +2083,7 @@ LANGUAGE_SELECTION_FOR_FLOW = {
     "Hindi": "अब, कृपया इस फ्लो के लिए भाषा चुनें:",
 }
 NODE_NAME_ALREADY_TAKEN = {
-    "English": "This name is already taken for another node. Please try again with a different name.",
+    "English": "That name is already used. Please choose a different name.",
     "Chinese": "该名称已被其他节点占用。请尝试使用其他名称。",
     "French": "Ce nom est déjà pris pour un autre nœud. Veuillez essayer un autre nom.",
     "Hindi": "यह नाम पहले से दूसरे नोड के लिए लिया गया है। कृपया एक अलग नाम आज़माएं।",
@@ -2113,7 +2113,7 @@ ASK_TASK_NAME = {
     "Hindi": "🏷️ इस IVR कार्य का नाम क्या है?",
 }
 CONDITIONS_SAVED_SUCCESSFULLY = {
-    "English": "All conditions and edges saved successfully! Do you want to continue?",
+    "English": "All conditions and connections saved! Do you want to continue?",
     "Chinese": "所有条件和边已成功保存！您想继续吗？",
     "French": "Toutes les conditions et tous les bords ont été enregistrés avec succès ! Voulez-vous continuer ?",
     "Hindi": "सभी स्थितियाँ और किनारे सफलतापूर्वक सहेजे गए! क्या आप जारी रखना चाहते हैं?",
@@ -2149,13 +2149,13 @@ CONDITION = {
     "Hindi": "शर्त:",
 }
 IVR_CALL_SELECTION_PROMPT = {
-    "English": "Select the type of ivr call that you want to send:",
+    "English": "What type of call would you like to make?",
     "Chinese": "选择您要发送的 IVR 呼叫类型：",
     "French": "Sélectionnez le type d'appel IVR que vous souhaitez envoyer",
     "Hindi": "वह IVR कॉल प्रकार चुनें जिसे आप भेजना चाहते हैं:",
 }
 DONE_ADDING_EDGES = {
-    "English": "Done Adding Edges",
+    "English": "Done Connecting Steps",
     "Chinese": "边缘添加完成",
     "French": "Ajout des arêtes terminé",
     "Hindi": "एज जोड़ना समाप्त",
@@ -2179,7 +2179,7 @@ invalid_data = {
     "Hindi": "अमान्य डेटा!",
 }
 ADD_ANOTHER_CONDITION = {
-    "English": "Would you like to add another condition for this source node?",
+    "English": "Add another condition for this step?",
     "Chinese": "您想为此源节点添加另一个条件吗？",
     "French": "Voulez-vous ajouter une autre condition pour ce nœud source ?",
     "Hindi": "क्या आप इस स्रोत नोड के लिए एक और शर्त जोड़ना चाहेंगे?",
@@ -2191,7 +2191,7 @@ TRC_20 = {
     "Hindi": "TRC-20 USDT 💵",
 }
 EDGE_ADDED = {
-    "English": "Edge Added!",
+    "English": "Connection added!",
     "Chinese": "边缘已添加！",
     "French": "Arête ajoutée !",
     "Hindi": "एज जोड़ा गया!",
@@ -2300,13 +2300,13 @@ CALL_ID = {
     "Hindi": "कॉल आईडी:",
 }
 CONTINUE_TO_NEXT_NODE = {
-    "English": "Continue to Next Node ▶️",
+    "English": "Continue to Next Step ▶️",
     "Chinese": "继续到下一个节点 ▶️",
     "French": "Continuer au nœud suivant ▶️",
     "Hindi": "अगले नोड पर जाएं ▶️",
 }
 ENTER_CUSTOM_NODE_NAME = {
-    "English": "Please enter the name of your custom node:",
+    "English": "Name this custom step:",
     "Chinese": "请输入自定义节点名称：",
     "French": "Veuillez entrer le nom de votre nœud personnalisé :",
     "Hindi": "कृपया अपने कस्टम नोड का नाम दर्ज करें:",
@@ -2360,7 +2360,7 @@ FREE_TRIAL_TOOLTIP = {
     "Hindi": "अपनी निःशुल्क ट्रायल अवधि के दौरान प्रीमियम सुविधाओं का आनंद लें!",
 }
 DTMF_INPUTS = {
-    "English": "DTMF Inputs:",
+    "English": "Keypress Inputs:",
     "Chinese": "DTMF 输入：",
     "French": "Entrées DTMF :",
     "Hindi": "DTMF इनपुट:",
@@ -2372,7 +2372,7 @@ SUBSCRIPTION_WARNING_PT_4 = {
     "Hindi": "और नई योजना तुरंत शुरू हो जाएगी।\n",
 }
 NODE_NUMBER_ALREADY_ASSIGNED = {
-    "English": "This number has already been assigned to another node. Please enter a different number.",
+    "English": "That number is already used by another option. Please pick a different one.",
     "Chinese": "该数字已分配给另一个节点。请重新输入不同的数字。",
     "French": "Ce numéro a déjà été attribué à un autre nœud. Veuillez entrer un numéro différent.",
     "Hindi": "यह नंबर पहले से दूसरे नोड को सौंपा गया है। कृपया एक अलग नंबर दर्ज करें।",
@@ -2391,7 +2391,7 @@ RETURN_TO_ACTIVE_CAMPAIGNS = {
     "Hindi": "🔙 सक्रिय अभियानों पर वापस जाएं",
 }
 ONLY_ONE_NODE_FOUND = {
-    "English": "Only one node found for this flow!",
+    "English": "This script only has one step — add more to connect them.",
     "Chinese": "此流仅找到一个节点！",
     "French": "Un seul nœud trouvé pour ce flux !",
     "Hindi": "इस प्रवाह के लिए केवल एक नोड मिला!",
@@ -2415,7 +2415,7 @@ PAYMENT_STATUS = {
     "Hindi": "भुगतान स्थिति:",
 }
 RETRY_NODE = {
-    "English": "Retry Node 🔄",
+    "English": "Retry Step 🔄",
     "Chinese": "重试节点 🔄",
     "French": "Réessayer le nœud 🔄",
     "Hindi": "नोड पुनः प्रयास करें 🔄",
@@ -2463,7 +2463,7 @@ WEBHOOK_RECEIVED = {
     "Hindi": "वेबहुक सफलतापूर्वक प्राप्त हुआ",
 }
 NO_BULK_MINS_LEFT = {
-    "English": "No Bulk IVR Calls",
+    "English": "No Batch Calls",
     "Chinese": "没有剩余的批量IVR通话分钟",
     "French": "Plus d'appels IVR en gros disponibles",
     "Hindi": "कोई बल्क IVR कॉल मिनट नहीं बची हैं",
@@ -2475,7 +2475,7 @@ SUBSCRIPTION_WARNING_PT_5 = {
     "Hindi": "इस योजना पर शेष दिन अगले प्लान में ट्रांसफर नहीं होंगे।\n",
 }
 IVR_CALL = {
-    "English": "IVR Calls 📲",
+    "English": "Make Calls 📲",
     "Chinese": "IVR 呼叫 📲",
     "French": "Appels IVR 📲",
     "Hindi": "IVR कॉल 📲",
