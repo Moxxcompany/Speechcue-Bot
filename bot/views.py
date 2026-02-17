@@ -543,7 +543,7 @@ def send_call_through_pathway(pathway_id, phone_number, user_id, caller_id, reco
         return {"error": str(e)}, 400
 
 
-def send_task_through_call(task, phone_number, caller_id, user_id):
+def send_task_through_call(task, phone_number, caller_id, user_id, recording_requested=False):
     """Make an outbound call with AI task prompt (replaces Bland task-based calls)."""
     try:
         client = get_retell_client()
@@ -579,6 +579,8 @@ def send_task_through_call(task, phone_number, caller_id, user_id):
             pathway_id=task_obj.id,
             user_id=user_id,
             call_status="new",
+            recording_requested=recording_requested,
+            recording_fee=0.02 if recording_requested else 0.00,
         )
 
         return FakeResponse(200, {"call_id": call_id, "status": call.call_status})
