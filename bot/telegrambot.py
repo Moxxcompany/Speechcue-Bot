@@ -6266,12 +6266,18 @@ def handle_scheduled_campaign(message):
     scheduled_campaigns = ScheduledCalls.objects.filter(
         user_id=user_id, call_status=False
     )
+    if not scheduled_campaigns.exists():
+        markup = types.InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton(RETURN_HOME[lg], callback_data="back_to_campaign_home"))
+        bot.send_message(user_id, f"🗓️ No scheduled campaigns yet.", reply_markup=markup)
+        return
     details = ""
     markup = types.InlineKeyboardMarkup()
     for campaign in scheduled_campaigns:
         campaign_name = CampaignLogs.objects.get(
             campaign_id=campaign.campaign_id_id
         ).campaign_name
+        task_name = ""
         if campaign.pathway_id:
             task = Pathways.objects.get(pathway_id=campaign.pathway_id)
             task_name = task.pathway_name
