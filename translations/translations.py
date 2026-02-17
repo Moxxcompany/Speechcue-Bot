@@ -78,7 +78,7 @@ LISTEN_TO_FULL_CALL = {
     "Hindi": "🎧 पूरी कॉल सुनें",
 }
 BULK_IVR_RECIPIENT_PROMPT = {
-    "English": "📋 Paste numbers (comma/space-separated) or upload CSV with “PhoneNumber” column.",
+    "English": "📋 Paste phone numbers (separated by commas or spaces), or upload a CSV file with a "PhoneNumber" column.",
     "Chinese": "📋 粘贴号码（逗号/空格分隔）或上传包含“PhoneNumber”列的CSV文件。",
     "French": "📋 Collez les numéros (séparés par des virgules/espaces) ou téléchargez un CSV avec la colonne “PhoneNumber”.",
     "Hindi": "📋 粘贴号码（逗号/空格分隔）或上传包含“PhoneNumber”列的CSV文件。",
@@ -126,7 +126,7 @@ CALL_FAILURE_PROMPT = {
     "Hindi": "विफलता की स्थिति में क्या होना चाहिए?",
 }
 SINGLE_IVR_RECIPIENT_PROMPT = {
-    "English": "☎️ Enter recipient’s E.164 phone number (e.g., +14155552671).",
+    "English": "☎️ Enter the phone number to call (with country code, e.g., +14155552671).",
     "Chinese": "☎️ 输入收件人的 E.164 电话号码（例如：+14155552671）。",
     "French": "☎️ Entrez le numéro de téléphone E.164 du destinataire (ex. : +14155552671).",
     "Hindi": "☎️ प्राप्तकर्ता का E.164 फ़ोन नंबर दर्ज करें (उदाहरण: +14155552671)।",
@@ -373,7 +373,7 @@ INVALID_MONTH_PROMPT = {
     "Hindi": "अमान्य महीना। कृपया एक मान्य महीना दर्ज करें (1-12):",
 }
 CAMPAIGN_NAME_PROMPT = {
-    "English": "🏷️ Enter a campaign name (e.g., “Spring Promo”).",
+    "English": "🏷️ Give your campaign a name (e.g., "Spring Promo").",
     "Chinese": "🏷️ 输入活动名称（例如：“春季促销”）。",
     "French": "🏷️ Entrez un nom de campagne (ex. : “Promo Printemps”).",
     "Hindi": "🏷️ एक अभियान का नाम दर्ज करें (उदाहरण: “स्प्रिंग प्रोमो”)।",
