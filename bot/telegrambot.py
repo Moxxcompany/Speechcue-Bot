@@ -70,6 +70,7 @@ from bot.views import (
     handle_transfer_call_node,
     get_call_status,
     send_task_through_call,
+    make_wizard_test_call,
 )
 
 from bot.call_gate import pre_call_check, pre_call_check_bulk, classify_destination
