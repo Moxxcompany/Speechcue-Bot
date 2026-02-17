@@ -1043,7 +1043,6 @@ def batch_recordings_page(request, token):
     from django.http import HttpResponse
     from bot.models import CallRecording, BatchCallLogs, CampaignLogs, CallDuration
     from bot.recording_utils import get_recording_url, format_duration, mask_phone_number
-    from payment.models import DTMF_Inbox
 
     # Parse batch token: format is b_<sig>_<batch_id>_<user_id>
     parts = token.split("_", 3)
