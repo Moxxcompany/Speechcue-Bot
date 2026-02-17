@@ -6,16 +6,16 @@ TOP_UP_AMOUNT_PROMPT = {
     "Hindi": "कृपया वॉलेट टॉप-अप के लिए USD राशि दर्ज करें: ",
 }
 SELECT_NODE_TYPE = {
-    "English": "Please Select the type of node:",
-    "Chinese": "请选择节点类型：",
-    "French": "Veuillez sélectionner le type de nœud :",
-    "Hindi": "कृपया नोड का प्रकार चुनें:",
+    "English": "What should this step do?",
+    "Chinese": "请选择步骤类型：",
+    "French": "Que doit faire cette étape ?",
+    "Hindi": "यह स्टेप क्या करेगा?",
 }
 IVR_FLOW = {
-    "English": "IVR Flow 📞",
-    "Chinese": "IVR 流程 📞",
-    "French": "Flux IVR 📞",
-    "Hindi": "IVR फ्लो 📞",
+    "English": "Call Scripts 📞",
+    "Chinese": "通话脚本 📞",
+    "French": "Scripts d'appel 📞",
+    "Hindi": "कॉल स्क्रिप्ट 📞",
 }
 PAY_FROM_WALLET_BALANCE = {
     "English": "💼 Pay from Wallet Balance",
@@ -36,10 +36,10 @@ DOWNLOAD_TRANSCRIPT = {
     "Hindi": "⬇️ प्रतिलिपि डाउनलोड करें (PDF/TXT)",
 }
 ACTIVATE_SUBSCRIPTION = {
-    "English": "A single IVR call requires an active subscription. Please activate your subscription to proceed.",
-    "Chinese": "单次IVR通话需要有效订阅。请激活订阅后继续。",
-    "French": "Un appel IVR nécessite un abonnement actif. Veuillez activer votre abonnement pour continuer.",
-    "Hindi": "एक सिंगल IVR कॉल के लिए सक्रिय सदस्यता की आवश्यकता है। कृपया आगे बढ़ने के लिए अपनी सदस्यता सक्रिय करें।",
+    "English": "You need an active plan to make calls. Please activate a plan to continue.",
+    "Chinese": "您需要活跃的计划才能拨打电话。请激活计划后继续。",
+    "French": "Vous avez besoin d'un abonnement actif pour passer des appels. Veuillez en activer un.",
+    "Hindi": "कॉल करने के लिए आपको एक सक्रिय प्लान की ज़रूरत है। कृपया प्लान सक्रिय करें।",
 }
 error = {
     "English": "Error! ",
@@ -54,10 +54,10 @@ SCAN_ADDRESS_PROMPT = {
     "Hindi": "यह आपका क्यूआर कोड है।",
 }
 SELECT_TARGET_NODE = {
-    "English": "Select target node:",
-    "Chinese": "选择目标节点：",
-    "French": "Sélectionnez le nœud cible :",
-    "Hindi": "कृपया लक्ष्य नोड चुनें:",
+    "English": "Select the next step:",
+    "Chinese": "选择下一步：",
+    "French": "Sélectionnez l'étape suivante :",
+    "Hindi": "अगला स्टेप चुनें:",
 }
 LANGUAGE_SELECTION_PROMPT = {
     "English": "Select your preferred language:",
@@ -84,10 +84,10 @@ BULK_IVR_RECIPIENT_PROMPT = {
     "Hindi": "📋 粘贴号码（逗号/空格分隔）或上传包含“PhoneNumber”列的CSV文件。",
 }
 SELECT_SOURCE_NODE = {
-    "English": "Select source node:",
-    "Chinese": "选择源节点：",
-    "French": "Sélectionnez le nœud source :",
-    "Hindi": "कृपया स्रोत नोड चुनें:",
+    "English": "Select the starting step:",
+    "Chinese": "选择起始步骤：",
+    "French": "Sélectionnez l'étape de départ :",
+    "Hindi": "शुरुआती स्टेप चुनें:",
 }
 LANGUAGE_CHANGED_SUCCESSFULLY = {
     "English": "Language Changed Successfully! ✅",
@@ -96,10 +96,10 @@ LANGUAGE_CHANGED_SUCCESSFULLY = {
     "Hindi": "भाषा सफलतापूर्वक बदल दी गई! ✅",
 }
 CONTINUE_ADDING_EDGES = {
-    "English": "Continue Adding Edges ▶️",
-    "Chinese": "继续添加边缘 ▶️",
-    "French": "Continuer à ajouter des arêtes ▶️",
-    "Hindi": "एज जोड़ना जारी रखें ▶️",
+    "English": "Continue Connecting Steps ▶️",
+    "Chinese": "继续连接步骤 ▶️",
+    "French": "Continuer à connecter les étapes ▶️",
+    "Hindi": "स्टेप्स कनेक्ट करना जारी रखें ▶️",
 }
 TOTAL_NUMBERS = {
     "English": "Total Numbers:",
@@ -144,10 +144,10 @@ DATE_RANGE_PROMPT = {
     "Hindi": "कृपया तिथि सीमा दर्ज करें, प्रारूप YYYY-MM-DD से YYYY-MM-DD में:",
 }
 DELETE_NODE = {
-    "English": "Delete Node",
-    "Chinese": "删除节点",
-    "French": "Supprimer le nœud",
-    "Hindi": "नोड हटाएं",
+    "English": "Delete Step",
+    "Chinese": "删除步骤",
+    "French": "Supprimer l'étape",
+    "Hindi": "स्टेप हटाएं",
 }
 ENTER_DATETIME_PROMPT = {
     "English": "🕒 Enter date/time (format: `YYYY-MM-DD HH:mm [City]`, e.g., `2025-02-10 14:30 New York`).",
