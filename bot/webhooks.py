@@ -605,17 +605,51 @@ def _bill_international_fallback(call_id, to_number, duration_minutes):
 # =============================================================================
 
 def _handle_call_analyzed(call_data):
-    """Process post-call analysis (sentiment, summary, success evaluation)."""
+    """Process post-call analysis (sentiment, summary, success evaluation).
+    Stores AI-generated summary and sentiment in CallRecording and sends to user.
+    """
     call_id = call_data.get("call_id", "")
     call_analysis = call_data.get("call_analysis", {})
 
-    if call_analysis:
-        logger.info(
-            f"[call_analyzed] call_id={call_id}, "
-            f"sentiment={call_analysis.get('user_sentiment', 'N/A')}, "
-            f"summary={call_analysis.get('call_summary', 'N/A')[:100]}"
-        )
-    # Future: store analysis in a CallAnalysis model for dashboard
+    if not call_analysis:
+        return
+
+    call_summary = call_analysis.get("call_summary", "")
+    user_sentiment = call_analysis.get("user_sentiment", "")
+
+    logger.info(
+        f"[call_analyzed] call_id={call_id}, "
+        f"sentiment={user_sentiment or 'N/A'}, "
+        f"summary={call_summary[:100] if call_summary else 'N/A'}"
+    )
+
+    # Store in CallRecording if it exists
+    rec = CallRecording.objects.filter(call_id=call_id).first()
+    if rec:
+        if call_summary:
+            rec.call_summary = call_summary
+        if user_sentiment:
+            rec.user_sentiment = user_sentiment
+        rec.save()
+
+    # Send AI summary to user if meaningful
+    if call_summary or user_sentiment:
+        call_log = CallLogsTable.objects.filter(call_id=call_id).first()
+        if call_log:
+            user_id = call_log.user_id
+            sentiment_icon = {"Positive": "😊", "Negative": "😞", "Neutral": "😐"}.get(
+                user_sentiment, "📊"
+            )
+            parts = []
+            if call_summary:
+                parts.append(f"*AI Summary:* {call_summary}")
+            if user_sentiment:
+                parts.append(f"*Caller Sentiment:* {sentiment_icon} {user_sentiment}")
+            msg = f"🤖 *Call Analysis*\n\n" + "\n".join(parts)
+            try:
+                bot.send_message(user_id, msg, parse_mode="Markdown")
+            except Exception as e:
+                logger.warning(f"[call_analyzed] Failed to send analysis to {user_id}: {e}")
 
 
 # =============================================================================
