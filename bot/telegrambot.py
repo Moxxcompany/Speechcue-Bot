@@ -580,19 +580,22 @@ def handle_wizard_phone(message):
     user_data[user_id]["step"] = ""
     bot.send_message(user_id, f"📲 {WIZARD_CALLING[lg]}", reply_markup=types.ReplyKeyboardRemove())
 
-    # Place the test call using AI-assisted task description
+    # Get a shared caller ID (admin number) if available
+    admin_users = TelegramUser.objects.filter(is_admin=True).values_list("user_id", flat=True)
+    caller_id = None
+    if admin_users:
+        admin_num = UserPhoneNumber.objects.filter(
+            user__user_id__in=admin_users, is_active=True
+        ).first()
+        if admin_num:
+            caller_id = admin_num.phone_number
+
+    # Place the test call
     try:
-        test_task = (
-            "You are a friendly AI assistant from Speechcue. Greet the caller warmly, "
-            "introduce yourself, and say: 'This is a test call to show you how Speechcue works. "
-            "You can build custom call scripts just like this one. Have a great day!' Then end the call."
-        )
-        response, status_code = send_call_through_pathway(
-            pathway_id=None,
+        response, status_code = make_wizard_test_call(
             phone_number=phone,
             user_id=user_id,
-            caller_id=None,
-            task=test_task,
+            caller_id=caller_id,
         )
         if status_code == 200 or status_code == 201:
             bot.send_message(
