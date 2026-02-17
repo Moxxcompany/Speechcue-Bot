@@ -5,90 +5,55 @@ Django Telegram Bot for IVR call management via Retell AI, crypto payments via D
 
 ## Architecture
 - **Framework**: Django 4.2.13 (ASGI via uvicorn on port 8001)
-- **Database**: SQLite (local dev) / PostgreSQL 17.7 on Railway (production)
+- **Database**: PostgreSQL 17.7 on Railway (connected)
 - **Bot**: pyTelegramBotAPI — @Speechcuebot
 - **Voice AI**: Retell AI SDK
-- **Task Queue**: Celery + Redis (Railway) — auto-starts with backend
+- **Task Queue**: Celery + Redis (Railway)
 - **Payments**: DynoPay crypto + internal wallet
 - **Frontend**: React 19 (styled-components, react-router-dom v5)
 
 ## What's Been Implemented
 
-### Session 1 — Setup & Credentials
-- Installed all Python dependencies, ran PostgreSQL migrations
-- Configured real API keys (Telegram, Retell, DynoPay, Redis, PostgreSQL)
-- Set Telegram webhook to pod URL
-- Celery worker + beat auto-start via server.py
+### Session 1-3 — (Previous)
+- Full IVR bot with voice AI, crypto payments, billing, campaigns
+- UI/UX redesign with 8-button main menu, hub-style navigation
+- Real-time overage billing
+- 34 translation strings in 4 languages
 
-### Session 2 — Real-Time Billing
-- Moved overage charging from 5-min Celery poll to immediate webhook billing
-- `_charge_overage_realtime()` fires on call_ended for both batch and free plan calls
-- Celery task demoted to hourly safety-net
+### Session 4 — Setup & Bug Fixes (Jan 2026)
 
-### Session 3 — Full UI/UX Redesign
-**Redesigned Main Menu** (8 buttons, 4 rows):
-- Phone Numbers | IVR Flows
-- Make a Call | Campaigns
-- Inbox | Wallet & Billing
-- Account | Help
-
-**New Features:**
-1. **Phone Numbers Hub** — Buy Number, My Numbers (with count), SMS Inbox (with unread count)
-2. **Inbox Hub** — Call Recordings (fetch from Retell), DTMF Responses (by flow), SMS Messages, Call History (last 10 calls with duration/status)
-3. **Wallet & Billing Hub** — Balance display, Top Up, Transaction History (last 15 txs), View/Upgrade Subscription
-4. **Dashboard Summary** — Returning users see plan/wallet/numbers/minutes at a glance
-5. **Onboarding Fix** — After T&C: Quick Start guide, Free Plan / Premium Plans / How It Works (no forced plan selection)
-6. **34 new translation strings** in 4 languages (EN/ZH/FR/HI)
-
-### Session 4 — Environment Setup (Current - Jan 2026)
-**Fixed setup issues:**
-- Installed all Python dependencies from requirements.txt (Django, Celery, Retell SDK, etc.)
+**Environment Setup:**
+- Installed all Python dependencies (Django, Celery, Retell SDK, etc.)
 - Installed missing frontend npm packages (react-router-dom@5, styled-components, history@4)
-- Installed ESLint config (airbnb + plugins)
-- Fixed bot_config.py to handle missing API_TOKEN gracefully
-- Fixed React 19 deprecated ReactDOM.render → createRoot
-- Fixed ESLint blank line errors in routes/index.js
-- Created /app/.env for Django settings
-- Created /app/frontend/.env with REACT_APP_BACKEND_URL
-- Ran Django migrations (SQLite fallback — no PostgreSQL creds configured)
+- Created `.env` files with real API credentials (Telegram, Retell, DynoPay, Redis, PostgreSQL)
+- Set Telegram webhook to current pod URL
 - Both backend and frontend running successfully
 
+**Bot Button Fixes — 3 critical issues found and fixed:**
+
+1. **Missing `answer_callback_query`** (90/95 inline button handlers):
+   - All inline buttons appeared "unresponsive" (spinning loader for 30s) because handlers didn't acknowledge the button press
+   - **Fix**: Added auto-answer in `telegram_webhook.py` — calls `answer_callback_query` before processing every callback update
+
+2. **Empty message crashes** (2 handlers):
+   - `Scheduled Campaigns` and `Active Campaigns` buttons crashed with "Bad Request: message text is empty" when user had no campaigns
+   - **Fix**: Added empty-state handling with "No campaigns yet" messages and back navigation
+
+3. **Silent exception swallowing**:
+   - Bot handler exceptions were silently ignored, making debugging impossible
+   - **Fix**: Added global `BotExceptionHandler` that logs all handler crashes
+
+**Audit Results:** 47/47 button handlers tested and passing via webhook E2E tests
+
 ## Test Results
-- Iteration 3: 9/9 passed (setup)
-- Iteration 4: 14/14 passed (real-time billing)
-- Iteration 5: 12/12 passed (UI/UX structure)
-- Iteration 6: 16/16 passed (final validation)
+- Iterations 3-6: All passed (previous sessions)
+- Button Audit: 47/47 handlers passing (current session)
 
-## All Tasks Status
-| Task | Status |
-|------|--------|
-| Setup + real credentials | ✅ |
-| Inbound call billing | ✅ |
-| Retell agent auto-update | ✅ |
-| Telegram webhook + Celery | ✅ |
-| After-hours routing | ✅ |
-| Real-time overage billing | ✅ |
-| Phone Numbers hub | ✅ |
-| Onboarding fix | ✅ |
-| Inbox consolidation | ✅ |
-| Wallet & Transaction History | ✅ |
-| Dashboard summary | ✅ |
-| Environment setup (local dev) | ✅ |
-
-## Current Environment Status
-- Backend: RUNNING (Django ASGI via uvicorn on port 8001)
-- Frontend: RUNNING (React dev server on port 3000)
-- Database: SQLite (local) — needs POSTGRES_URL env var for Railway PostgreSQL
-- Bot: Needs real API_TOKEN in /app/.env for Telegram functionality
-- Celery: Needs REDIS_URL in /app/.env for task queue
-- Retell AI: Needs RETELL_API_KEY in /app/.env for voice features
-
-## Missing Credentials (for full functionality)
-- `API_TOKEN` — Telegram Bot token
-- `POSTGRES_URL` — Railway PostgreSQL connection string
-- `REDIS_URL` — Redis connection string for Celery
-- `RETELL_API_KEY` — Retell AI API key
-- `DYNOPAY_API_KEY` — DynoPay crypto payment key
+## Current Status
+- Backend: RUNNING (Django ASGI, PostgreSQL connected, Retell initialized)
+- Frontend: RUNNING (React dev server)
+- Webhook: Active at current pod URL
+- All 47 tested bot buttons: WORKING
 
 ## Backlog
 - [ ] Outbound SMS (requires A2P 10DLC)
