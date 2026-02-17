@@ -405,7 +405,7 @@ def handle_dtmf_responses_hub(call):
     if not dtmf_records:
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton(f"🔙 {BACK_BTN[lg]}", callback_data="inbox_hub_back"))
-        bot.send_message(user_id, "🔢 No DTMF responses yet.", reply_markup=markup)
+        bot.send_message(user_id, "🔢 No keypress responses yet.", reply_markup=markup)
         return
 
     markup = types.InlineKeyboardMarkup()
@@ -433,7 +433,7 @@ def handle_dtmf_flow_detail(call):
     records = DTMF_Inbox.objects.filter(user_id=user, pathway_id=pathway_id).order_by("-timestamp")[:10]
 
     if not records:
-        bot.send_message(user_id, "No DTMF records for this flow.")
+        bot.send_message(user_id, "No keypress records for this script.")
         return
 
     lines = ["🔢 *DTMF Responses*\n"]
@@ -1223,7 +1223,7 @@ def handle_phone_selection(call):
 
     markup = types.InlineKeyboardMarkup()
     for pathway in pathways:
-        button_text = f"Pathway: {pathway.pathway_name}"
+        button_text = f"Script: {pathway.pathway_name}"
         callback_data = f"pathway_{pathway.pathway_id}"
         markup.add(types.InlineKeyboardButton(button_text, callback_data=callback_data))
 
