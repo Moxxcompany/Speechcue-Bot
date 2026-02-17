@@ -1542,10 +1542,10 @@ SINGLE_IVR_MINUTES = {
     "Hindi": "सिंगल IVR कॉल मिनट",
 }
 ENTER_LABEL_PROMPT = {
-    "English": "Enter a label (e.g., "Caller says yes" or "Caller presses 1"): ",
-    "Chinese": "请输入标签：（默认：用户响应，DTMF：用户输入{您的选项}）",
-    "French": "Entrez l'étiquette : (Par défaut : Réponse de l'utilisateur, Pour DTMF : L'utilisateur entre {votre option})",
-    "Hindi": "लेबल दर्ज करें: (डिफ़ॉल्ट: उपयोगकर्ता का उत्तर, DTMF के लिए: उपयोगकर्ता {आपका विकल्प} दर्ज करता है)",
+    "English": "Enter a label (e.g., \"Caller says yes\" or \"Caller presses 1\"): ",
+    "Chinese": "输入标签（例如，\"来电者说是\" 或 \"来电者按1\"）：",
+    "French": "Entrez un libellé (ex. : \"L'appelant dit oui\" ou \"L'appelant appuie sur 1\") : ",
+    "Hindi": "एक लेबल दर्ज करें (जैसे, \"कॉलर हां कहता है\" या \"कॉलर 1 दबाता है\"): ",
 }
 CALL_INFORMATION = {
     "English": "Here is the call information for",
