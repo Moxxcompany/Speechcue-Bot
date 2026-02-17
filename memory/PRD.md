@@ -12,58 +12,63 @@ Django Telegram Bot for IVR call management via Retell AI, crypto payments via D
 - **Payments**: DynoPay crypto + internal wallet
 - **Frontend**: React 19 (styled-components, react-router-dom v5)
 
-## Session 4 — Full UX Audit & Fixes (Jan 2026)
+## What's Been Implemented
 
-### Bugs Found & Fixed
-1. **`display_create_ivr_flows_ai` was EMPTY** — "AI-Powered Script" button from main menu did nothing. Fixed: now calls `initiate_ai_assisted_flow()`
-2. **`user_id[lg]` crash** in `handle_call_back_view_task` (line 6194) — trying to subscript an integer with language string. Fixed: changed to `user_id`
-3. **`ai_assisted_user_flow_keyboard` passed as reference** not called — Fixed: added `(user_id)` call
-4. **Missing `answer_callback_query`** on 90/95 handlers — auto-answer in webhook
-5. **Empty message crashes** in Scheduled/Active Campaigns — added empty-state handling
+### Session 4 — Full UX Overhaul (Jan 2026)
 
-### Friction Points Identified & Fixed
+**Environment Setup:**
+- All Python/Node deps installed, real API credentials configured
+- Telegram webhook set to pod URL, PostgreSQL connected
 
-**Onboarding Flow:**
-- Terms URL was hardcoded to a generic template site — still needs real T&C URL
-- After accepting terms, "Quick Start" guide exists but referenced /support which doesn't exist → Fixed to "Tap Help anytime!"
+**Bug Fixes:**
+1. Missing `answer_callback_query` in 90/95 handlers — auto-answer in webhook
+2. Empty message crashes in Scheduled/Active Campaigns
+3. `display_create_ivr_flows_ai` was an empty function (no-op)
+4. `user_id[lg]` crash in View AI Scripts
+5. `ai_assisted_user_flow_keyboard` passed as reference not called
 
-**Jargon Elimination (100+ changes, 4 languages):**
-| Before | After |
-|---|---|
-| IVR Flow / Pathway | Call Script |
-| Node | Step |
-| Edge | Connection |
-| DTMF / DTMF Input | Keypress / Keypress Responses |
-| Bulk IVR Call | Batch Calls |
-| Single IVR Call | Quick Call |
-| Source/Target Node | From Step / To Step |
-| Start Node | First Step |
-| E.164 format | "with country code, e.g., +1..." |
-| Feedback Node | Feedback Step |
-| "Add Another Node" | "Add Another Step" |
-| "Done Adding Edges" | "Done Connecting Steps" |
-| "Overage auto-deducts" | "Extra usage auto-deducts" |
-| "Minimum wallet balance for 2 minutes" | "You need at least $0.70 in your wallet" |
+**Admin Shared Phone Numbers:**
+- `is_admin` + `telegram_username` fields on TelegramUser
+- `@onarrival1` auto-flagged as admin; numbers show as Shared caller IDs
+- Education tip nudges private number purchase
 
-**Call Flow UX:**
-- Pay-as-you-go pricing message cleaned up — removed "(wallet deduction)" jargon
-- "Intl calls" → "International calls"
-- Subscription status messages simplified
+**Complete UX Text Rewrite (100+ changes, 4 languages):**
+- IVR Flow/Pathway → Call Script, Node → Step, Edge → Connection
+- DTMF → Keypress, Bulk IVR → Batch Calls, Single IVR → Quick Call
+- All prompts, guides, error messages rewritten in plain language
 
-### Remaining Friction Points (Backlog)
-- Terms URL still points to generic template — needs real URL
-- No inline "cancel" during multi-step flows (script creation, number purchase)
-- Campaign scheduling has no timezone awareness hint for users
-- "Bind Agent" button in My Numbers uses technical language
+**Guided First-Call Wizard:**
+- After activating free plan, users see "Try Your First Call" offer
+- Enter phone number → Retell creates temp agent → AI calls user in 30 seconds
+- Uses shared admin caller ID if available
+- Skip option available; Cancel returns to main menu
+- Success message directs to Call Scripts for next step
+
+**Cancel/Back in Multi-Step Flows:**
+- `/cancel` command handler clears any active step → main menu
+- "Cancel" text button handler during any step flow
+- `get_force_reply()` now shows Cancel button instead of bare ForceReply
+- Works across: script creation, number purchase, phone input, name entry, campaign setup
+
+**"Bind Agent" → "Set Inbound Script":**
+- Button label: "Set Inbound Script" (was "Bind Agent")
+- Prompt explains: "Choose a call script to handle incoming calls"
+- Unbind label: "Remove inbound script" (was "Unbind")
+- Confirmation messages use plain language
+
+**Timezone Hint in Campaign Scheduling:**
+- Replaced bare datetime prompt with rich timezone hint
+- Shows format, example, and common cities list
+- Users enter: `YYYY-MM-DD HH:mm City`
 
 ## Test Results
-- Button Audit: 47/47 handlers passing via webhook E2E tests
+- Button Audit: 47/47 handlers passing
+- Wizard callbacks: wizard_start, wizard_skip working
+- /cancel command: working
 - All syntax checks pass
 
 ## Backlog
 - [ ] Real Terms & Conditions URL
-- [ ] Cancel/back buttons in multi-step flows
-- [ ] Timezone hint in campaign scheduling
-- [ ] "Bind Agent" → "Set Inbound Script" rename
 - [ ] Outbound SMS (requires A2P 10DLC)
 - [ ] Call analytics web dashboard
+- [ ] Multi-language voice selection in onboarding
