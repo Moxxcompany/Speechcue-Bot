@@ -172,6 +172,28 @@ bot.exception_handler = BotExceptionHandler()
 
 
 
+# /cancel handler — clears any active step and returns to main menu
+@bot.message_handler(commands=["cancel"])
+def handle_cancel_command(message):
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    if user_id in user_data:
+        user_data[user_id]["step"] = ""
+    bot.send_message(user_id, CANCEL_CONFIRM[lg], reply_markup=get_main_menu_keyboard(user_id))
+
+
+@bot.message_handler(func=lambda message: message.text and message.text.lower() == "cancel"
+                      and user_data.get(message.chat.id, {}).get("step", ""))
+def handle_cancel_text(message):
+    """Handle 'Cancel' button press during any multi-step flow."""
+    user_id = message.chat.id
+    lg = get_user_language(user_id)
+    if user_id in user_data:
+        user_data[user_id]["step"] = ""
+    bot.send_message(user_id, CANCEL_CONFIRM[lg], reply_markup=get_main_menu_keyboard(user_id))
+
+
+
 # =============================================================================
 # New UI/UX Hub Handlers
 # =============================================================================
