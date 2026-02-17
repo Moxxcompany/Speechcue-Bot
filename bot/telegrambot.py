@@ -419,7 +419,7 @@ def handle_dtmf_responses_hub(call):
             f"🔢 {name}", callback_data=f"dtmf_flow_{pathway_id}"
         ))
     markup.add(types.InlineKeyboardButton(f"🔙 {BACK_BTN[lg]}", callback_data="inbox_hub_back"))
-    bot.send_message(user_id, "🔢 *DTMF Responses by Flow*\nSelect a flow:", reply_markup=markup, parse_mode="Markdown")
+    bot.send_message(user_id, "🔢 *Keypress Responses by Script*\nSelect a script:", reply_markup=markup, parse_mode="Markdown")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("dtmf_flow_"))
@@ -436,7 +436,7 @@ def handle_dtmf_flow_detail(call):
         bot.send_message(user_id, "No keypress records for this script.")
         return
 
-    lines = ["🔢 *DTMF Responses*\n"]
+    lines = ["🔢 *Keypress Responses*\n"]
     for r in records:
         date_str = r.timestamp.strftime("%b %d, %H:%M") if r.timestamp else ""
         phone = r.call_number or "Unknown"
