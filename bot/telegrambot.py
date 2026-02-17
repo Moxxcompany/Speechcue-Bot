@@ -5979,6 +5979,8 @@ def start_batch_calls_now(message):
     phone_number = user_data[user_id]["phone_number"]
     caller_id = user_data[user_id]["caller_id"]
     campaign_id = user_data[user_id]["campaign_id"]
+    recording_requested = user_data[user_id].get("recording_requested", False)
+
     # Pre-call gate for bulk
     gate = pre_call_check_bulk(user_id, phone_number, call_type="bulk")
     if not gate["allowed"]:
@@ -5987,6 +5989,21 @@ def start_batch_calls_now(message):
             reply_markup=insufficient_balance_markup(user_id),
         )
         return
+
+    # Charge recording fee for all calls in batch
+    total_calls = len(phone_number) if isinstance(phone_number, list) else 1
+    if recording_requested:
+        rec_total = 0.02 * total_calls
+        from payment.views import debit_wallet as dw
+        rec_result = dw(
+            user_id, rec_total,
+            description=f"Recording fee: batch of {total_calls} calls",
+            tx_type="REC",
+        )
+        if rec_result["status"] != 200:
+            bot.send_message(user_id, f"Failed to charge recording fee (${rec_total:.2f}). Proceeding without recording.")
+            recording_requested = False
+
     if check_user_data(user_data, user_id) == "task":
         task = user_data[user_id]["task"]
         response = bulk_ivr_flow(
@@ -5996,6 +6013,7 @@ def start_batch_calls_now(message):
             campaign_id=campaign_id,
             task=task,
             pathway_id=None,
+            recording_requested=recording_requested,
         )
         del user_data[user_id]["task"]
     else:
@@ -6007,6 +6025,7 @@ def start_batch_calls_now(message):
             campaign_id=campaign_id,
             task=None,
             pathway_id=pathway_id,
+            recording_requested=recording_requested,
         )
         del user_data[user_id]["pathway_id"]
     if response.status_code != 200:
@@ -6014,12 +6033,10 @@ def start_batch_calls_now(message):
         del user_data[user_id]["pathway_id"]
         return
 
+    rec_msg = f" 🎙 Recording enabled for {total_calls} calls." if recording_requested else ""
     bot.send_message(
-        user_id, CAMPAIGN_INITIATED[lg], reply_markup=ivr_call_keyboard(user_id)
+        user_id, f"{CAMPAIGN_INITIATED[lg]}{rec_msg}", reply_markup=ivr_call_keyboard(user_id)
     )
-    # campaign = CampaignLogs.objects.get(campaign_id=campaign_id)
-    # campaign.total_calls = user_data[user_id]['total_calls']
-    # campaign.save()
 
 
 geolocator = Nominatim(user_agent="timezone_bot")
