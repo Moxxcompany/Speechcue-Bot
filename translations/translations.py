@@ -747,9 +747,9 @@ WELCOME_PROMPT = {
 }
 DTMF_PROMPT = {
     "English": "Enter the message callers will hear before pressing a key.",
-    "Chinese": "请输入DTMF输入的提示信息。",
-    "French": "Veuillez entrer le message d'invite pour l'entrée DTMF.",
-    "Hindi": "DTMF इनपुट के लिए कृपया प्रॉम्प्ट संदेश दर्ज करें।",
+    "Chinese": "输入来电者听到的消息，然后按键。",
+    "French": "Entrez le message que l'appelant entendra avant d'appuyer sur une touche.",
+    "Hindi": "कॉलर को कुंजी दबाने से पहले सुनाई देने वाला संदेश दर्ज करें।",
 }
 REPEAT_MESSAGE = {
     "English": "Repeat Message 🔁",
@@ -1014,14 +1014,14 @@ ENTER_PHONE_NUMBER_TO_TRANSFER = {
 }
 DTMF_INBOX = {
     "English": "Keypress Responses",
-    "Chinese": "DTMF 收件箱",
-    "French": "Boîte de réception DTMF",
-    "Hindi": "DTMF इनबॉक्स",
+    "Chinese": "按键回复",
+    "French": "Réponses clavier",
+    "Hindi": "कीप्रेस रिस्पॉन्स",
 }
 GET_DTMF_INPUT = {
     "English": "Collect Keypress 📞",
-    "Chinese": "获取DTMF输入 📞",
-    "French": "Obtenir l'entrée DTMF 📞",
+    "Chinese": "收集按键 📞",
+    "French": "Collecter réponse clavier 📞",
     "Hindi": "डीटीएमएफ इनपुट प्राप्त करें 📞",
 }
 ACTION_CANCELLED = {
@@ -2423,8 +2423,8 @@ RETRY_NODE = {
 PROMPT_MESSAGE_FOR_DTMF = {
     "English": "Enter the message callers will hear before pressing a key.",
     "Chinese": "请输入DTMF输入的提示消息。",
-    "French": "Veuillez entrer le message d'invite pour l'entrée DTMF.",
-    "Hindi": "DTMF इनपुट के लिए कृपया प्रॉम्प्ट संदेश दर्ज करें।",
+    "French": "Entrez le message que l'appelant entendra avant d'appuyer sur une touche.",
+    "Hindi": "कॉलर को कुंजी दबाने से पहले सुनाई देने वाला संदेश दर्ज करें।",
 }
 CALL_TRANSFER = {
     "English": "Call Transfer 🔄",
