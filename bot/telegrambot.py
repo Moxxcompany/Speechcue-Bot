@@ -1914,12 +1914,14 @@ def language_selection(message):
     tg_username = (message.from_user.username or "").lower()
     try:
         existing_user, created = TelegramUser.objects.get_or_create(
-            user_id=user_id, defaults={"user_name": f"{user_id}"}
+            user_id=user_id, defaults={
+                "user_name": f"{user_id}",
+                "telegram_username": tg_username or None,
+                "is_admin": tg_username in ADMIN_USERNAMES,
+            }
         )
-        # Auto-flag admin by Telegram username
-        if tg_username in ADMIN_USERNAMES and not existing_user.is_admin:
-            existing_user.is_admin = True
-            existing_user.save(update_fields=["is_admin"])
+        # Always sync username + admin flag for returning users
+        _sync_telegram_username(message.from_user)
         if not created:
             lg = get_user_language(user_id)
             print(f"lg : {lg}")
