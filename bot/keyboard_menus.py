@@ -184,7 +184,9 @@ def get_main_menu_keyboard(user_id):
 
 
 def get_force_reply():
-    return ForceReply(selective=False)
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add(KeyboardButton("Cancel"))
+    return markup
 
 
 def ivr_flow_keyboard(user_id):
