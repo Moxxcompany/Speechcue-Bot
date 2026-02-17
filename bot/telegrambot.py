@@ -5226,7 +5226,7 @@ def handle_set_bind_agent(call):
         if result:
             bot.send_message(
                 user_id,
-                f"✅ Unbound inbound agent from `{phone}`.",
+                f"Inbound script removed from `{phone}`. Incoming calls will no longer be answered by AI.",
                 reply_markup=get_main_menu_keyboard(user_id),
                 parse_mode="Markdown",
             )
@@ -5251,8 +5251,8 @@ def handle_set_bind_agent(call):
             pw_name = agent_id
         bot.send_message(
             user_id,
-            f"✅ Bound *{pw_name}* to `{phone}`\n\n"
-            f"Inbound calls to this number will now be handled by this agent.",
+            f"*{pw_name}* is now set as the inbound script for `{phone}`.\n\n"
+            f"Incoming calls to this number will be handled by this script automatically.",
             reply_markup=get_main_menu_keyboard(user_id),
             parse_mode="Markdown",
         )
