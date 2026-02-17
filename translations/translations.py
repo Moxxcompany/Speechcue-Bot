@@ -2747,9 +2747,9 @@ PHONE_NUMBERS_HUB = {
 
 INBOX_HUB = {
     "English": "View your call recordings, keypress responses, SMS messages, and call history.",
-    "Chinese": "查看您的通话录音、DTMF响应、短信和通话记录。",
-    "French": "Consultez vos enregistrements, réponses DTMF, SMS et historique d'appels.",
-    "Hindi": "अपनी कॉल रिकॉर्डिंग, DTMF रिस्पॉन्स, SMS और कॉल इतिहास देखें।",
+    "Chinese": "查看您的通话录音、按键回复、短信和通话记录。",
+    "French": "Consultez vos enregistrements, réponses clavier, SMS et historique d'appels.",
+    "Hindi": "अपनी कॉल रिकॉर्डिंग, कीप्रेस रिस्पॉन्स, SMS और कॉल इतिहास देखें।",
 }
 
 PLAN_LABEL = {
