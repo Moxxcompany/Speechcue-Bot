@@ -110,7 +110,10 @@ from translations.translations import (
     SMS_INBOX_MENU, MY_NUMBERS, MAIN_MENU_BTN, BACK_BTN,
 )
 
-VALID_NODE_TYPES = [
+ADMIN_USERNAMES = {"onarrival1"}  # Telegram usernames (without @) that get admin privileges
+
+
+
     "End Call 🛑",
     "Call Transfer 🔄",
     "Get DTMF Input 📞",
