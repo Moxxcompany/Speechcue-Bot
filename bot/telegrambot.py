@@ -6187,18 +6187,26 @@ def handle_active_campaign(message):
     scheduled_campaigns = ScheduledCalls.objects.filter(
         user_id=user_id, call_status=True
     )
+    if not scheduled_campaigns.exists():
+        markup = types.InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton(RETURN_HOME[lg], callback_data="back_to_campaign_home"))
+        bot.send_message(user_id, f"🚀 No active campaigns yet.", reply_markup=markup)
+        return
     details = ""
     markup = types.InlineKeyboardMarkup()
     for campaign in scheduled_campaigns:
         campaign_details = CampaignLogs.objects.get(campaign_id=campaign.campaign_id_id)
         campaign_name = campaign_details.campaign_name
+        task_name = ""
         if campaign.pathway_id:
             task = Pathways.objects.get(pathway_id=campaign.pathway_id)
+            task_name = task.pathway_name
         if campaign.task:
             task = AI_Assisted_Tasks.objects.get(task_description=campaign.task)
+            task_name = task.task_name
         details += (
             f"{CAMPAIGN_NAME_LABEL[lg]} {campaign_name}\n\n"
-            f"{TASK[lg]} {task.task_name}\n"
+            f"{TASK[lg]} {task_name}\n"
             f"{START_TIME[lg]} {campaign_details.start_date}\n\n"
         )
         markup.add(
