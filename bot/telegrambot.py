@@ -138,10 +138,10 @@ def _sync_telegram_username(from_user):
 VALID_NODE_TYPES = [
     "End Call 🛑",
     "Call Transfer 🔄",
-    "Get DTMF Input 📞",
+    "Collect Keypress 📞",
     "Play Message ▶️",
     "Menu 📋",
-    "Feedback Node",
+    "Feedback Step",
     "Question",
 ]
 available_commands = {
