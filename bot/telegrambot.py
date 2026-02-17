@@ -1889,10 +1889,15 @@ def display_account_menu(message):
 @bot.message_handler(commands=["sign_up", "start"])
 def language_selection(message):
     user_id = message.chat.id
+    tg_username = (message.from_user.username or "").lower()
     try:
         existing_user, created = TelegramUser.objects.get_or_create(
             user_id=user_id, defaults={"user_name": f"{user_id}"}
         )
+        # Auto-flag admin by Telegram username
+        if tg_username in ADMIN_USERNAMES and not existing_user.is_admin:
+            existing_user.is_admin = True
+            existing_user.save(update_fields=["is_admin"])
         if not created:
             lg = get_user_language(user_id)
             print(f"lg : {lg}")
