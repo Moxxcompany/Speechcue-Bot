@@ -6108,7 +6108,7 @@ def schedule_for_later(message):
     print(f"User {user_id} selected 'Schedule for Later' option.")
 
     print("Sending datetime input prompt to user.")
-    bot.send_message(user_id, ENTER_DATETIME_PROMPT[lg], reply_markup=get_force_reply())
+    bot.send_message(user_id, SCHEDULE_TIMEZONE_HINT[lg], reply_markup=get_force_reply(), parse_mode="Markdown")
 
     bot.register_next_step_handler(message, handle_datetime_input_for_schedule)
 
