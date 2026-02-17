@@ -78,10 +78,10 @@ LISTEN_TO_FULL_CALL = {
     "Hindi": "🎧 पूरी कॉल सुनें",
 }
 BULK_IVR_RECIPIENT_PROMPT = {
-    "English": "📋 Paste phone numbers (separated by commas or spaces), or upload a CSV file with a "PhoneNumber" column.",
-    "Chinese": "📋 粘贴号码（逗号/空格分隔）或上传包含“PhoneNumber”列的CSV文件。",
-    "French": "📋 Collez les numéros (séparés par des virgules/espaces) ou téléchargez un CSV avec la colonne “PhoneNumber”.",
-    "Hindi": "📋 粘贴号码（逗号/空格分隔）或上传包含“PhoneNumber”列的CSV文件。",
+    "English": "Paste phone numbers (separated by commas or spaces), or upload a CSV file with a PhoneNumber column.",
+    "Chinese": "粘贴电话号码（用逗号或空格分隔），或上传包含 PhoneNumber 列的CSV文件。",
+    "French": "Collez les numéros (séparés par des virgules ou espaces) ou téléchargez un CSV avec la colonne PhoneNumber.",
+    "Hindi": "फोन नंबर पेस्ट करें (कॉमा या स्पेस से अलग), या PhoneNumber कॉलम वाली CSV फाइल अपलोड करें।",
 }
 SELECT_SOURCE_NODE = {
     "English": "Select the starting step:",
