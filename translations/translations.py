@@ -2669,10 +2669,10 @@ QUICK_START_STEP_1 = {
 }
 
 QUICK_START_STEP_2 = {
-    "English": "Create your first IVR flow",
-    "Chinese": "创建您的第一个IVR流程",
-    "French": "Créez votre premier flux IVR",
-    "Hindi": "अपना पहला IVR फ्लो बनाएं",
+    "English": "Create your first call script",
+    "Chinese": "创建您的第一个通话脚本",
+    "French": "Créez votre premier script d'appel",
+    "Hindi": "अपनी पहली कॉल स्क्रिप्ट बनाएं",
 }
 
 QUICK_START_STEP_3 = {
