@@ -669,49 +669,213 @@ def _handle_transcript_updated(call_data):
 
 
 def _deliver_recording_to_user(call_data):
-    """Send call recording to bot user via Telegram after call ends."""
+    """Legacy wrapper — now delegates to _send_call_outcome_summary."""
+    _send_call_outcome_summary(call_data)
+
+
+def _send_call_outcome_summary(call_data):
+    """
+    Auto-send call outcome summary after every call:
+    - Duration, keypress responses, disconnection reason
+    - Recording link (only if recording was requested and paid for)
+    - For batch calls: applies threshold logic (< 5 individual, >= 5 consolidated)
+    """
     call_id = call_data.get("call_id", "")
     recording_url = call_data.get("recording_url", "")
-    if not recording_url:
-        return
+    to_number = call_data.get("to_number", "")
+    from_number = call_data.get("from_number", "")
+    duration_ms = call_data.get("duration_ms", 0) or 0
+    disconnection_reason = call_data.get("disconnection_reason", "")
+    transcript_obj = call_data.get("transcript_object", [])
+    direction = call_data.get("direction", "outbound")
 
     call_log = CallLogsTable.objects.filter(call_id=call_id).first()
     if not call_log:
         return
 
     user_id = call_log.user_id
-    to_number = call_data.get("to_number", "")
-    from_number = call_data.get("from_number", "")
-    duration_ms = call_data.get("duration_ms", 0) or 0
-    duration_min = duration_ms / 60000.0
-    direction = call_data.get("direction", "outbound")
+    duration_str = format_duration(duration_ms)
 
-    # Check if this is an inbound call to user's purchased number
-    is_inbound = False
-    if direction == "inbound" or UserPhoneNumber.objects.filter(
+    # Extract DTMF keypresses for summary
+    dtmf_digits = _extract_dtmf_from_transcript(transcript_obj)
+
+    # Check if this call is part of a batch
+    batch_call = BatchCallLogs.objects.filter(call_id=call_id).first()
+
+    # Handle recording: create record + trigger download if requested
+    recording_line = ""
+    if call_log.recording_requested and recording_url:
+        rec = CallRecording.objects.filter(call_id=call_id).first()
+        if not rec:
+            token = generate_recording_token(call_id, user_id)
+            rec = CallRecording.objects.create(
+                call_id=call_id,
+                user_id=user_id,
+                batch_id=batch_call.batch_id if batch_call else "",
+                retell_url=recording_url,
+                token=token,
+            )
+        # Trigger async download
+        from bot.tasks import download_and_cache_recording
+        download_and_cache_recording.delay(call_id, recording_url)
+        our_url = get_recording_url(rec.token)
+        recording_line = f"\n🎙 [Play Recording]({our_url})"
+    elif (batch_call and batch_call.recording_requested and recording_url):
+        # Batch-level recording requested
+        rec = CallRecording.objects.filter(call_id=call_id).first()
+        if not rec:
+            token = generate_recording_token(call_id, user_id)
+            rec = CallRecording.objects.create(
+                call_id=call_id,
+                user_id=user_id,
+                batch_id=batch_call.batch_id,
+                retell_url=recording_url,
+                token=token,
+            )
+        from bot.tasks import download_and_cache_recording
+        download_and_cache_recording.delay(call_id, recording_url)
+        our_url = get_recording_url(rec.token)
+        recording_line = f"\n🎙 [Play Recording]({our_url})"
+
+    # Determine if inbound
+    is_inbound = direction == "inbound" or UserPhoneNumber.objects.filter(
         phone_number=to_number, user__user_id=user_id, is_active=True
-    ).exists():
-        is_inbound = True
+    ).exists()
+
+    # --- Batch call: threshold-based delivery ---
+    if batch_call:
+        _handle_batch_call_summary(
+            batch_call, call_data, user_id, duration_str,
+            dtmf_digits, recording_line, disconnection_reason
+        )
+        return
+
+    # --- Single / Inbound call: always deliver immediately ---
+    if is_inbound:
+        header = "📬 *Inbound Call Complete*"
+        number_line = f"From: `{from_number}`\nTo: `{to_number}`"
+    else:
+        header = "✅ *Call Complete*"
+        number_line = f"📞 To: `{to_number}`"
+
+    dtmf_line = f"\n🔢 Keypresses: `{dtmf_digits}`" if dtmf_digits else ""
+    reason_line = ""
+    if disconnection_reason and disconnection_reason not in ("agent_hangup", "user_hangup"):
+        reason_line = f"\n📋 Ended: {disconnection_reason.replace('_', ' ').title()}"
+
+    msg = (
+        f"{header}\n"
+        f"{number_line}\n"
+        f"⏱ Duration: {duration_str}"
+        f"{dtmf_line}"
+        f"{reason_line}"
+        f"{recording_line}"
+    )
 
     try:
-        if is_inbound:
-            msg = (
-                f"📬 *Inbound Call Recording*\n"
-                f"From: `{from_number}`\n"
-                f"To: `{to_number}`\n"
-                f"Duration: {duration_min:.1f} min\n"
-                f"🎙 [Listen to recording]({recording_url})"
-            )
-        else:
-            msg = (
-                f"🎙 *Call Recording Available*\n"
-                f"To: `{to_number}`\n"
-                f"Duration: {duration_min:.1f} min\n"
-                f"🔗 [Listen to recording]({recording_url})"
-            )
         bot.send_message(user_id, msg, parse_mode="Markdown", disable_web_page_preview=True)
     except Exception as e:
-        logger.warning(f"[recording] Failed to send recording to user {user_id}: {e}")
+        logger.warning(f"[outcome] Failed to send summary to user {user_id}: {e}")
+
+
+def _handle_batch_call_summary(batch_call, call_data, user_id, duration_str,
+                                dtmf_digits, recording_line, disconnection_reason):
+    """
+    Threshold-based batch call delivery:
+    - < BATCH_THRESHOLD calls: send individual summaries
+    - >= BATCH_THRESHOLD calls: suppress individuals, send one consolidated on completion
+    """
+    batch_id = batch_call.batch_id
+    to_number = call_data.get("to_number", "")
+
+    total_in_batch = BatchCallLogs.objects.filter(batch_id=batch_id).count()
+    completed_in_batch = BatchCallLogs.objects.filter(
+        batch_id=batch_id, call_status="complete"
+    ).count()
+
+    if total_in_batch < BATCH_THRESHOLD:
+        # Small batch — send individual summary
+        dtmf_line = f"\n🔢 Keypresses: `{dtmf_digits}`" if dtmf_digits else ""
+        reason_line = ""
+        if disconnection_reason and disconnection_reason not in ("agent_hangup", "user_hangup"):
+            reason_line = f"\n📋 Ended: {disconnection_reason.replace('_', ' ').title()}"
+
+        msg = (
+            f"✅ *Batch Call Complete* ({completed_in_batch}/{total_in_batch})\n"
+            f"📞 To: `{to_number}`\n"
+            f"⏱ Duration: {duration_str}"
+            f"{dtmf_line}"
+            f"{reason_line}"
+            f"{recording_line}"
+        )
+        try:
+            bot.send_message(user_id, msg, parse_mode="Markdown", disable_web_page_preview=True)
+        except Exception as e:
+            logger.warning(f"[batch_outcome] Individual msg failed: {e}")
+    else:
+        # Large batch — only log, consolidated comes at the end
+        logger.info(f"[batch_outcome] {completed_in_batch}/{total_in_batch} complete for batch {batch_id}")
+
+    # Check if batch is fully complete — send consolidated summary
+    if completed_in_batch >= total_in_batch:
+        _send_batch_consolidated_summary(batch_id, user_id, total_in_batch)
+
+
+def _send_batch_consolidated_summary(batch_id, user_id, total_calls):
+    """Send a consolidated summary when all calls in a batch are complete."""
+    from django.db.models import Count, Q
+
+    batch_calls = BatchCallLogs.objects.filter(batch_id=batch_id)
+    completed = batch_calls.filter(call_status="complete").count()
+
+    # Calculate aggregate stats
+    call_ids = list(batch_calls.values_list("call_id", flat=True))
+    from bot.models import CallDuration
+    durations = CallDuration.objects.filter(call_id__in=call_ids)
+    total_seconds = sum(d.duration_in_seconds or 0 for d in durations)
+    avg_seconds = total_seconds / max(completed, 1)
+    avg_duration = format_duration(avg_seconds * 1000)
+
+    # Count DTMF responses
+    from payment.models import DTMF_Inbox
+    dtmf_count = DTMF_Inbox.objects.filter(call_id__in=call_ids).exclude(
+        dtmf_input__isnull=True
+    ).exclude(dtmf_input="").count()
+
+    # Count recordings
+    recording_count = CallRecording.objects.filter(batch_id=batch_id).count()
+
+    # Get campaign name
+    from bot.models import CampaignLogs
+    campaign = CampaignLogs.objects.filter(batch_id=batch_id).first()
+    campaign_name = campaign.campaign_name if campaign else "Batch Campaign"
+
+    # Build message
+    msg = (
+        f"📊 *Batch Complete: {campaign_name}*\n\n"
+        f"✅ {completed}/{total_calls} connected\n"
+        f"⏱ Avg Duration: {avg_duration}\n"
+    )
+
+    if dtmf_count:
+        msg += f"🔢 Keypress Responses: {dtmf_count} collected\n"
+
+    if recording_count > 0:
+        batch_token = generate_batch_token(batch_id, user_id)
+        # Store batch token in first recording record for lookup
+        CallRecording.objects.filter(batch_id=batch_id).first()
+        batch_url = get_batch_recordings_url(batch_token)
+        msg += f"\n🎙 [{recording_count} Recordings Available]({batch_url})"
+
+    try:
+        from bot.keyboard_menus import get_main_menu_keyboard
+        bot.send_message(
+            user_id, msg, parse_mode="Markdown",
+            disable_web_page_preview=True,
+            reply_markup=get_main_menu_keyboard(user_id),
+        )
+    except Exception as e:
+        logger.warning(f"[batch_consolidated] Failed to send summary: {e}")
 
 
 def _bill_voicemail_if_applicable(call_data):
