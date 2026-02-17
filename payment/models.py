@@ -64,6 +64,7 @@ class TransactionType(models.TextChoices):
     DEPOSIT = "DEP", "Deposit"
     TRANSFER = "TRF", "Transfer"
     REFUND = "RFD", "Refund"
+    RECORDING = "REC", "Recording"
 
 
 class WalletTransaction(models.Model):
