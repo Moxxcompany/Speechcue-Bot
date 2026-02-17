@@ -1084,15 +1084,37 @@ def batch_recordings_page(request, token):
 
         rec_url = get_recording_url(rec.token)
 
+        # Transcript snippet
+        transcript_snippet = ""
+        if rec.transcript_text:
+            lines = rec.transcript_text.split("\n")[:4]
+            snippet_text = "<br>".join(lines)
+            if len(rec.transcript_text.split("\n")) > 4:
+                snippet_text += "<br>..."
+            transcript_snippet = f'<div class="transcript">{snippet_text}</div>'
+
+        # AI summary
+        summary_badge = ""
+        if rec.call_summary:
+            summary_badge = f'<div class="summary">{rec.call_summary[:120]}</div>'
+
+        # Sentiment
+        sentiment_html = ""
+        if rec.user_sentiment:
+            icon = {{"Positive": "😊", "Negative": "😞", "Neutral": "😐"}}.get(rec.user_sentiment, "📊")
+            sentiment_html = f'<span class="sentiment">{icon} {rec.user_sentiment}</span>'
+
         rows_html += f"""
         <tr>
             <td>{phone}</td>
-            <td>{duration}</td>
+            <td>{duration} {sentiment_html}</td>
             <td><code>{keypresses}</code></td>
             <td>
                 <audio controls preload="none" style="height:32px;">
                     <source src="{rec_url}" type="audio/wav">
                 </audio>
+                {summary_badge}
+                {transcript_snippet}
             </td>
         </tr>"""
 
