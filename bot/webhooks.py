@@ -679,7 +679,8 @@ def _send_call_outcome_summary(call_data):
     """
     Auto-send call outcome summary after every call:
     - Duration, keypress responses, disconnection reason
-    - Recording link (only if recording was requested and paid for)
+    - Transcript summary
+    - Recording note (only if recording was requested and paid for)
     - For batch calls: applies threshold logic (< 5 individual, >= 5 consolidated)
     """
     call_id = call_data.get("call_id", "")
@@ -701,6 +702,9 @@ def _send_call_outcome_summary(call_data):
     # Extract DTMF keypresses for summary
     dtmf_digits = _extract_dtmf_from_transcript(transcript_obj)
 
+    # Format transcript
+    full_transcript, short_transcript = format_transcript(transcript_obj)
+
     # Check if this call is part of a batch
     batch_call = BatchCallLogs.objects.filter(call_id=call_id).first()
 
@@ -716,7 +720,12 @@ def _send_call_outcome_summary(call_data):
                 batch_id=batch_call.batch_id if batch_call else "",
                 retell_url=recording_url,
                 token=token,
+                transcript_text=full_transcript,
             )
+        else:
+            if not rec.transcript_text:
+                rec.transcript_text = full_transcript
+                rec.save()
         # Trigger async download + inline Telegram delivery
         from bot.tasks import download_and_cache_recording
         download_and_cache_recording.delay(call_id, recording_url)
@@ -732,7 +741,12 @@ def _send_call_outcome_summary(call_data):
                 batch_id=batch_call.batch_id,
                 retell_url=recording_url,
                 token=token,
+                transcript_text=full_transcript,
             )
+        else:
+            if not rec.transcript_text:
+                rec.transcript_text = full_transcript
+                rec.save()
         from bot.tasks import download_and_cache_recording
         download_and_cache_recording.delay(call_id, recording_url)
         recording_line = "\n🎙 Recording incoming..."
@@ -746,7 +760,8 @@ def _send_call_outcome_summary(call_data):
     if batch_call:
         _handle_batch_call_summary(
             batch_call, call_data, user_id, duration_str,
-            dtmf_digits, recording_line, disconnection_reason
+            dtmf_digits, recording_line, disconnection_reason,
+            short_transcript,
         )
         return
 
@@ -776,6 +791,10 @@ def _send_call_outcome_summary(call_data):
         bot.send_message(user_id, msg, parse_mode="Markdown", disable_web_page_preview=True)
     except Exception as e:
         logger.warning(f"[outcome] Failed to send summary to user {user_id}: {e}")
+
+    # Send transcript as a separate follow-up message
+    if short_transcript:
+        _send_transcript_message(user_id, short_transcript, full_transcript)
 
 
 def _handle_batch_call_summary(batch_call, call_data, user_id, duration_str,
