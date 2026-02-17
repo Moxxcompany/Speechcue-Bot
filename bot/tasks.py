@@ -106,8 +106,9 @@ def call_status_free_plan():
 
 @shared_task
 def download_and_cache_recording(call_id, retell_url):
-    """Download a call recording from Retell and cache locally."""
-    from bot.models import CallRecording
+    """Download a call recording from Retell, cache locally, and send inline in Telegram."""
+    from bot.models import CallRecording, CallLogsTable, BatchCallLogs
+    from bot.recording_utils import get_recording_url, format_duration, mask_phone_number
     try:
         rec = CallRecording.objects.filter(call_id=call_id).first()
         if not rec:
@@ -120,11 +121,67 @@ def download_and_cache_recording(call_id, retell_url):
             rec.downloaded = True
             rec.save()
             logger.info(f"[download_recording] Cached {call_id} at {file_path}")
-            return f"Downloaded: {file_path}"
-        return "Download failed"
+
+            # Send audio inline in Telegram
+            _send_recording_inline(rec, call_id, file_path)
+            return f"Downloaded and sent: {file_path}"
+
+        # Download failed — send fallback link
+        _send_recording_fallback(rec, call_id)
+        return "Download failed, sent fallback link"
     except Exception as e:
         logger.error(f"[download_recording] Error for {call_id}: {e}")
         return f"Error: {e}"
+
+
+def _send_recording_inline(rec, call_id, file_path):
+    """Send the audio file directly in Telegram chat."""
+    import os
+    try:
+        call_log = CallLogsTable.objects.filter(call_id=call_id).first()
+        to_number = call_log.call_number if call_log else "Unknown"
+
+        # Build caption
+        caption = f"🎙 *Recording* — `{to_number}`"
+
+        # Check if part of a large batch — skip individual audio for large batches
+        batch_call = BatchCallLogs.objects.filter(call_id=call_id).first()
+        if batch_call:
+            total_in_batch = BatchCallLogs.objects.filter(batch_id=batch_call.batch_id).count()
+            if total_in_batch >= 5:
+                # Large batch — don't flood chat with individual audio files
+                logger.info(f"[recording_inline] Skipping inline for large batch call {call_id}")
+                return
+
+        with open(file_path, "rb") as audio_file:
+            bot.send_audio(
+                rec.user_id,
+                audio_file,
+                caption=caption,
+                parse_mode="Markdown",
+                title=f"Call Recording {to_number}",
+                performer="Speechcue",
+            )
+        logger.info(f"[recording_inline] Sent audio to user {rec.user_id} for call {call_id}")
+    except Exception as e:
+        logger.warning(f"[recording_inline] Failed to send audio for {call_id}: {e}")
+        # Fallback to link
+        _send_recording_fallback(rec, call_id)
+
+
+def _send_recording_fallback(rec, call_id):
+    """Send a fallback recording link if inline audio fails."""
+    from bot.recording_utils import get_recording_url
+    try:
+        our_url = get_recording_url(rec.token)
+        bot.send_message(
+            rec.user_id,
+            f"🎙 [Play Recording]({our_url})",
+            parse_mode="Markdown",
+            disable_web_page_preview=True,
+        )
+    except Exception as e:
+        logger.warning(f"[recording_fallback] Failed to send fallback for {call_id}: {e}")
 
 
 @shared_task
