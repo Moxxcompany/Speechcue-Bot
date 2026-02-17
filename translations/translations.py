@@ -192,10 +192,10 @@ PAY_FROM_CRYPTOCURRENCY = {
     "Hindi": "💰 क्रिप्टोकरेंसी से भुगतान करें",
 }
 NO_DTMF_INPUT_FOUND = {
-    "English": "No DTMF input found for this call.",
-    "Chinese": "未找到此呼叫的 DTMF 输入。",
-    "French": "Aucune entrée DTMF trouvée pour cet appel.",
-    "Hindi": "इस कॉल के लिए कोई DTMF इनपुट नहीं मिला।",
+    "English": "No keypad responses found for this call.",
+    "Chinese": "未找到此通话的按键回复。",
+    "French": "Aucune réponse clavier trouvée pour cet appel.",
+    "Hindi": "इस कॉल के लिए कोई कीपैड रिस्पॉन्स नहीं मिला।",
 }
 ADD_ANOTHER_OR_DONE_PROMPT = {
     "English": "Please choose 'Add Another Node' or 'Done'.",
@@ -204,10 +204,10 @@ ADD_ANOTHER_OR_DONE_PROMPT = {
     "Hindi": "कृपया 'एक और नोड जोड़ें' या 'पूरा हुआ' चुनें।",
 }
 BULK_IVR_LEFT = {
-    "English": "Number of Bulk IVR call minutes left",
-    "Chinese": "剩余批量IVR通话分钟数",
-    "French": "Nombre de minutes d'appel IVR en gros restantes",
-    "Hindi": "बुल्क IVR कॉल मिनट बची हुई हैं",
+    "English": "Batch call minutes remaining",
+    "Chinese": "批量通话剩余分钟数",
+    "French": "Minutes d'appels groupés restantes",
+    "Hindi": "बैच कॉल मिनट शेष",
 }
 INSUFFICIENT_BALANCE = {
     "English": "Insufficient balance. Please top up your wallet or select another payment method. ⚠️",
@@ -223,10 +223,10 @@ INVALID_DAY_RANGE_PROMPT = {
     "Hindi": "उसी महीने और वर्ष के लिए समाप्ति दिन प्रारंभ दिन से पहले नहीं हो सकता। कृपया एक मान्य दिन दर्ज करें:",
 }
 NO_BLOCKS = {
-    "English": "This pathway has no blocks.",
-    "Chinese": "这条路径没有障碍。",
-    "French": "Ce chemin n'a pas de blocages.",
-    "Hindi": "यह मार्ग बिना किसी बाधा के है।",
+    "English": "This call script has no steps yet.",
+    "Chinese": "此通话脚本还没有步骤。",
+    "French": "Ce script d'appel n'a pas encore d'étapes.",
+    "Hindi": "इस कॉल स्क्रिप्ट में अभी कोई स्टेप नहीं है।",
 }
 SUBSCRIPTION_PAYMENT_METHOD_PROMPT = {
     "English": "Please confirm your payment method to proceed:",
@@ -253,16 +253,16 @@ ADD_ANOTHER_NUMBER_PROMPT = {
     "Hindi": "क्या आप एक और नंबर जोड़ना चाहते हैं?",
 }
 VIEW_FLOWS = {
-    "English": "View Flows 🛠️",
-    "Chinese": "查看流程 🛠️",
-    "French": "Voir les flux 🛠️",
-    "Hindi": "फ्लो देखें 🛠️",
+    "English": "View Scripts 🛠️",
+    "Chinese": "查看脚本 🛠️",
+    "French": "Voir les scripts 🛠️",
+    "Hindi": "स्क्रिप्ट देखें 🛠️",
 }
 FLOW_DELETED_SUCCESSFULLY = {
-    "English": "Flow deleted successfully! ✅",
-    "Chinese": "流程已成功删除！✅",
-    "French": "Flux supprimé avec succès ! ✅",
-    "Hindi": "फ्लो सफलतापूर्वक हटा दिया गया! ✅",
+    "English": "Call script deleted! ✅",
+    "Chinese": "通话脚本已删除！✅",
+    "French": "Script d'appel supprimé ! ✅",
+    "Hindi": "कॉल स्क्रिप्ट हटा दी गई! ✅",
 }
 PROFILE = {
     "English": "Profile 👤",
@@ -271,10 +271,10 @@ PROFILE = {
     "Hindi": "प्रोफाइल 👤",
 }
 FEEDBACK_NODE = {
-    "English": "Feedback Node",
-    "Chinese": "反馈节点",
-    "French": "Nœud de feedback",
-    "Hindi": "फीडबैक नोड",
+    "English": "Feedback Step",
+    "Chinese": "反馈步骤",
+    "French": "Étape de feedback",
+    "Hindi": "फीडबैक स्टेप",
 }
 TRY_AGAIN = {
     "English": "Please try again!",
